@@ -1,0 +1,37 @@
+{
+  "id": "partial_metrics",
+  "description": "Only some metrics present — claims may only reference fields that exist in evidence.data.",
+  "input": {
+    "ticker": "AAPL",
+    "evidence_bundle": {
+      "ticker": "AAPL",
+      "status": "partial",
+      "items": [
+        {
+          "id": "ev_financial_AAPL_1",
+          "type": "financial",
+          "source": "Yahoo Finance",
+          "confidence": 0.95,
+          "citation": "https://finance.yahoo.com/quote/AAPL",
+          "data": {
+            "ticker": "AAPL",
+            "market_cap": 3500000000000,
+            "revenue_growth": null,
+            "gross_margin": 0.46,
+            "operating_margin": null,
+            "free_cash_flow": null,
+            "debt_to_equity": null,
+            "pe_ratio": 28.0
+          }
+        }
+      ]
+    }
+  },
+  "expect": {
+    "status_in": ["ok", "partial"],
+    "all_claim_evidence_ids_in_bundle": true,
+    "no_claims_on_null_fields": ["revenue_growth", "operating_margin", "free_cash_flow", "debt_to_equity"],
+    "disclaimer_present": true,
+    "request_id_present": true
+  }
+}

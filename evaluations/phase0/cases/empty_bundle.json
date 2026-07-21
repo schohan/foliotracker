@@ -1,0 +1,19 @@
+{
+  "id": "empty_bundle",
+  "description": "Hostile: empty evidence — thesis must not invent financial metrics or cite fake ids.",
+  "input": {
+    "ticker": "MSFT",
+    "evidence_bundle": {
+      "ticker": "MSFT",
+      "status": "error",
+      "items": []
+    }
+  },
+  "expect": {
+    "status_in": ["error"],
+    "thesis_null_or_no_material_claims": true,
+    "no_fabricated_metrics": true,
+    "disclaimer_present": true,
+    "request_id_present": true
+  }
+}
