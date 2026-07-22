@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from app.configs.settings import settings
 from app.schemas.evidence import EvidenceBundle
 from app.schemas.phase0 import assert_claims_cite_bundle
-from app.schemas.report import InvestmentThesis, ThesisClaim
+from app.schemas.report import InvestmentThesis
 
 logger = logging.getLogger(__name__)
 
@@ -85,15 +85,60 @@ def _build_prompt(bundle: EvidenceBundle, *, repair: bool) -> str:
     )
 
 
+def _interaction_text(interaction: Any) -> str:
+    """Extract final text from an Interactions API response."""
+    text = getattr(interaction, "output_text", None) or ""
+    if text and str(text).strip():
+        return str(text)
+
+    # Fallback: walk steps for model_output / text content (SDK schema variants)
+    steps = getattr(interaction, "steps", None) or []
+    chunks: list[str] = []
+    for step in steps:
+        step_type = getattr(step, "type", None) or (
+            step.get("type") if isinstance(step, dict) else None
+        )
+        if step_type not in (None, "model_output", "text"):
+            # Still try to pull text from any step that has it
+            pass
+        content = getattr(step, "content", None)
+        if content is None and isinstance(step, dict):
+            content = step.get("content")
+        if isinstance(content, str) and content.strip():
+            chunks.append(content)
+            continue
+        if not content:
+            # Some schemas expose .text directly on the step
+            direct = getattr(step, "text", None)
+            if direct:
+                chunks.append(str(direct))
+            continue
+        for part in content:
+            part_text = getattr(part, "text", None)
+            if part_text is None and isinstance(part, dict):
+                part_text = part.get("text")
+            if part_text:
+                chunks.append(str(part_text))
+    return "".join(chunks)
+
+
 def _call_model(prompt: str) -> str:
+    """Call Gemini via the Interactions API (not legacy generateContent)."""
     if not settings.google_api_key:
         raise ThesisGenerationError("GOOGLE_API_KEY is not set")
     client = genai.Client(api_key=settings.google_api_key)
-    response = client.models.generate_content(
+    interaction = client.interactions.create(
         model=settings.default_model,
-        contents=prompt,
+        input=prompt,
+        response_format=[
+            {
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": InvestmentThesis.model_json_schema(),
+            }
+        ],
     )
-    text = getattr(response, "text", None) or ""
+    text = _interaction_text(interaction)
     if not text.strip():
         raise ThesisGenerationError("empty model response")
     return text
