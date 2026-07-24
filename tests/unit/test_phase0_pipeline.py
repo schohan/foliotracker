@@ -126,10 +126,16 @@ def test_pipeline_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert len(result.evidence.items) >= 3
     assert any(i.type == "sec" for i in result.evidence.items)
     assert result.evidence.conflicts == []
+    assert result.scorecard is not None
+    assert result.scorecard.ticker == "NVDA"
+    assert result.scorecard.growth_score is not None
+    assert result.scorecard.execution_score is None
 
     result2 = run_phase0_research("NVDA", model_caller=fake_model, skip_cache=False)
     assert result2.cache_hit is True
     assert result2.request_id != result.request_id
+    assert result2.scorecard is not None
+    assert result2.scorecard.growth_score == result.scorecard.growth_score
 
 
 def test_pipeline_news_timeout_yields_partial(

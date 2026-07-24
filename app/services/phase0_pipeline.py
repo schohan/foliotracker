@@ -1,4 +1,4 @@
-"""Phase 0/1/2A end-to-end research pipeline."""
+"""Phase 0/1/2 end-to-end research pipeline."""
 
 from __future__ import annotations
 
@@ -33,6 +33,7 @@ from app.services.evidence import (
 )
 from app.services.phase0_cache import cache_lookup, cache_store
 from app.services.phase0_session import new_research_session
+from app.services.scoring import score_from_metrics
 from app.tools.finance.yahoo_finance import (
     TickerNotFoundError,
     ToolParseError as YahooParseError,
@@ -143,7 +144,7 @@ def run_phase0_research(
     skip_cache: bool = False,
     model_caller: Any | None = None,
 ) -> Phase0Result:
-    """Run research: validate → cache → yahoo+news+sec → evidence → thesis → cache.
+    """Run research: validate → cache → yahoo+news+sec → evidence → score → thesis → cache.
 
     Pure orchestration; safe to expose as an ADK tool.
     """
@@ -283,6 +284,10 @@ def run_phase0_research(
         )
         return result
 
+    scorecard = score_from_metrics(metrics)
+    if scorecard is not None:
+        state["scorecard"] = scorecard.model_dump(mode="json")
+
     status = (
         Phase0Status.PARTIAL
         if bundle.status.value == "partial"
@@ -305,8 +310,10 @@ def run_phase0_research(
             _thesis_user_message(normalized, request_id, code),
             error_code=code.value,
         )
-        # Still attach evidence for debuggability on thesis failure
-        result = result.model_copy(update={"evidence": bundle})
+        # Still attach evidence + scorecard for debuggability on thesis failure
+        result = result.model_copy(
+            update={"evidence": bundle, "scorecard": scorecard}
+        )
         logger.info(
             "pipeline_end request_id=%s ticker=%s status=error stage=thesis "
             "error_code=%s exc_type=%s latency_ms=%.0f",
@@ -323,6 +330,7 @@ def run_phase0_research(
         status=status,
         evidence=bundle,
         thesis=thesis,
+        scorecard=scorecard,
         error_message=None,
         error_code=None,
         disclaimer=PHASE0_DISCLAIMER,

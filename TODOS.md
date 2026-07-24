@@ -4,32 +4,7 @@ Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + 
 
 **Phase 2 lock (2026-07-24):** Thin Phase 2 = **SEC specialist → scoring service**. Portfolio and cache/memory deferred to later.
 
-## Phase 2 — Product depth (in progress)
-
-### SEC specialist agent — **DONE (2A, 2026-07-24)**
-
-**What:** Add SEC filings specialist beside Yahoo + news.
-
-**Why:** Completes multi-domain research with primary filings evidence.
-
-**Context:** EDGAR metadata tool + `evidence_from_filings` wired into pipeline fan-out and aggregator (`material_event` conflict). `sec_xbrl` remains stubbed.
-
-**Effort:** L  
-**Priority:** P2  
-**Depends on:** Phase 1 aggregator + conflict model  
-**Status:** Done
-
-### Scoring service (Growth / Value / Moat / Risk / …) — **NEXT (2B)**
-
-**What:** Deterministic scoring from evidence/metrics; never LLM arithmetic.
-
-**Why:** Reusable scores for screening, ranking, and reports.
-
-**Context:** Names exist in deferred architecture and stub packages. Define formulas + ranges + unit tests before any agent consumes scores.
-
-**Effort:** M  
-**Priority:** P2  
-**Depends on:** Phase 0 financial evidence path stable; prefer after SEC so scores can later cite filings
+**Thin Phase 2 complete** = 2A + 2B (**both done 2026-07-24**).
 
 ## Deferred beyond Phase 2
 
@@ -65,7 +40,7 @@ Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + 
 
 **Why:** Real users won’t live in ADK’s default chat forever.
 
-**Context:** Run `/plan-design-review` before building UI. Keep Phase0Result as the contract. Conflicts UI can render `evidence.conflicts`.
+**Context:** Run `/plan-design-review` before building UI. Keep Phase0Result as the contract. Conflicts UI can render `evidence.conflicts`; scorecard can render `scorecard`.
 
 **Effort:** L  
 **Priority:** P3  
@@ -96,6 +71,14 @@ Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + 
 **Depends on:** Custom API or hosted ADK decision
 
 ## Completed
+
+### Phase 2B — Scoring service (2026-07-24)
+
+- `score_from_metrics`: `FinancialMetrics` → `Scorecard` (0–100 or null per dim)
+- Optional `scorecard` on `Phase0Result`; pipeline step after evidence / before thesis
+- Unit tests for clamps, null paths, dimension directions
+- `scoring_agent` remains stubbed (service-only); `execution_score` always null in v1
+- Clear `.cache/foliotracker/phase0/` after upgrade (schema bump)
 
 ### Phase 2A — SEC specialist (2026-07-24)
 

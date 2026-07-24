@@ -11,6 +11,7 @@ _CLEAR_KEYS = (
     "news_batch",
     "filings_batch",
     "evidence_bundle",
+    "scorecard",
     "thesis",
     "phase0_status",
     "cache_hit",

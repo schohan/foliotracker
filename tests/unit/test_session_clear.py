@@ -12,6 +12,7 @@ def test_session_clear_drops_prior_ticker_state() -> None:
         "news_batch": {"ticker": "NVDA"},
         "filings_batch": {"ticker": "NVDA"},
         "evidence_bundle": {"ticker": "NVDA"},
+        "scorecard": {"ticker": "NVDA"},
         "thesis": {"ticker": "NVDA"},
         "phase0_status": "ok",
         "cache_hit": False,
@@ -21,6 +22,7 @@ def test_session_clear_drops_prior_ticker_state() -> None:
     assert cleared.get("news_batch") is None
     assert cleared.get("filings_batch") is None
     assert cleared.get("evidence_bundle") is None
+    assert cleared.get("scorecard") is None
     assert cleared.get("thesis") is None
     assert cleared.get("phase0_status") is None
 

@@ -2,7 +2,7 @@
 
 AI portfolio / stock research on [Google ADK](https://adk.dev/).
 
-**Status:** Thin Phase 2 — **SEC specialist (2A) done**; scoring (2B) next. Portfolio/memory deferred. See [TODOS.md](../TODOS.md).
+**Status:** Thin Phase 2 **complete** (2A SEC + 2B scoring). Portfolio/memory deferred. See [TODOS.md](../TODOS.md).
 
 **Related:** [PRD.md](PRD.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -55,9 +55,9 @@ User provides a ticker → system returns **`EvidenceBundle` + `InvestmentThesis
 | `sec_edgar` tool | EDGAR submissions → `SecFilingsBatch` (metadata only; User-Agent required) | **2A done** |
 | `evidence_from_filings` | Pure Python: filings → `Evidence` (`type=sec`, confidence 0.9) | **2A done** |
 | Pipeline fan-out | Yahoo + news + SEC; news or SEC failure alone → `partial` | **2A done** |
-| Scoring service | Deterministic Growth/Value/Moat/Risk from metrics/evidence; no LLM math | **2B next** |
+| Scoring service | Deterministic Growth/Value/Moat/Risk from `FinancialMetrics` → `Scorecard`; no LLM math | **2B done** |
 
-`sec_xbrl` stays stubbed. Portfolio/memory stay deferred (see TODOS).
+`sec_xbrl` stays stubbed. Portfolio/memory stay deferred (see TODOS). Thin Phase 2 complete = 2A + 2B.
 
 ### Explicitly NOT in scope (beyond thin Phase 2)
 
@@ -70,6 +70,8 @@ User provides a ticker → system returns **`EvidenceBundle` + `InvestmentThesis
 - Custom HTTP API / UI beyond `adk web`
 - Production deploy, dashboards, rate-limit platform
 - Web scraping of article bodies or full filing HTML (RSS headlines + EDGAR metadata only)
+- `scoring_agent` ADK / LLM “explaining” scores (2B is service-only)
+- Ranking/screening, news/SEC-driven score adjustments
 
 ---
 
@@ -105,13 +107,20 @@ User: "Analyze NVDA"
                   │ + evidence_aggregator     │  dedupe / conflicts
                   └─────────────┬─────────────┘
                                 │ EvidenceBundle (+ conflicts)
+                                │ + metrics (for scoring)
+                                ▼
+                  ┌───────────────────────────┐
+                  │ score_from_metrics (2B)   │  PURE PYTHON
+                  │ FinancialMetrics→Scorecard│
+                  └─────────────┬─────────────┘
+                                │ Scorecard | null
                                 ▼
                   ┌───────────────────────────┐
                   │ thesis_agent (+1 repair)  │  ONLY LLM step
                   └─────────────┬─────────────┘
                                 │
                                 ▼
-                       Phase0Result JSON
+                       Phase0Result JSON (+ optional scorecard)
                                 │
                     status ok|partial ──▶ write cache (TTL clock starts)
 ```
@@ -119,14 +128,14 @@ User: "Analyze NVDA"
 ### Shadow paths (required)
 
 ```
-INPUT ──▶ VALIDATE ──▶ TOOL ──▶ EVIDENCE ──▶ AGGREGATE ──▶ THESIS ──▶ OUTPUT
-  │           │          │          │            │           │
-  ▼           ▼          ▼          ▼            ▼           ▼
- nil/empty  bad ticker  timeout   empty data   (n/a)      empty /
- ticker     → reject    empty     → bundle     pass-      uncited /
- → ask      loudly      payload   status=      through    dangling
- user                   → status  partial                 → error_code
-                        =error                            + evidence
+INPUT ──▶ VALIDATE ──▶ TOOL ──▶ EVIDENCE ──▶ AGGREGATE ──▶ SCORE ──▶ THESIS ──▶ OUTPUT
+  │           │          │          │            │           │          │
+  ▼           ▼          ▼          ▼            ▼           ▼          ▼
+ nil/empty  bad ticker  timeout   empty data   (n/a)     null dims /  empty /
+ ticker     → reject    empty     → bundle     pass-     scorecard=   uncited /
+ → ask      loudly      payload   status=      through   null ok      dangling
+ user                   → status  partial                             → error_code
+                        =error                                        + evidence
 ```
 
 | Path | Behavior | User sees |
@@ -150,17 +159,18 @@ root_agent = Agent with analyze_ticker tool → run_phase0_research
   3. fan-out: yahoo_finance + google_news + sec_edgar (thread pool)
   4. evidence_from_metrics / evidence_from_news / evidence_from_filings
   5. evidence_aggregator (dedupe, conflicts, status)
-  6. thesis_agent (LLM + one citation repair; aware of conflicts)
-  7. cache_store (Python — only status ok|partial)
+  6. score_from_metrics (2B — pure Python; optional scorecard on result)
+  7. thesis_agent (LLM + one citation repair; aware of conflicts)
+  8. cache_store (Python — only status ok|partial)
 ```
 
 Rules:
 
 - Prefer a single ADK tool + Python orchestrator for the research path.
 - Do **not** require ADK `ParallelAgent` while fan-out lives in the pipeline service.
-- Evidence builders, aggregator, and cache are **services**, not reasoning agents.
-- **Session (5A):** On each new research request, clear `financial_metrics`, `news_batch`, `filings_batch`, `evidence_bundle`, `thesis`, `phase0_status`, then set `ticker`.
-- Session state keys: `ticker`, `financial_metrics`, `news_batch`, `filings_batch`, `evidence_bundle`, `thesis`, `phase0_status`, `cache_hit`.
+- Evidence builders, aggregator, scoring (2B), and cache are **services**, not reasoning agents.
+- **Session (5A):** On each new research request, clear `financial_metrics`, `news_batch`, `filings_batch`, `evidence_bundle`, `scorecard`, `thesis`, `phase0_status`, then set `ticker`.
+- Session state keys: `ticker`, `financial_metrics`, `news_batch`, `filings_batch`, `evidence_bundle`, `scorecard`, `thesis`, `phase0_status`, `cache_hit`.
 
 ---
 
@@ -219,7 +229,32 @@ EvidenceBundle(
 
 **Status rules:** `error` only if zero items; `partial` if Yahoo metrics incomplete, news missing/failed, SEC missing/failed, or any conflicts; else `ok`.
 
-**After thin Phase 2 SEC:** scoring service (2B); then confidence calibration / graph edges later.
+---
+
+### Scoring service (2B — shipped)
+
+Pure Python. Input `FinancialMetrics` → `Scorecard`. No LLM. Optional `scorecard` on `Phase0Result`. Pipeline step after evidence aggregation, before thesis.
+
+```
+FinancialMetrics ──▶ score_from_metrics ──▶ Scorecard | null
+```
+
+| Field | Input | Direction (v1) | Clamp anchors |
+|-------|--------|----------------|---------------|
+| `growth_score` | `revenue_growth` | Higher growth → higher score | −0.50 → 0; +1.00 → 100 |
+| `value_score` | `pe_ratio` | Lower positive P/E → higher score; non-positive → `null` | P/E 5 → 100; P/E 50 → 0 |
+| `profitability_score` | `operating_margin` (fallback `gross_margin`) | Higher margin → higher score | −0.20 → 0; 0.50 → 100 |
+| `risk_score` | `debt_to_equity` | Higher leverage → higher risk score | 0 → 0; 2.0 → 100 |
+| `moat_score` | `gross_margin` | Provisional proxy only (weak) | 0 → 0; 0.80 → 100 |
+| `execution_score` | — | Always `null` in v1 | — |
+
+**Scale:** each dimension `0.0–100.0` or `null` (edges unit-tested).
+
+**Partial honesty:** Missing metric → that dimension `null`; empty scorable inputs → `scorecard=null`. Scoring never invents numbers and never upgrades bundle status by itself.
+
+**Out of thin 2B:** `scoring_agent` ADK, LLM score narratives, ranking/screening, portfolio risk, `sec_xbrl`, news/SEC-driven score adjustments.
+
+**After thin Phase 2:** confidence calibration / graph edges later.
 
 ---
 
@@ -250,11 +285,21 @@ Phase0Result
   status: ok | partial | error
   evidence: EvidenceBundle | null
   thesis: InvestmentThesis | null
+  scorecard: Scorecard | null   # 2B — optional; null when no scorable metrics
   error_message: str | null   # user-readable; no exception class names
   error_code: str | null      # stable machine code (Phase0ErrorCode)
   disclaimer: str   # REQUIRED always — fixed non-advice copy (4A)
   cache_hit: bool   # REQUIRED always — true if served from local TTL cache (6A)
   request_id: str  # REQUIRED always — uuid correlating logs (9A)
+```
+
+`Scorecard` (existing schema; populated by 2B service):
+
+```
+Scorecard
+  ticker: str
+  growth_score / value_score / profitability_score: float | null  # 0–100
+  moat_score / risk_score / execution_score: float | null          # 0–100
 ```
 
 Fixed disclaimer copy (Phase 0):
@@ -296,6 +341,8 @@ Fixed disclaimer copy (Phase 0):
 | Google News (RSS headlines) | `0.7` fixed | Headlines only; lower trust than filings/metrics |
 
 **Cache note (Phase 1):** Bundle schema gained `conflicts`. Clear `.cache/foliotracker/phase0/` after upgrading if old cached JSON misbehaves; Pydantic defaults empty conflicts for missing keys.
+
+**Cache note (Phase 2B):** `Phase0Result` gained optional `scorecard`. Clear `.cache/foliotracker/phase0/` after upgrading so cached results include scores (or explicit nulls).
 
 ---
 
@@ -534,13 +581,13 @@ Future composition (when Phase 0 is done): ETF, dividend, M&A, earnings preview,
 | Path dependency | Evidence + citation spine is the load-bearing choice — good |
 | 1-year readability | Phase 0 section at top of this doc is the on-ramp |
 
-**After Phase 1 shipped:** Thin Phase 2 locked — SEC (2A) then scoring (2B); portfolio/memory deferred (see TODOS).
+**After thin Phase 2 shipped (2A + 2B):** portfolio/memory deferred (see TODOS).
 
 ## Dream state delta
 
 | Now | After thin Phase 2 | 12-month ideal |
 |-----|--------------------|----------------|
-| Yahoo + news (+ SEC in 2A) cited thesis + conflicts | Multi-domain spine + deterministic scores | Full evidence graph, portfolio, scoring, memory |
+| Yahoo + news + SEC cited thesis + conflicts + Scorecard | (shipped) Multi-domain spine + deterministic scores | Full evidence graph, portfolio, scoring, memory |
 
 Phase 0 moves toward the ideal by proving the spine. It does not pretend the cathedral is built.
 
@@ -564,6 +611,8 @@ Phase 0 moves toward the ideal by proving the spine. It does not pretend the cat
 
 | Date | Change |
 |------|--------|
+| 2026-07-24 | Phase 2B shipped: `score_from_metrics`, `Phase0Result.scorecard`, clamp anchors documented |
+| 2026-07-24 | Lock 2B scoring contract: dimensions, Scorecard on Phase0Result, service-only (no scoring_agent) |
 | 2026-07-24 | Thesis empty-claims taxonomy: `EmptyClaimsError`, `Phase0ErrorCode`, user-readable thesis errors |
 | 2026-07-24 | Phase 2A: SEC EDGAR specialist (metadata) on evidence spine |
 | 2026-07-24 | Thin Phase 2 lock: SEC (2A) → scoring (2B); portfolio/memory deferred |

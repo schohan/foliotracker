@@ -37,13 +37,15 @@ class InvestmentThesis(BaseModel):
 
 
 class Scorecard(BaseModel):
+    """Deterministic dimension scores (0–100) or null when input missing."""
+
     ticker: str
-    growth_score: float | None = None
-    value_score: float | None = None
-    profitability_score: float | None = None
-    moat_score: float | None = None
-    risk_score: float | None = None
-    execution_score: float | None = None
+    growth_score: float | None = Field(default=None, ge=0.0, le=100.0)
+    value_score: float | None = Field(default=None, ge=0.0, le=100.0)
+    profitability_score: float | None = Field(default=None, ge=0.0, le=100.0)
+    moat_score: float | None = Field(default=None, ge=0.0, le=100.0)
+    risk_score: float | None = Field(default=None, ge=0.0, le=100.0)
+    execution_score: float | None = Field(default=None, ge=0.0, le=100.0)
 
 
 class ResearchReport(BaseModel):

@@ -7,7 +7,7 @@ from enum import Enum
 from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.evidence import EvidenceBundle
-from app.schemas.report import InvestmentThesis
+from app.schemas.report import InvestmentThesis, Scorecard
 
 PHASE0_DISCLAIMER = (
     "FolioTracker output is for informational and educational purposes only. "
@@ -40,6 +40,7 @@ class Phase0Result(BaseModel):
     status: Phase0Status
     evidence: EvidenceBundle | None = None
     thesis: InvestmentThesis | None = None
+    scorecard: Scorecard | None = None
     error_message: str | None = None
     error_code: str | None = None
     disclaimer: str = Field(default=PHASE0_DISCLAIMER)

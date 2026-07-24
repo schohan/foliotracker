@@ -1,7 +1,7 @@
 # FolioTracker Product Requirements Document (PRD)
 
 **Product:** FolioTracker — AI portfolio and stock research on [Google ADK](https://adk.dev/)  
-**Status:** Thin Phase 2 — SEC specialist (2A) done; scoring (2B) next; Phase 1 complete on the Phase 0 cited-thesis spine  
+**Status:** Thin Phase 2 **complete** (2A SEC + 2B scoring); Phase 1 complete on the Phase 0 cited-thesis spine  
 **Audience:** Executives (vision, roadmap, risk) and engineers (contracts, acceptance criteria, phase boundaries)  
 **Last updated:** 2026-07-24
 
@@ -33,9 +33,9 @@ FolioTracker turns a ticker symbol into **structured, citable research**: an evi
 
 Today the product ships locally via `adk web` / `adk run app`. The user asks to analyze a ticker (for example, `Analyze NVDA`); the system returns a `Phase0Result` JSON payload with status, evidence (including conflicts when sources disagree), a cited thesis when possible, a fixed non-advice disclaimer, cache metadata, and a request id for log correlation.
 
-**What exists now (Phase 0 + 1):** single-ticker research from Yahoo Finance metrics and Google News RSS headlines, merged by a deterministic evidence aggregator, with disagreement surfaced as `evidence.conflicts`.
+**What exists now (Phase 0–2B):** single-ticker research from Yahoo Finance metrics, Google News RSS headlines, and SEC EDGAR filing metadata, merged by a deterministic evidence aggregator, with disagreement surfaced as `evidence.conflicts`, plus a deterministic `scorecard` on `Phase0Result`.
 
-**What comes next (Phase 2+):** deeper product capabilities (SEC filings, deterministic scorecards, multi-ticker portfolio risk) and later platform work (custom UI/API, observability, production deploy). See [Roadmap](#10-roadmap) and [Open questions](#12-open-questions).
+**What comes next:** deferred multi-ticker portfolio risk and later platform work (custom UI/API, observability, production deploy). See [Roadmap](#10-roadmap) and [Open questions](#12-open-questions).
 
 How the system is built lives in [architecture.md](architecture.md). What is implemented vs stub lives in [implementation-status.md](implementation-status.md). Deferred work lives in [TODOS.md](../TODOS.md).
 
@@ -49,7 +49,7 @@ Equity research for individuals and small teams is fragmented across terminals, 
 
 ### Opportunity
 
-FolioTracker owns the load-bearing spine: **fetch → evidence → cite → (later) score / portfolio**. Once that spine is trusted, specialists (news, SEC, technicals), scorecards, and multi-ticker risk become composition over the same contracts — not one-off prompts.
+FolioTracker owns the load-bearing spine: **fetch → evidence → cite → score / portfolio**. Once that spine is trusted, specialists (news, SEC, technicals), scorecards, and multi-ticker risk become composition over the same contracts — not one-off prompts.
 
 ### Product bet
 
@@ -88,7 +88,7 @@ Users will prefer a labeled, citable, sometimes-partial result over a fluent but
 |---------|-------------|-----------------|
 | Individual investor / power user | “Give me a grounded take on this ticker I can verify” | `adk web` chat → JSON result |
 | Research analyst (dogfood) | Stress citation quality, conflicts, and partial paths | Chat + unit tests + on-demand evals |
-| Portfolio manager (future) | Multi-ticker concentration and correlation-aware risk | Planned Phase 2 |
+| Portfolio manager (future) | Multi-ticker concentration and correlation-aware risk | Deferred past thin Phase 2 |
 | Platform engineer (future) | Host API/UI, observe latency and error rates | Planned Phase 3 |
 
 **Primary job-to-be-done (now):** Given one ticker, return evidence + cited thesis I can trust enough to continue my own research.
@@ -103,26 +103,26 @@ Users will prefer a labeled, citable, sometimes-partial result over a fluent but
 
 Capabilities the human experiences. Separate from [system features](#6-system-features).
 
-### 5.1 Shipped (Phase 0–1)
+### 5.1 Shipped (Phase 0–2B)
 
 | Feature | What the user gets | Acceptance notes |
 |---------|--------------------|------------------|
 | Single-ticker analysis | Ask e.g. `Analyze NVDA`; receive structured research | Ticker validated before tools run |
-| Structured research payload | Status, evidence bundle, thesis (when available), error message when failed | Contract: `Phase0Result` |
+| Structured research payload | Status, evidence bundle, thesis (when available), scorecard (when scorable), error message when failed | Contract: `Phase0Result` |
 | Cited thesis | Summary + material claims each citing evidence IDs | Ships only with ≥1 material claim citing bundle evidence IDs; empty claims or uncited/dangling citations after one repair → fail closed (`status=error`); evidence may still be returned |
 | Source disagreement | Conflicts listed under `evidence.conflicts` | JSON-first; no custom conflicts UI yet |
+| Filings-aware research | SEC filing metadata in the same result as metrics + news | EDGAR metadata only (form, dates, accession, index URL); no full-document scrape |
+| Deterministic scorecard | Growth / Value / Profitability / Moat / Risk scores (0–100 or null) | Pure Python from Yahoo metrics; `execution_score` null in v1; never LLM arithmetic |
 | Fast repeat lookup | Same ticker within TTL returns prior result quickly | `cache_hit=true`; new `request_id` per serve |
 | Always-on disclaimer | Non-advice copy on every response including errors | Fixed string; not optional |
 | Honest status labels | `ok` / `partial` / `error` | Partial on gaps/conflicts; error when research cannot ship; thesis-stage failures use stable `error_code` |
 
-### 5.2 Planned (Phase 2–3)
+### 5.2 Planned (deferred / Phase 3)
 
 | Feature | What the user gets | Phase | Status |
 |---------|--------------------|-------|--------|
-| Filings-aware research | SEC filing context in the same result as metrics + news | 2 | Planned |
-| Deterministic scorecard | Growth / Value / Moat / Risk / … scores on reports | 2 | Planned |
-| Portfolio view | Multi-ticker concentration and correlation-aware risk | 2 | Planned (XL; sequencing open) |
-| Session continuity | Richer memory across research sessions | 2 | Planned (P3) |
+| Portfolio view | Multi-ticker concentration and correlation-aware risk | — | Deferred past thin Phase 2 (XL) |
+| Session continuity | Richer memory across research sessions | — | Deferred past thin Phase 2 (P3) |
 | First-party research UI / API | Use FolioTracker without living in ADK chat | 3 | Planned |
 | Hosted product | Deployed service with runbooks and smoke checks | 3 | Planned |
 
@@ -134,19 +134,22 @@ Planned items are **not** committed scope until sequenced in [TODOS.md](../TODOS
 
 Platform capabilities engineers build behind the user experience. Separate from [user features](#5-user-features).
 
-### 6.1 Shipped (Phase 0–1)
+### 6.1 Shipped (Phase 0–2B)
 
 | Feature | Role | Contract / location |
 |---------|------|---------------------|
 | Yahoo Finance tool | Fetch financial metrics (no LLM) | `app/tools/finance/yahoo_finance.py` → `FinancialMetrics` |
 | Google News RSS tool | Fetch headlines + URLs (no API key, no LLM) | `app/tools/news/google_news.py` → `NewsBatch` |
+| SEC EDGAR tool | Fetch recent filing metadata (User-Agent required; no LLM) | `app/tools/filings/sec_edgar.py` → `SecFilingsBatch` |
 | Evidence from metrics | Pure Python: metrics → `Evidence` (`type=financial`, confidence `0.95`) | `evidence_from_metrics` |
 | Evidence from news | Pure Python: articles → `Evidence` (`type=news`, confidence `0.7`) | `evidence_from_news` |
-| Evidence aggregator | Dedupe, news cap, `EvidenceConflict`, bundle status rules | `aggregate_evidence` |
-| Pipeline fan-out | Yahoo + news via thread pool; news-only failure → financial `partial` | `phase0_pipeline` |
+| Evidence from filings | Pure Python: filings → `Evidence` (`type=sec`, confidence `0.9`) | `evidence_from_filings` |
+| Evidence aggregator | Dedupe, news/SEC caps, `EvidenceConflict`, bundle status rules | `aggregate_evidence` |
+| Scoring service | Pure Python: metrics → `Scorecard` (0–100 or null per dim) | `score_from_metrics` |
+| Pipeline fan-out | Yahoo + news + SEC via thread pool; news- or SEC-only failure → `partial`; score before thesis | `phase0_pipeline` |
 | Thesis agent | Sole LLM step; optional bull/bear/risks/conviction; one citation repair | `thesis_agent` |
 | Local TTL cache | File-backed `Phase0Result` cache (`ok`/`partial` only) | `.cache/foliotracker/phase0/` |
-| Session clear (5A) | New ticker clears prior evidence/thesis session keys | `phase0_session` |
+| Session clear (5A) | New ticker clears prior evidence/scorecard/thesis session keys | `phase0_session` |
 | Schema invariants | Claim `evidence_ids` ⊆ bundle item ids when status ok/partial | `Phase0Result`, `InvestmentThesis` |
 | CI unit tests | Default `pytest tests/unit` | No LLM required |
 | On-demand LLM evals | Groundedness / citation fixtures | `python -m evaluations.phase0.run` |
@@ -155,7 +158,8 @@ Platform capabilities engineers build behind the user experience. Separate from 
 
 - Always set: `ticker`, `status`, `disclaimer`, `cache_hit`, `request_id`
 - On `ok`/`partial`: evidence bundle present; every claim citation resolves to an evidence id; thesis has ≥1 material claim
-- On `error`: set user-readable `error_message` and stable `error_code` (e.g. `THESIS_EMPTY_CLAIMS`); thesis-stage failures may still include `evidence`
+- Optional `scorecard: Scorecard | null` — null when no scorable metrics; null dims ok; never invent scores
+- On `error`: set user-readable `error_message` and stable `error_code` (e.g. `THESIS_EMPTY_CLAIMS`); thesis-stage failures may still include `evidence` and `scorecard`
 - Never cache `status=error`
 - On cache hit: serve prior payload with `cache_hit=true` and a **new** `request_id`
 
@@ -163,23 +167,23 @@ Platform capabilities engineers build behind the user experience. Separate from 
 
 | Source | Confidence | Notes |
 |--------|------------|-------|
-| Yahoo Finance metrics | `0.95` | Primary financial source |
+| Yahoo Finance metrics | `0.95` | Primary financial source (also feeds scores) |
+| SEC EDGAR filing metadata | `0.9` | Primary filings; metadata only in 2A (`sec_xbrl` still stubbed) |
 | Google News RSS | `0.7` | Headlines + URLs only |
-| SEC filings | — | Deferred (Phase 2) |
 
-### 6.2 Planned (Phase 2–3)
+### 6.2 Planned (deferred / Phase 3)
 
 | Feature | Role | Phase | Status |
 |---------|------|-------|--------|
-| SEC EDGAR / XBRL tools | Structured filings fetch/parse (no LLM in tools) | 2 | Planned |
-| Filings evidence builder | `Evidence` (`type=sec`) + aggregator conflict topics | 2 | Planned |
-| Scoring service | Deterministic Growth / Value / Moat / Risk / … → `Scorecard` | 2 | Planned |
-| Portfolio schemas + risk services | Batch evidence, concentration, correlation | 2 | Planned |
-| Memory beyond TTL files | Ticker / company / session / portfolio memory | 2 | Planned (P3) |
+| XBRL fact extraction | `sec_xbrl` structured facts (no LLM in tools) | — | Deferred past 2A |
+| Portfolio schemas + risk services | Batch evidence, concentration, correlation | — | Deferred past thin Phase 2 |
+| Memory beyond TTL files | Ticker / company / session / portfolio memory | — | Deferred past thin Phase 2 (P3) |
 | Observability backends | Metrics, traces, alerts beyond local logs | 3 | Planned |
 | Production deploy + runbooks | Hosted ADK/API, env, smoke, rollback | 3 | Planned |
 
-**Engineering invariant for Phase 2 scoring:** formulas and ranges land with unit tests **before** any agent consumes scores. LLMs must not perform score arithmetic.
+**Engineering invariant for scoring:** formulas and ranges land with unit tests **before** any agent consumes scores. LLMs must not perform score arithmetic. Thin 2B is **service-only** (`score_from_metrics`); `scoring_agent` stays stubbed.
+
+**2B v1 dimensions (shipped):** scale `0.0–100.0` or `null` — see [architecture.md](architecture.md) clamp anchors.
 
 ---
 
@@ -191,18 +195,19 @@ flowchart TD
   root["portfolio_research_agent"]
   validate["Validate ticker + clear session"]
   cache{"Local TTL cache hit?"}
-  fetch["Yahoo + Google News fan-out"]
+  fetch["Yahoo + news + SEC fan-out"]
   evidence["Evidence builders + aggregator"]
+  score["score_from_metrics"]
   thesis["thesis_agent citation repair"]
   result["Phase0Result JSON"]
   cached["Cached Phase0Result cache_hit true"]
 
   userAsk --> root --> validate --> cache
   cache -->|hit| cached --> result
-  cache -->|miss| fetch --> evidence --> thesis --> result
+  cache -->|miss| fetch --> evidence --> score --> thesis --> result
 ```
 
-**Happy path:** metrics + news → evidence (optional conflicts) → cited thesis → `status=ok` or `partial` → cache write.
+**Happy path:** metrics + news + SEC → evidence (optional conflicts) → scorecard → cited thesis → `status=ok` or `partial` → cache write.
 
 **Shadow paths users must still understand:**
 
@@ -211,7 +216,8 @@ flowchart TD
 | Blank / invalid ticker | Input invalid before tools | Reject / `status=error`, `error_code=INVALID_TICKER` |
 | Ticker not found / Yahoo failure | Upstream financial data unavailable | `status=error`, `error_code=DATA_FETCH_FAILED`, no usable evidence |
 | Empty metrics / evidence | Nothing to cite | `status=error`, `error_code=EMPTY_EVIDENCE` |
-| News fails, Yahoo ok | News gap only | Financial-only bundle, often `partial` |
+| News fails, Yahoo ok | News gap only | Financial (+ SEC) bundle, often `partial` |
+| SEC fails, Yahoo ok | Filings gap only | Metrics (+ news) bundle, often `partial` |
 | Conflicts detected | Sources disagree | Conflicts in evidence; typically `partial` |
 | Thesis empty claims after repair | Model returned no material claims; evidence data may be fine | `status=error`, `error_code=THESIS_EMPTY_CLAIMS`, thesis null, evidence often present |
 | Thesis uncited / dangling after repair | Claims lack valid evidence ids | `status=error`, `error_code=THESIS_UNCITED` or `THESIS_DANGLING_CITATION`, thesis null, evidence often present |
@@ -258,7 +264,7 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 |-------|-------|--------------|----------------|--------|
 | **0** | Thin vertical slice | Single-ticker cited thesis from financials | Yahoo → evidence → thesis → TTL cache | **Shipped** |
 | **1** | Evidence spine expansion | News context + visible source conflicts | News tool, merge aggregator, conflicts on result | **Shipped** (2026-07-24) |
-| **2** | Product depth (thin) | Filings context + scorecards | SEC specialist → scoring service | **2A done; 2B next** |
+| **2** | Product depth (thin) | Filings context + scorecards | SEC specialist → scoring service | **Complete** (2A+2B) |
 | **3** | Platform | First-party UI/API, hosted product | Observability, deploy/rollback runbooks | **Planned** |
 
 ### Phase 2 sequence (locked 2026-07-24)
@@ -266,7 +272,7 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 | Order | Item | Effort | Status |
 |-------|------|--------|--------|
 | **2A** | SEC specialist agent (EDGAR metadata) | L | **Done** (2026-07-24) |
-| **2B** | Scoring service (Growth / Value / Moat / Risk / …) | M | Next |
+| **2B** | Scoring service (Growth / Value / Moat / Risk / …) | M | **Done** (2026-07-24) |
 
 **Deferred past thin Phase 2:** portfolio / correlation (XL), cache / memory (P3).
 
@@ -289,7 +295,8 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, and m
 | Secrets | `GOOGLE_API_KEY` (and related) only in `.env`; never logged |
 | Ticker validation | Strict pattern before tool calls or prompt inclusion |
 | News surface | RSS headlines + URLs only (limits prompt-injection from scraped bodies) |
-| Cache hygiene | Never cache errors; clear `.cache/foliotracker/phase0/` after breaking schema upgrades if needed |
+| SEC surface | EDGAR filing metadata only (no full filing HTML scrape in 2A) |
+| Cache hygiene | Never cache errors; clear `.cache/foliotracker/phase0/` after breaking schema upgrades if needed (incl. 2B `scorecard`) |
 | Stub honesty | Unimplemented agents/tools remain stubs until a phase lands them |
 
 ---
@@ -300,11 +307,11 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, and m
 
 1. **Phase 2 in-scope set** → Thin Phase 2: SEC + scoring only; portfolio + memory deferred.
 2. **Order** → **SEC → scoring** (2A then 2B).
+3. **Scoring dimensions v1** → Growth / Value / Profitability / Risk from Yahoo metrics; Moat = provisional gross-margin proxy; Execution = `null` in v1; scale `0–100` or `null`. Service-only (`score_from_metrics`); optional `scorecard` on `Phase0Result`. See [architecture.md](architecture.md) and [TODOS.md](../TODOS.md).
 
 ### Still open
 
 1. **Portfolio timing** — Start only after single-ticker spine + scoring are trusted (recommended), or earlier thin multi-ticker batch without scores?
-2. **Scoring dimensions v1** — Which subset of Growth / Value / Moat / Risk ship first, and what formula ranges?
 
 ---
 
@@ -324,6 +331,8 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, and m
 
 | Date | Change |
 |------|--------|
+| 2026-07-24 | Phase 2B shipped (scorecard on Phase0Result); thin Phase 2 complete |
+| 2026-07-24 | Lock 2B scoring dimensions; mark SEC/filings shipped (2A); resolve scoring open question |
 | 2026-07-24 | Phase 2A shipped (SEC EDGAR); 2B scoring remains next |
 | 2026-07-24 | Lock thin Phase 2: SEC (2A) → scoring (2B); resolve open sequencing questions |
 | 2026-07-24 | Initial PRD: TOC, user vs system features, Phase 0/1 shipped, Phase 2/3 planned, open sequencing questions |

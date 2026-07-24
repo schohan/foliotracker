@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 — **SEC specialist (2A) done**; **scoring (2B) next**. Portfolio/memory deferred — see [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 **complete** (2A SEC + 2B scoring). Next: deferred portfolio / memory or Phase 3 — see [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -23,7 +23,7 @@ Update this file whenever a module moves from stub → working.
 | Repository / package layout (`app/`) | Done | Matches architecture capability layout |
 | ADK entrypoint (`app/`) | Done | `analyze_ticker` tool → Phase 0 pipeline |
 | Project config (`pyproject.toml`, `.env.example`) | Done | Includes yfinance + Phase 0/1/2A env vars |
-| Shared schemas (`app/schemas/`) | Done | Phase 0/1 contracts; filings schemas in 2A |
+| Shared schemas (`app/schemas/`) | Done | Phase 0–2B contracts; optional `scorecard` on `Phase0Result` |
 | Evidence layer | Done | `evidence_from_metrics` + `evidence_from_news` + `evidence_from_filings` |
 | Evidence aggregator | Done | Dedupe, news/SEC caps, `EvidenceConflict`, status rules |
 | Configs (`settings`, `models`) | Done | TTL, cache dir, Yahoo/news/SEC timeouts + User-Agent |
@@ -50,14 +50,14 @@ Update this file whenever a module moves from stub → working.
 | Area | Status |
 |------|--------|
 | `sec_agent` (governance) | Todo (logic lives in pipeline + `sec_edgar` tool for 2A) |
-| Other domain stubs except report/thesis | Todo (out of Phase 0–2A) |
+| Other domain stubs except report/thesis | Todo (out of Phase 0–2B) |
 
 ## Agents — report
 
 | Module | Status |
 |--------|--------|
 | `thesis_agent` | Done | Gemini JSON thesis + 1 citation repair; `EmptyClaimsError` / structured `error_code` |
-| `scoring_agent` | Todo | After scoring service (2B) |
+| `scoring_agent` | Todo | Intentionally stubbed — thin 2B ships `score_from_metrics` service only |
 | `report_agent` | Todo |
 
 ---
@@ -90,9 +90,9 @@ Update this file whenever a module moves from stub → working.
 |--------|--------|
 | `evidence` (`evidence_from_metrics`, `evidence_from_news`, `evidence_from_filings`, aggregator) | Done |
 | `phase0_cache` | Done |
-| `phase0_session` | Done |
-| `phase0_pipeline` | Done (Yahoo + news + SEC fan-out) |
-| `scoring` | Todo (2B) |
+| `phase0_session` | Done (clears `scorecard`) |
+| `phase0_pipeline` | Done (Yahoo + news + SEC + scoring + thesis) |
+| `scoring` | Done (2B) — `score_from_metrics` |
 | `valuation` / `financial_math` / `ranking` / `normalization` | Todo |
 
 ---
@@ -102,8 +102,8 @@ Update this file whenever a module moves from stub → working.
 | Module | Status | Notes |
 |--------|--------|-------|
 | `evidence` | Done | `id`, `BundleStatus`, conflicts |
-| `phase0` | Done | `Phase0Result`, `Phase0ErrorCode`, disclaimer, cache_hit, request_id |
-| `report` | Done | `ThesisClaim`, cited thesis |
+| `phase0` | Done | `Phase0Result` + optional `scorecard`, `Phase0ErrorCode`, disclaimer, cache_hit, request_id |
+| `report` | Done | `ThesisClaim`, cited thesis; `Scorecard` (0–100 dims) |
 | `ticker` | Done | `normalize_ticker` |
 | `news` | Done | `NewsArticle`, `NewsBatch` |
 | `filings` | Done (2A) | `SecFiling`, `SecFilingsBatch` |
@@ -121,9 +121,10 @@ Update this file whenever a module moves from stub → working.
 
 ## Suggested next milestones
 
-1. **2B:** scoring service (formulas + unit tests before any agent consumes scores)
-2. Dogfood via `adk web` — analyze a ticker end-to-end with SEC evidence
+1. Dogfood via `adk web` — analyze a ticker; confirm `scorecard` on result
+2. Clear `.cache/foliotracker/phase0/` after upgrading (2B schema bump)
 3. Set a real `SEC_USER_AGENT` contact email before heavy live EDGAR use
+4. Next product work: portfolio / correlation (deferred) or Phase 3 platform — see TODOS
 
 ---
 
@@ -131,6 +132,8 @@ Update this file whenever a module moves from stub → working.
 
 | Date | Change |
 |------|--------|
+| 2026-07-24 | Phase 2B done: `score_from_metrics`, `Phase0Result.scorecard`, pipeline + session wire-up |
+| 2026-07-24 | Lock 2B scoring contract in docs; expand next milestones (schemas → tests → service → pipeline) |
 | 2026-07-24 | Phase 2A done: SEC EDGAR tool, filings evidence, pipeline fan-out |
 | 2026-07-24 | Thin Phase 2 lock: SEC (2A) → scoring (2B); portfolio/memory deferred |
 | 2026-07-14 | Initial scaffold: package layout, schema stubs, ADK root agent, this tracker |
