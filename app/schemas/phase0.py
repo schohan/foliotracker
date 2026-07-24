@@ -21,6 +21,18 @@ class Phase0Status(str, Enum):
     ERROR = "error"
 
 
+class Phase0ErrorCode(str, Enum):
+    """Stable machine codes for Phase0Result failures (user message is separate)."""
+
+    INVALID_TICKER = "INVALID_TICKER"
+    DATA_FETCH_FAILED = "DATA_FETCH_FAILED"
+    EMPTY_EVIDENCE = "EMPTY_EVIDENCE"
+    THESIS_EMPTY_CLAIMS = "THESIS_EMPTY_CLAIMS"
+    THESIS_UNCITED = "THESIS_UNCITED"
+    THESIS_DANGLING_CITATION = "THESIS_DANGLING_CITATION"
+    THESIS_GENERATION_FAILED = "THESIS_GENERATION_FAILED"
+
+
 class Phase0Result(BaseModel):
     """End-to-end Phase 0 response — always includes disclaimer, cache_hit, request_id."""
 
@@ -29,6 +41,7 @@ class Phase0Result(BaseModel):
     evidence: EvidenceBundle | None = None
     thesis: InvestmentThesis | None = None
     error_message: str | None = None
+    error_code: str | None = None
     disclaimer: str = Field(default=PHASE0_DISCLAIMER)
     cache_hit: bool = False
     request_id: str

@@ -11,7 +11,7 @@ from app.configs.settings import Settings
 from app.schemas.filings import SecFiling, SecFilingsBatch
 from app.schemas.financials import FinancialMetrics
 from app.schemas.news import NewsArticle, NewsBatch
-from app.schemas.phase0 import Phase0Status
+from app.schemas.phase0 import Phase0ErrorCode, Phase0Status
 from app.schemas.report import InvestmentThesis, ThesisClaim
 from app.services import phase0_pipeline as pipe
 from app.services.evidence import (
@@ -206,3 +206,66 @@ def test_pipeline_invalid_ticker() -> None:
     assert result.status == Phase0Status.ERROR
     assert result.disclaimer
     assert result.request_id
+    assert result.error_code == Phase0ErrorCode.INVALID_TICKER.value
+
+
+def test_pipeline_thesis_empty_claims_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_settings(monkeypatch, tmp_path)
+    monkeypatch.setattr(pipe, "fetch_financial_metrics", lambda ticker, **k: _metrics())
+    monkeypatch.setattr(pipe, "fetch_google_news", lambda ticker, **k: _news())
+    monkeypatch.setattr(pipe, "fetch_sec_filings", lambda ticker, **k: _filings())
+
+    def empty_claims_model(prompt: str) -> str:
+        return InvestmentThesis(
+            ticker="NVDA",
+            thesis="Unable to form claims.",
+            claims=[],
+        ).model_dump_json()
+
+    result = run_phase0_research(
+        "NVDA", model_caller=empty_claims_model, skip_cache=True
+    )
+    assert result.status == Phase0Status.ERROR
+    assert result.error_code == Phase0ErrorCode.THESIS_EMPTY_CLAIMS.value
+    assert result.thesis is None
+    assert result.evidence is not None
+    assert len(result.evidence.items) >= 1
+    assert result.error_message is not None
+    assert "UncitedClaimError" not in result.error_message
+    assert "EmptyClaimsError" not in result.error_message
+    assert "no material claims" in result.error_message
+    assert result.request_id in result.error_message
+    assert "Evidence is included" in result.error_message
+
+
+def test_pipeline_thesis_dangling_citation_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_settings(monkeypatch, tmp_path)
+    monkeypatch.setattr(pipe, "fetch_financial_metrics", lambda ticker, **k: _metrics())
+    monkeypatch.setattr(pipe, "fetch_google_news", lambda ticker, **k: _news())
+    monkeypatch.setattr(pipe, "fetch_sec_filings", lambda ticker, **k: _filings())
+
+    def dangling_model(prompt: str) -> str:
+        return InvestmentThesis(
+            ticker="NVDA",
+            thesis="Invented cite.",
+            claims=[
+                ThesisClaim(
+                    text="Uses a fake evidence id.",
+                    evidence_ids=["ev_missing_not_in_bundle"],
+                )
+            ],
+        ).model_dump_json()
+
+    result = run_phase0_research("NVDA", model_caller=dangling_model, skip_cache=True)
+    assert result.status == Phase0Status.ERROR
+    assert result.error_code == Phase0ErrorCode.THESIS_DANGLING_CITATION.value
+    assert result.thesis is None
+    assert result.evidence is not None
+    assert result.error_message is not None
+    assert "DanglingCitationError" not in result.error_message
+    assert "not in the bundle" in result.error_message
+    assert result.request_id in result.error_message

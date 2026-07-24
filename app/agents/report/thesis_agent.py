@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from app.configs.settings import settings
 from app.schemas.evidence import EvidenceBundle
-from app.schemas.phase0 import assert_claims_cite_bundle
+from app.schemas.phase0 import Phase0ErrorCode, assert_claims_cite_bundle
 from app.schemas.report import InvestmentThesis
 
 logger = logging.getLogger(__name__)
@@ -21,13 +21,25 @@ logger = logging.getLogger(__name__)
 class ThesisGenerationError(RuntimeError):
     """LLM returned empty/unusable thesis output."""
 
+    error_code = Phase0ErrorCode.THESIS_GENERATION_FAILED
+
+
+class EmptyClaimsError(ValueError):
+    """Thesis has no material claims (product-illegal when evidence exists)."""
+
+    error_code = Phase0ErrorCode.THESIS_EMPTY_CLAIMS
+
 
 class UncitedClaimError(ValueError):
     """Thesis contains material claims without valid evidence citations."""
 
+    error_code = Phase0ErrorCode.THESIS_UNCITED
+
 
 class DanglingCitationError(ValueError):
     """Thesis cites evidence ids not present in the bundle."""
+
+    error_code = Phase0ErrorCode.THESIS_DANGLING_CITATION
 
 
 _THESIS_SCHEMA_HINT = """
@@ -47,7 +59,8 @@ Rules:
 - Every claim MUST include at least one evidence_ids entry from the provided bundle.
 - Do NOT invent numeric metrics not present in evidence data.
 - If a field is null in evidence, do not claim a value for it.
-- Prefer 2-5 claims.
+- Prefer 2-5 claims. When the bundle has evidence items, you MUST return at
+  least one material claim — never an empty claims list.
 - Cite financial, news, and SEC evidence ids when those types are present.
 - If the bundle includes a non-empty "conflicts" list, do NOT silently average
   disagreeing sources. Acknowledge each conflict in thesis or claims/key_risks,
@@ -65,7 +78,7 @@ def _extract_json(text: str) -> dict[str, Any]:
 
 def _validate_thesis(thesis: InvestmentThesis, bundle: EvidenceBundle) -> None:
     if not thesis.claims:
-        raise UncitedClaimError("thesis has no claims")
+        raise EmptyClaimsError("thesis has no claims")
     try:
         assert_claims_cite_bundle(thesis, bundle)
     except ValueError as exc:
@@ -78,8 +91,10 @@ def _build_prompt(bundle: EvidenceBundle, *, repair: bool) -> str:
     if repair:
         repair_line = (
             "\nPREVIOUS OUTPUT FAILED CITATION CHECK. "
-            "Cite evidence ids from the bundle or remove uncited claims. "
-            "Do not invent ids.\n"
+            "Cite evidence ids from the bundle or remove THAT uncited claim. "
+            "When the bundle has evidence items, you MUST return at least one "
+            "(prefer 2-5) material claim citing real evidence ids. "
+            "Do not return an empty claims list. Do not invent ids.\n"
         )
     conflict_line = ""
     if payload.get("conflicts"):
@@ -154,6 +169,19 @@ def _call_model(prompt: str) -> str:
     return text
 
 
+def _error_code_for(exc: Exception) -> str:
+    code = getattr(exc, "error_code", None)
+    if isinstance(code, Phase0ErrorCode):
+        return code.value
+    if isinstance(exc, EmptyClaimsError):
+        return Phase0ErrorCode.THESIS_EMPTY_CLAIMS.value
+    if isinstance(exc, UncitedClaimError):
+        return Phase0ErrorCode.THESIS_UNCITED.value
+    if isinstance(exc, DanglingCitationError):
+        return Phase0ErrorCode.THESIS_DANGLING_CITATION.value
+    return Phase0ErrorCode.THESIS_GENERATION_FAILED.value
+
+
 def generate_thesis(
     bundle: EvidenceBundle,
     *,
@@ -167,10 +195,12 @@ def generate_thesis(
     """
     caller = model_caller or _call_model
     last_error: Exception | None = None
+    evidence_ids = [item.id for item in bundle.items]
 
     for attempt in (1, 2):
         repair = attempt == 2
         prompt = _build_prompt(bundle, repair=repair)
+        thesis: InvestmentThesis | None = None
         try:
             raw = caller(prompt)
             data = _extract_json(raw)
@@ -188,21 +218,31 @@ def generate_thesis(
         except (
             json.JSONDecodeError,
             ValidationError,
+            EmptyClaimsError,
             UncitedClaimError,
             DanglingCitationError,
             ThesisGenerationError,
         ) as exc:
             last_error = exc
+            claim_count = len(thesis.claims) if thesis is not None else 0
             logger.warning(
-                "thesis_attempt_failed ticker=%s attempt=%s err=%s",
+                "thesis_attempt_failed ticker=%s attempt=%s error_code=%s "
+                "claim_count=%s evidence_item_count=%s evidence_ids_sample=%s err=%s",
                 bundle.ticker,
                 attempt,
+                _error_code_for(exc),
+                claim_count,
+                len(bundle.items),
+                evidence_ids[:5],
                 exc,
             )
             continue
 
     assert last_error is not None
-    if isinstance(last_error, (UncitedClaimError, DanglingCitationError)):
+    if isinstance(
+        last_error,
+        (EmptyClaimsError, UncitedClaimError, DanglingCitationError),
+    ):
         raise last_error
     raise ThesisGenerationError(str(last_error)) from last_error
 

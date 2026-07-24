@@ -10,12 +10,18 @@ from typing import Any
 
 from app.agents.report.thesis_agent import (
     DanglingCitationError,
+    EmptyClaimsError,
     ThesisGenerationError,
     UncitedClaimError,
     generate_thesis,
 )
 from app.configs.settings import settings
-from app.schemas.phase0 import PHASE0_DISCLAIMER, Phase0Result, Phase0Status
+from app.schemas.phase0 import (
+    PHASE0_DISCLAIMER,
+    Phase0ErrorCode,
+    Phase0Result,
+    Phase0Status,
+)
 from app.schemas.ticker import InvalidTickerError, normalize_ticker
 from app.services.evidence import (
     EmptyEvidenceError,
@@ -71,6 +77,7 @@ def _error_result(
     request_id: str,
     message: str,
     *,
+    error_code: str | None = None,
     cache_hit: bool = False,
 ) -> Phase0Result:
     return Phase0Result(
@@ -79,10 +86,54 @@ def _error_result(
         evidence=None,
         thesis=None,
         error_message=message,
+        error_code=error_code,
         disclaimer=PHASE0_DISCLAIMER,
         cache_hit=cache_hit,
         request_id=request_id,
     )
+
+
+def _thesis_user_message(
+    ticker: str,
+    request_id: str,
+    code: Phase0ErrorCode,
+) -> str:
+    """Human-readable thesis-stage failure (no exception class names)."""
+    if code == Phase0ErrorCode.THESIS_EMPTY_CLAIMS:
+        detail = (
+            "could not produce a cited investment thesis "
+            "(no material claims after one repair attempt)"
+        )
+    elif code == Phase0ErrorCode.THESIS_DANGLING_CITATION:
+        detail = (
+            "the investment thesis cited evidence ids that are not in the "
+            "bundle after one repair attempt"
+        )
+    elif code == Phase0ErrorCode.THESIS_UNCITED:
+        detail = (
+            "the investment thesis had material claims without valid "
+            "evidence citations after one repair attempt"
+        )
+    else:
+        detail = "could not generate an investment thesis"
+    return (
+        f"We gathered evidence for {ticker} but {detail}. "
+        f"Evidence is included; thesis was withheld. "
+        f"Reference request_id {request_id}."
+    )
+
+
+def _map_thesis_error(exc: Exception) -> Phase0ErrorCode:
+    code = getattr(exc, "error_code", None)
+    if isinstance(code, Phase0ErrorCode):
+        return code
+    if isinstance(exc, EmptyClaimsError):
+        return Phase0ErrorCode.THESIS_EMPTY_CLAIMS
+    if isinstance(exc, UncitedClaimError):
+        return Phase0ErrorCode.THESIS_UNCITED
+    if isinstance(exc, DanglingCitationError):
+        return Phase0ErrorCode.THESIS_DANGLING_CITATION
+    return Phase0ErrorCode.THESIS_GENERATION_FAILED
 
 
 def run_phase0_research(
@@ -103,7 +154,12 @@ def run_phase0_research(
         normalized = normalize_ticker(ticker)
     except InvalidTickerError as exc:
         logger.info("pipeline_reject request_id=%s err=%s", request_id, exc)
-        return _error_result("INVALID", request_id, str(exc))
+        return _error_result(
+            "INVALID",
+            request_id,
+            str(exc),
+            error_code=Phase0ErrorCode.INVALID_TICKER.value,
+        )
 
     state = new_research_session(session_state or {}, normalized)
     logger.info(
@@ -146,12 +202,17 @@ def run_phase0_research(
                 fut_news.cancel()
                 fut_sec.cancel()
                 result = _error_result(
-                    normalized, request_id, f"{type(exc).__name__}: {exc}"
+                    normalized,
+                    request_id,
+                    f"{type(exc).__name__}: {exc}",
+                    error_code=Phase0ErrorCode.DATA_FETCH_FAILED.value,
                 )
                 logger.info(
-                    "pipeline_end request_id=%s ticker=%s status=error latency_ms=%.0f",
+                    "pipeline_end request_id=%s ticker=%s status=error "
+                    "error_code=%s latency_ms=%.0f",
                     request_id,
                     normalized,
+                    result.error_code,
                     (time.perf_counter() - started) * 1000,
                 )
                 return result
@@ -178,11 +239,18 @@ def run_phase0_research(
                     exc,
                 )
     except _YAHOO_ERRORS as exc:
-        result = _error_result(normalized, request_id, f"{type(exc).__name__}: {exc}")
+        result = _error_result(
+            normalized,
+            request_id,
+            f"{type(exc).__name__}: {exc}",
+            error_code=Phase0ErrorCode.DATA_FETCH_FAILED.value,
+        )
         logger.info(
-            "pipeline_end request_id=%s ticker=%s status=error latency_ms=%.0f",
+            "pipeline_end request_id=%s ticker=%s status=error "
+            "error_code=%s latency_ms=%.0f",
             request_id,
             normalized,
+            result.error_code,
             (time.perf_counter() - started) * 1000,
         )
         return result
@@ -207,7 +275,12 @@ def run_phase0_research(
         )
         state["evidence_bundle"] = bundle.model_dump(mode="json")
     except (EmptyMetricsError, EmptyEvidenceError) as exc:
-        result = _error_result(normalized, request_id, f"{type(exc).__name__}: {exc}")
+        result = _error_result(
+            normalized,
+            request_id,
+            f"{type(exc).__name__}: {exc}",
+            error_code=Phase0ErrorCode.EMPTY_EVIDENCE.value,
+        )
         return result
 
     status = (
@@ -219,18 +292,28 @@ def run_phase0_research(
     try:
         thesis = generate_thesis(bundle, model_caller=model_caller)
         state["thesis"] = thesis.model_dump(mode="json")
-    except (UncitedClaimError, DanglingCitationError, ThesisGenerationError) as exc:
+    except (
+        EmptyClaimsError,
+        UncitedClaimError,
+        DanglingCitationError,
+        ThesisGenerationError,
+    ) as exc:
+        code = _map_thesis_error(exc)
         result = _error_result(
             normalized,
             request_id,
-            f"{type(exc).__name__}: {exc}",
+            _thesis_user_message(normalized, request_id, code),
+            error_code=code.value,
         )
         # Still attach evidence for debuggability on thesis failure
         result = result.model_copy(update={"evidence": bundle})
         logger.info(
-            "pipeline_end request_id=%s ticker=%s status=error stage=thesis latency_ms=%.0f",
+            "pipeline_end request_id=%s ticker=%s status=error stage=thesis "
+            "error_code=%s exc_type=%s latency_ms=%.0f",
             request_id,
             normalized,
+            code.value,
+            type(exc).__name__,
             (time.perf_counter() - started) * 1000,
         )
         return result
@@ -241,6 +324,7 @@ def run_phase0_research(
         evidence=bundle,
         thesis=thesis,
         error_message=None,
+        error_code=None,
         disclaimer=PHASE0_DISCLAIMER,
         cache_hit=False,
         request_id=request_id,

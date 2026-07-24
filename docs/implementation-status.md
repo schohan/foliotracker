@@ -56,7 +56,7 @@ Update this file whenever a module moves from stub → working.
 
 | Module | Status |
 |--------|--------|
-| `thesis_agent` | Done | Gemini JSON thesis + 1 citation repair |
+| `thesis_agent` | Done | Gemini JSON thesis + 1 citation repair; `EmptyClaimsError` / structured `error_code` |
 | `scoring_agent` | Todo | After scoring service (2B) |
 | `report_agent` | Todo |
 
@@ -102,7 +102,7 @@ Update this file whenever a module moves from stub → working.
 | Module | Status | Notes |
 |--------|--------|-------|
 | `evidence` | Done | `id`, `BundleStatus`, conflicts |
-| `phase0` | Done | `Phase0Result`, disclaimer, cache_hit, request_id |
+| `phase0` | Done | `Phase0Result`, `Phase0ErrorCode`, disclaimer, cache_hit, request_id |
 | `report` | Done | `ThesisClaim`, cited thesis |
 | `ticker` | Done | `normalize_ticker` |
 | `news` | Done | `NewsArticle`, `NewsBatch` |

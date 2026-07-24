@@ -15,7 +15,7 @@ Use this checklist when scoring thesis outputs against fixture `EvidenceBundle`s
 
 ## Repair policy (3A)
 
-If the first thesis attempt has uncited claims: allow **one** repair retry with “cite or remove.” Second failure = eval fail (`status=error`).
+If the first thesis attempt has empty claims, uncited claims, or dangling ids: allow **one** repair retry (“cite valid ids; do not return an empty claims list when evidence exists”). Second failure = eval fail (`status=error` with `error_code` such as `THESIS_EMPTY_CLAIMS` / `THESIS_DANGLING_CITATION`).
 
 ## Scoring (optional 0–5)
 

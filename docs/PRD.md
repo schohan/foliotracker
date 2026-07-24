@@ -109,11 +109,11 @@ Capabilities the human experiences. Separate from [system features](#6-system-fe
 |---------|--------------------|------------------|
 | Single-ticker analysis | Ask e.g. `Analyze NVDA`; receive structured research | Ticker validated before tools run |
 | Structured research payload | Status, evidence bundle, thesis (when available), error message when failed | Contract: `Phase0Result` |
-| Cited thesis | Summary + material claims each citing evidence IDs | Uncited / dangling citations fail closed after one repair |
+| Cited thesis | Summary + material claims each citing evidence IDs | Ships only with ≥1 material claim citing bundle evidence IDs; empty claims or uncited/dangling citations after one repair → fail closed (`status=error`); evidence may still be returned |
 | Source disagreement | Conflicts listed under `evidence.conflicts` | JSON-first; no custom conflicts UI yet |
 | Fast repeat lookup | Same ticker within TTL returns prior result quickly | `cache_hit=true`; new `request_id` per serve |
 | Always-on disclaimer | Non-advice copy on every response including errors | Fixed string; not optional |
-| Honest status labels | `ok` / `partial` / `error` | Partial on gaps/conflicts; error when research cannot ship |
+| Honest status labels | `ok` / `partial` / `error` | Partial on gaps/conflicts; error when research cannot ship; thesis-stage failures use stable `error_code` |
 
 ### 5.2 Planned (Phase 2–3)
 
@@ -154,7 +154,8 @@ Platform capabilities engineers build behind the user experience. Separate from 
 **Output contract engineers must preserve** (`Phase0Result`):
 
 - Always set: `ticker`, `status`, `disclaimer`, `cache_hit`, `request_id`
-- On `ok`/`partial`: evidence bundle present; every claim citation resolves to an evidence id
+- On `ok`/`partial`: evidence bundle present; every claim citation resolves to an evidence id; thesis has ≥1 material claim
+- On `error`: set user-readable `error_message` and stable `error_code` (e.g. `THESIS_EMPTY_CLAIMS`); thesis-stage failures may still include `evidence`
 - Never cache `status=error`
 - On cache hit: serve prior payload with `cache_hit=true` and a **new** `request_id`
 
@@ -205,14 +206,17 @@ flowchart TD
 
 **Shadow paths users must still understand:**
 
-| Path | User-visible outcome |
-|------|----------------------|
-| Blank / invalid ticker | Reject before tools; ask / error |
-| Ticker not found / Yahoo failure | `status=error`, no thesis |
-| News fails, Yahoo ok | Financial-only bundle, often `partial` |
-| Conflicts detected | Conflicts in evidence; typically `partial` |
-| Thesis uncited after repair | `status=error`, no thesis shipped |
-| Repeat within TTL | Fast return, `cache_hit=true` |
+| Path | What’s missing / why | User-visible outcome |
+|------|----------------------|----------------------|
+| Blank / invalid ticker | Input invalid before tools | Reject / `status=error`, `error_code=INVALID_TICKER` |
+| Ticker not found / Yahoo failure | Upstream financial data unavailable | `status=error`, `error_code=DATA_FETCH_FAILED`, no usable evidence |
+| Empty metrics / evidence | Nothing to cite | `status=error`, `error_code=EMPTY_EVIDENCE` |
+| News fails, Yahoo ok | News gap only | Financial-only bundle, often `partial` |
+| Conflicts detected | Sources disagree | Conflicts in evidence; typically `partial` |
+| Thesis empty claims after repair | Model returned no material claims; evidence data may be fine | `status=error`, `error_code=THESIS_EMPTY_CLAIMS`, thesis null, evidence often present |
+| Thesis uncited / dangling after repair | Claims lack valid evidence ids | `status=error`, `error_code=THESIS_UNCITED` or `THESIS_DANGLING_CITATION`, thesis null, evidence often present |
+| Thesis generation failed | LLM empty/unusable output | `status=error`, `error_code=THESIS_GENERATION_FAILED`, thesis null, evidence often present |
+| Repeat within TTL | — | Fast return, `cache_hit=true` |
 
 ---
 
@@ -222,6 +226,7 @@ flowchart TD
 |--------|-----------------|----------|
 | Citation groundedness | Eval cases: claims cite only fixture evidence IDs; no invented numbers | Eng + product quality |
 | Citation coverage | Material claims have ≥1 evidence id; dangling ids = fail | Eng |
+| Thesis-stage labeling | Thesis failures use stable `error_code`; user `error_message` distinguishes data vs thesis failure | Eng + product |
 | Honest labeling | Empty/missing data never returns a confident fake thesis | Exec trust |
 | Conflict visibility | Disagreements appear in `evidence.conflicts` when heuristics fire | Product |
 | Cache effectiveness | Repeat ticker within TTL → `cache_hit=true`; live path collapsed | Cost / UX |

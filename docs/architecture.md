@@ -122,21 +122,22 @@ User: "Analyze NVDA"
 INPUT ──▶ VALIDATE ──▶ TOOL ──▶ EVIDENCE ──▶ AGGREGATE ──▶ THESIS ──▶ OUTPUT
   │           │          │          │            │           │
   ▼           ▼          ▼          ▼            ▼           ▼
- nil/empty  bad ticker  timeout   empty data   (n/a)      uncited
- ticker     → reject    empty     → bundle     pass-      claims
- → ask      loudly      payload   status=      through    → fail
- user                   → status  partial                 eval /
-                        =error                            repair
+ nil/empty  bad ticker  timeout   empty data   (n/a)      empty /
+ ticker     → reject    empty     → bundle     pass-      uncited /
+ → ask      loudly      payload   status=      through    dangling
+ user                   → status  partial                 → error_code
+                        =error                            + evidence
 ```
 
 | Path | Behavior | User sees |
 |------|----------|-----------|
-| Happy | Metrics → evidence → cited thesis | `status=ok` + JSON |
+| Happy | Metrics → evidence → cited thesis (≥1 claim) | `status=ok` + JSON |
 | Nil / blank ticker | Reject before tool call | Ask for ticker |
-| Invalid ticker / not found | Tool returns not-found | `status=error`, no thesis |
+| Invalid ticker / not found | Tool returns not-found | `status=error`, `error_code=DATA_FETCH_FAILED` / `INVALID_TICKER` |
 | Tool timeout / HTTP failure | No fabricated metrics | `status=error`, message |
 | Empty / partial metrics | Evidence with nulls allowed; thesis only claims supported fields | `status=partial` |
-| Thesis omits citations | Invalid output | Caught by schema + eval; not shipped |
+| Thesis empty claims after repair | Model returned `claims: []` | `status=error`, `error_code=THESIS_EMPTY_CLAIMS`, evidence often present |
+| Thesis omits / dangling citations | Invalid output after one repair | `status=error`, matching thesis `error_code`; not shipped |
 
 ---
 
@@ -249,7 +250,8 @@ Phase0Result
   status: ok | partial | error
   evidence: EvidenceBundle | null
   thesis: InvestmentThesis | null
-  error_message: str | null
+  error_message: str | null   # user-readable; no exception class names
+  error_code: str | null      # stable machine code (Phase0ErrorCode)
   disclaimer: str   # REQUIRED always — fixed non-advice copy (4A)
   cache_hit: bool   # REQUIRED always — true if served from local TTL cache (6A)
   request_id: str  # REQUIRED always — uuid correlating logs (9A)
@@ -259,7 +261,7 @@ Fixed disclaimer copy (Phase 0):
 
 > "FolioTracker output is for informational and educational purposes only. It is not investment, legal, or tax advice. Do your own research."
 
-**Invariant:** If `status=ok` or `partial`, every `ThesisClaim.evidence_ids` entry exists in `evidence.items[].id`. Enforced by schema validation + evals. `disclaimer`, `cache_hit`, and `request_id` are always set (including on `status=error`). On cache hit, generate a **new** `request_id` for this serve (do not reuse the cached request’s id); set `cache_hit=true`.
+**Invariant:** If `status=ok` or `partial`, every `ThesisClaim.evidence_ids` entry exists in `evidence.items[].id`, and the thesis has ≥1 material claim. Enforced by schema validation + thesis agent + evals. `disclaimer`, `cache_hit`, and `request_id` are always set (including on `status=error`). On thesis-stage failure, `error_code` is one of `THESIS_EMPTY_CLAIMS` / `THESIS_UNCITED` / `THESIS_DANGLING_CITATION` / `THESIS_GENERATION_FAILED`, evidence may still be attached, thesis is null. On cache hit, generate a **new** `request_id` for this serve (do not reuse the cached request’s id); set `cache_hit=true`.
 
 ---
 
@@ -323,13 +325,14 @@ Fixed disclaimer copy (Phase 0):
 | evidence build | all metrics null | `EmptyMetricsError` | Y → status=partial or error | labeled |
 | cache_lookup | corrupt / IO | warning + miss | Y → continue pipeline | transparent |
 | cache_store | IO failure | log warning | Y → still return result (uncached) | ok result, no cache |
-| thesis_agent | uncited claims | `UncitedClaimError` | Y → **retry once** (“cite or remove”); still bad → `status=error` | error / repair |
-| thesis_agent | dangling evidence_ids | `DanglingCitationError` | Y → reject; `status=error` | error JSON |
-| thesis_agent | empty / refuse | `ThesisGenerationError` | Y → `status=error` | error JSON |
+| thesis_agent | empty claims list | `EmptyClaimsError` | Y → **retry once** (must keep ≥1 claim when evidence exists); still empty → `status=error`, `error_code=THESIS_EMPTY_CLAIMS` | user message + evidence |
+| thesis_agent | uncited claims | `UncitedClaimError` | Y → **retry once** (“cite or remove that claim”); still bad → `status=error`, `error_code=THESIS_UNCITED` | user message + evidence |
+| thesis_agent | dangling evidence_ids | `DanglingCitationError` | Y → reject; `status=error`, `error_code=THESIS_DANGLING_CITATION` | user message + evidence |
+| thesis_agent | empty / refuse | `ThesisGenerationError` | Y → `status=error`, `error_code=THESIS_GENERATION_FAILED` | user message + evidence |
 
 Catch-all `except Exception` is **not** acceptable in tools or aggregator.
 
-**Thesis citation policy (3A):** On `UncitedClaimError` or schema citation failure, re-invoke `thesis_agent` once with repair instructions. If the second output still has uncited material claims or dangling IDs → `Phase0Result.status=error`, no thesis shipped.
+**Thesis citation policy (3A):** On `EmptyClaimsError`, `UncitedClaimError`, or dangling citation failure, re-invoke `thesis_agent` once with repair instructions (cite valid ids; do not return an empty claims list when evidence exists). If the second output still has empty claims, uncited material claims, or dangling IDs → `Phase0Result.status=error` with the matching `error_code`, no thesis shipped; evidence may still be attached for debuggability.
 
 ---
 
@@ -561,6 +564,7 @@ Phase 0 moves toward the ideal by proving the spine. It does not pretend the cat
 
 | Date | Change |
 |------|--------|
+| 2026-07-24 | Thesis empty-claims taxonomy: `EmptyClaimsError`, `Phase0ErrorCode`, user-readable thesis errors |
 | 2026-07-24 | Phase 2A: SEC EDGAR specialist (metadata) on evidence spine |
 | 2026-07-24 | Thin Phase 2 lock: SEC (2A) → scoring (2B); portfolio/memory deferred |
 | 2026-07-24 | Link product PRD from Related docs |
