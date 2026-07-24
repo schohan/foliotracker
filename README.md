@@ -2,6 +2,7 @@
 
 AI portfolio and stock research platform built on [Google ADK](https://adk.dev/).
 
+Product requirements: [docs/PRD.md](docs/PRD.md)  
 Architecture: [docs/architecture.md](docs/architecture.md)  
 Implementation status: [docs/implementation-status.md](docs/implementation-status.md)
 
@@ -9,7 +10,7 @@ Implementation status: [docs/implementation-status.md](docs/implementation-statu
 
 ```
 app/                 # ADK entrypoint + capability packages (agents, tools, workflows, services, schemas)
-docs/                # Architecture + implementation tracker
+docs/                # PRD, architecture, implementation tracker
 ```
 
 ## Setup

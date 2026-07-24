@@ -7,12 +7,14 @@ from datetime import datetime, timezone
 import pytest
 
 from app.schemas.evidence import BundleStatus, Evidence
+from app.schemas.filings import SecFiling, SecFilingsBatch
 from app.schemas.financials import FinancialMetrics
 from app.schemas.news import NewsArticle, NewsBatch
 from app.services.evidence import (
     EmptyEvidenceError,
     EmptyMetricsError,
     aggregate_evidence,
+    evidence_from_filings,
     evidence_from_metrics,
     evidence_from_news,
 )
@@ -62,6 +64,34 @@ def test_evidence_from_news_stable_ids() -> None:
     assert items[0].data["title"] == "NVDA beats estimates"
 
 
+def _sec_batch() -> SecFilingsBatch:
+    return SecFilingsBatch(
+        ticker="NVDA",
+        cik="0001045810",
+        company_name="NVIDIA CORP",
+        filings=[
+            SecFiling(
+                form="10-K",
+                filing_date=datetime(2026, 2, 26, tzinfo=timezone.utc).date(),
+                report_date=datetime(2026, 1, 26, tzinfo=timezone.utc).date(),
+                accession_number="0001045810-26-000055",
+                primary_document="nvda-20260126.htm",
+                url="https://www.sec.gov/Archives/edgar/data/1045810/000104581026000055/",
+            )
+        ],
+    )
+
+
+def test_evidence_from_filings_stable_ids() -> None:
+    items = evidence_from_filings(_sec_batch())
+    assert len(items) == 1
+    assert items[0].id.startswith("ev_sec_NVDA_")
+    assert items[0].type == "sec"
+    assert items[0].source == "SEC EDGAR"
+    assert items[0].confidence == 0.9
+    assert items[0].data["form"] == "10-K"
+
+
 def test_aggregator_multi_source_ok_when_aligned() -> None:
     metrics = FinancialMetrics(
         ticker="NVDA",
@@ -86,9 +116,10 @@ def test_aggregator_multi_source_ok_when_aligned() -> None:
             ],
         )
     )
-    bundle = aggregate_evidence("NVDA", [fin, *news])
+    sec = evidence_from_filings(_sec_batch())
+    bundle = aggregate_evidence("NVDA", [fin, *news, *sec])
     assert bundle.ticker == "NVDA"
-    assert len(bundle.items) >= 2
+    assert len(bundle.items) >= 3
     assert bundle.status == BundleStatus.OK
     assert bundle.conflicts == []
 
@@ -185,9 +216,81 @@ def test_aggregator_news_failed_marks_partial() -> None:
             debt_to_equity=0.1,
         )
     )
-    bundle = aggregate_evidence("NVDA", [fin], news_failed=True)
+    sec = evidence_from_filings(_sec_batch())
+    bundle = aggregate_evidence("NVDA", [fin, *sec], news_failed=True)
     assert bundle.status == BundleStatus.PARTIAL
-    assert len(bundle.items) == 1
+    assert len(bundle.items) == 2
+
+
+def test_aggregator_sec_failed_marks_partial() -> None:
+    fin = evidence_from_metrics(
+        FinancialMetrics(
+            ticker="NVDA",
+            revenue_growth=0.1,
+            pe_ratio=20.0,
+            gross_margin=0.5,
+            market_cap=1e12,
+            operating_margin=0.3,
+            free_cash_flow=1e9,
+            debt_to_equity=0.1,
+        )
+    )
+    news = evidence_from_news(
+        NewsBatch(
+            ticker="NVDA",
+            articles=[
+                NewsArticle(
+                    title="NVDA growth continues as AI demand stays strong",
+                    url="https://example.com/pos",
+                )
+            ],
+        )
+    )
+    bundle = aggregate_evidence("NVDA", [fin, *news], sec_failed=True)
+    assert bundle.status == BundleStatus.PARTIAL
+
+
+def test_aggregator_conflict_material_event() -> None:
+    fin = evidence_from_metrics(
+        FinancialMetrics(
+            ticker="NVDA",
+            revenue_growth=0.1,
+            pe_ratio=20.0,
+            gross_margin=0.5,
+            market_cap=1e12,
+            operating_margin=0.3,
+            free_cash_flow=1e9,
+            debt_to_equity=0.1,
+        )
+    )
+    news = evidence_from_news(
+        NewsBatch(
+            ticker="NVDA",
+            articles=[
+                NewsArticle(
+                    title="NVDA stock surges on strong demand",
+                    url="https://example.com/pos",
+                )
+            ],
+        )
+    )
+    sec = evidence_from_filings(
+        SecFilingsBatch(
+            ticker="NVDA",
+            cik="0001045810",
+            filings=[
+                SecFiling(
+                    form="8-K",
+                    filing_date=datetime(2026, 7, 1).date(),
+                    accession_number="0001045810-26-000111",
+                    url="https://www.sec.gov/Archives/edgar/data/1045810/000104581026000111/",
+                )
+            ],
+        )
+    )
+    bundle = aggregate_evidence("NVDA", [fin, *news, *sec])
+    assert bundle.status == BundleStatus.PARTIAL
+    assert any(c.topic == "material_event" for c in bundle.conflicts)
 
 
 def test_aggregator_empty_list_raises() -> None:

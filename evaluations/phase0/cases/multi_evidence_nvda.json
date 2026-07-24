@@ -1,6 +1,6 @@
 {
   "id": "multi_evidence_nvda",
-  "description": "Multi-source bundle: financial + news; thesis must cite only fixture evidence ids.",
+  "description": "Multi-source bundle: financial + news + SEC; thesis must cite only fixture evidence ids.",
   "input": {
     "ticker": "NVDA",
     "evidence_bundle": {
@@ -37,6 +37,22 @@
             "publisher": "Example Wire",
             "published_at": "2026-07-20T12:00:00+00:00",
             "url": "https://example.com/nvda-ai-demand"
+          }
+        },
+        {
+          "id": "ev_sec_NVDA_1",
+          "type": "sec",
+          "source": "SEC EDGAR",
+          "confidence": 0.9,
+          "citation": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000055/",
+          "data": {
+            "ticker": "NVDA",
+            "cik": "0001045810",
+            "form": "10-K",
+            "filing_date": "2026-02-26",
+            "accession_number": "0001045810-26-000055",
+            "title": "10-K filed 2026-02-26",
+            "url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000055/"
           }
         }
       ]

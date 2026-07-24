@@ -2,9 +2,24 @@
 
 Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + aggregator conflicts) is implemented — see [docs/architecture.md](docs/architecture.md).
 
-## Phase 2 — Product depth
+**Phase 2 lock (2026-07-24):** Thin Phase 2 = **SEC specialist → scoring service**. Portfolio and cache/memory deferred to later.
 
-### Scoring service (Growth / Value / Moat / Risk / …)
+## Phase 2 — Product depth (in progress)
+
+### SEC specialist agent — **DONE (2A, 2026-07-24)**
+
+**What:** Add SEC filings specialist beside Yahoo + news.
+
+**Why:** Completes multi-domain research with primary filings evidence.
+
+**Context:** EDGAR metadata tool + `evidence_from_filings` wired into pipeline fan-out and aggregator (`material_event` conflict). `sec_xbrl` remains stubbed.
+
+**Effort:** L  
+**Priority:** P2  
+**Depends on:** Phase 1 aggregator + conflict model  
+**Status:** Done
+
+### Scoring service (Growth / Value / Moat / Risk / …) — **NEXT (2B)**
 
 **What:** Deterministic scoring from evidence/metrics; never LLM arithmetic.
 
@@ -14,7 +29,9 @@ Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + 
 
 **Effort:** M  
 **Priority:** P2  
-**Depends on:** Phase 0 financial evidence path stable
+**Depends on:** Phase 0 financial evidence path stable; prefer after SEC so scores can later cite filings
+
+## Deferred beyond Phase 2
 
 ### Portfolio / correlation layer
 
@@ -22,11 +39,11 @@ Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + 
 
 **Why:** Product is FolioTracker; Phase 0 is single-ticker only.
 
-**Context:** `portfolio_agent` stub exists. Needs portfolio schemas, batch evidence, and risk services. Do not start until single-ticker spine is trusted.
+**Context:** `portfolio_agent` stub exists. Needs portfolio schemas, batch evidence, and risk services. Do not start until single-ticker spine + scoring are trusted.
 
 **Effort:** XL  
 **Priority:** P2  
-**Depends on:** Phase 0 + preferably scoring
+**Depends on:** Thin Phase 2 (SEC + scoring)
 
 ### Cache / memory beyond Phase 0 TTL files
 
@@ -39,18 +56,6 @@ Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + 
 **Effort:** M  
 **Priority:** P3  
 **Depends on:** Phase 0 cache proven in use
-
-### SEC specialist agent
-
-**What:** Add SEC filings specialist beside Yahoo + news.
-
-**Why:** Completes multi-domain research with primary filings evidence.
-
-**Context:** Stubs under `app/agents/governance/sec_agent.py` and `app/tools/filings/`. Wire into pipeline fan-out and aggregator conflict topics.
-
-**Effort:** L  
-**Priority:** P2  
-**Depends on:** Phase 1 aggregator + conflict model
 
 ## Phase 3 — Platform
 
@@ -91,6 +96,12 @@ Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + 
 **Depends on:** Custom API or hosted ADK decision
 
 ## Completed
+
+### Phase 2A — SEC specialist (2026-07-24)
+
+- `sec_edgar` tool (ticker→CIK→recent 10-K/10-Q/8-K metadata)
+- `evidence_from_filings` + SEC cap + `material_event` conflict topic
+- Pipeline fan-out Yahoo + news + SEC; SEC-only failure → `partial`
 
 ### Phase 1 — Evidence spine expansion (2026-07-24)
 

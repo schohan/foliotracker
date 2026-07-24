@@ -14,6 +14,7 @@ from app.schemas.evidence import (
     EvidenceBundle,
     EvidenceConflict,
 )
+from app.schemas.filings import SecFilingsBatch
 from app.schemas.financials import FinancialMetrics
 from app.schemas.news import NewsBatch
 
@@ -23,6 +24,9 @@ YAHOO_SOURCE = "Yahoo Finance"
 YAHOO_CONFIDENCE = 0.95
 NEWS_SOURCE = "Google News"
 NEWS_CONFIDENCE = 0.7
+SEC_SOURCE = "SEC EDGAR"
+SEC_CONFIDENCE = 0.9
+_MATERIAL_EVENT_FORMS = frozenset({"8-K", "8-K/A"})
 
 _POSITIVE_CUES = frozenset(
     {
@@ -125,6 +129,13 @@ def news_evidence_id_for(ticker: str, data: dict) -> str:
     return f"ev_news_{ticker}_{digest}"
 
 
+def sec_evidence_id_for(ticker: str, data: dict) -> str:
+    digest = hashlib.sha256(
+        repr(sorted((k, v) for k, v in data.items())).encode("utf-8")
+    ).hexdigest()[:10]
+    return f"ev_sec_{ticker}_{digest}"
+
+
 def evidence_from_metrics(metrics: FinancialMetrics) -> Evidence:
     """Convert FinancialMetrics into a single financial Evidence item."""
     if not _has_any_metric(metrics):
@@ -165,6 +176,44 @@ def evidence_from_news(batch: NewsBatch) -> list[Evidence]:
                 confidence=NEWS_CONFIDENCE,
                 timestamp=datetime.now(timezone.utc),
                 citation=article.url,
+                data=data,
+            )
+        )
+    return items
+
+
+def evidence_from_filings(batch: SecFilingsBatch) -> list[Evidence]:
+    """Convert SecFilingsBatch into sec Evidence items (one per filing)."""
+    items: list[Evidence] = []
+    for filing in batch.filings:
+        filing_date = (
+            filing.filing_date.isoformat() if filing.filing_date is not None else None
+        )
+        report_date = (
+            filing.report_date.isoformat() if filing.report_date is not None else None
+        )
+        title = f"{filing.form} filed {filing_date or 'unknown date'}"
+        data = {
+            "ticker": batch.ticker,
+            "cik": batch.cik,
+            "company_name": batch.company_name,
+            "form": filing.form,
+            "filing_date": filing_date,
+            "report_date": report_date,
+            "accession_number": filing.accession_number,
+            "primary_document": filing.primary_document,
+            "title": title,
+            "url": filing.url,
+        }
+        eid = sec_evidence_id_for(batch.ticker, data)
+        items.append(
+            Evidence(
+                id=eid,
+                type="sec",
+                source=SEC_SOURCE,
+                confidence=SEC_CONFIDENCE,
+                timestamp=datetime.now(timezone.utc),
+                citation=filing.url,
                 data=data,
             )
         )
@@ -244,10 +293,28 @@ def _cap_news(items: list[Evidence], max_articles: int) -> list[Evidence]:
     return financial + news_sorted + other
 
 
+def _cap_sec(items: list[Evidence], max_filings: int) -> list[Evidence]:
+    sec = [i for i in items if i.type == "sec"]
+    other = [i for i in items if i.type != "sec"]
+
+    def filing_key(ev: Evidence) -> float:
+        raw = ev.data.get("filing_date")
+        if isinstance(raw, str):
+            try:
+                return datetime.fromisoformat(raw).timestamp()
+            except ValueError:
+                pass
+        return ev.timestamp.timestamp() if ev.timestamp else 0.0
+
+    sec_sorted = sorted(sec, key=filing_key, reverse=True)[:max_filings]
+    return other + sec_sorted
+
+
 def _detect_conflicts(items: list[Evidence]) -> list[EvidenceConflict]:
     conflicts: list[EvidenceConflict] = []
     news = [i for i in items if i.type == "news"]
     financial = [i for i in items if i.type == "financial"]
+    sec = [i for i in items if i.type == "sec"]
 
     # News vs news opposing headline tones
     pos_news = [i for i in news if _headline_tone(str(i.data.get("title") or "")) == "positive"]
@@ -325,6 +392,27 @@ def _detect_conflicts(items: list[Evidence]) -> list[EvidenceConflict]:
                 )
             )
 
+    # Recent 8-K material event vs upbeat headlines
+    material_sec = [
+        i for i in sec if str(i.data.get("form") or "") in _MATERIAL_EVENT_FORMS
+    ]
+    if material_sec and pos_news:
+        ids = [material_sec[0].id, pos_news[0].id]
+        digest = hashlib.sha256("|".join(sorted(ids)).encode()).hexdigest()[:8]
+        conflicts.append(
+            EvidenceConflict(
+                id=f"conflict_material_event_{digest}",
+                topic="material_event",
+                item_ids=ids,
+                summary=(
+                    "A recent 8-K material-event filing is present while news "
+                    "headlines carry positive cues — verify the event before "
+                    "treating coverage as confirmatory."
+                ),
+                severity="info",
+            )
+        )
+
     return conflicts
 
 
@@ -333,10 +421,12 @@ def aggregate_evidence(
     items: list[Evidence],
     *,
     news_failed: bool = False,
+    sec_failed: bool = False,
     max_news_articles: int | None = None,
+    max_sec_filings: int | None = None,
 ) -> EvidenceBundle:
-    """Merge evidence: dedupe, cap news, detect conflicts, assign status."""
-    if not items and not news_failed:
+    """Merge evidence: dedupe, cap news/SEC, detect conflicts, assign status."""
+    if not items and not news_failed and not sec_failed:
         raise EmptyEvidenceError(f"no evidence for {ticker}")
     if not items:
         raise EmptyEvidenceError(f"no evidence for {ticker}")
@@ -346,30 +436,42 @@ def aggregate_evidence(
         if max_news_articles is not None
         else settings.news_max_articles
     )
+    max_sec = (
+        max_sec_filings
+        if max_sec_filings is not None
+        else settings.sec_max_filings
+    )
 
     merged = _dedupe_items(list(items))
     merged = _cap_news(merged, max_n)
+    merged = _cap_sec(merged, max_sec)
     conflicts = _detect_conflicts(merged)
 
     financial_items = [i for i in merged if i.type == "financial"]
     news_items = [i for i in merged if i.type == "news"]
+    sec_items = [i for i in merged if i.type == "sec"]
     partial = False
     if any(_financial_partial(i) for i in financial_items):
         partial = True
     if news_failed or not news_items:
         # Multi-source spine expects news; missing/failed news → partial
         partial = True
+    if sec_failed or not sec_items:
+        # Thin Phase 2 expects SEC filings; missing/failed SEC → partial
+        partial = True
     if conflicts:
         partial = True
 
     status = BundleStatus.PARTIAL if partial else BundleStatus.OK
     logger.info(
-        "aggregate_ok ticker=%s items=%s conflicts=%s status=%s news_failed=%s",
+        "aggregate_ok ticker=%s items=%s conflicts=%s status=%s "
+        "news_failed=%s sec_failed=%s",
         ticker,
         len(merged),
         len(conflicts),
         status.value,
         news_failed,
+        sec_failed,
     )
     return EvidenceBundle(
         ticker=ticker,

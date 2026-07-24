@@ -21,6 +21,9 @@ class Settings:
     yahoo_timeout_seconds: int = 15
     news_timeout_seconds: int = 15
     news_max_articles: int = 5
+    sec_timeout_seconds: int = 15
+    sec_max_filings: int = 5
+    sec_user_agent: str = "FolioTracker contact@example.com"
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -41,6 +44,12 @@ class Settings:
             yahoo_timeout_seconds=int(os.getenv("YAHOO_TIMEOUT_SECONDS", "15")),
             news_timeout_seconds=int(os.getenv("NEWS_TIMEOUT_SECONDS", "15")),
             news_max_articles=int(os.getenv("NEWS_MAX_ARTICLES", "5")),
+            sec_timeout_seconds=int(os.getenv("SEC_TIMEOUT_SECONDS", "15")),
+            sec_max_filings=int(os.getenv("SEC_MAX_FILINGS", "5")),
+            sec_user_agent=os.getenv(
+                "SEC_USER_AGENT",
+                "FolioTracker contact@example.com",
+            ),
         )
 
 

@@ -48,7 +48,7 @@ Rules:
 - Do NOT invent numeric metrics not present in evidence data.
 - If a field is null in evidence, do not claim a value for it.
 - Prefer 2-5 claims.
-- Cite both financial and news evidence ids when both are present.
+- Cite financial, news, and SEC evidence ids when those types are present.
 - If the bundle includes a non-empty "conflicts" list, do NOT silently average
   disagreeing sources. Acknowledge each conflict in thesis or claims/key_risks,
   and cite the conflict's item_ids (the evidence ids listed on the conflict).
