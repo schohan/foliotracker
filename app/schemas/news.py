@@ -2,7 +2,25 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
+
+
+class NewsArticle(BaseModel):
+    """Single news article from a news tool."""
+
+    title: str
+    url: str
+    published_at: datetime | None = None
+    publisher: str | None = None
+
+
+class NewsBatch(BaseModel):
+    """Batch of news articles for a ticker."""
+
+    ticker: str
+    articles: list[NewsArticle] = Field(default_factory=list)
 
 
 class NewsSummary(BaseModel):

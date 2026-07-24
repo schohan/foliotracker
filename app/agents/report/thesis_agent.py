@@ -48,6 +48,10 @@ Rules:
 - Do NOT invent numeric metrics not present in evidence data.
 - If a field is null in evidence, do not claim a value for it.
 - Prefer 2-5 claims.
+- Cite both financial and news evidence ids when both are present.
+- If the bundle includes a non-empty "conflicts" list, do NOT silently average
+  disagreeing sources. Acknowledge each conflict in thesis or claims/key_risks,
+  and cite the conflict's item_ids (the evidence ids listed on the conflict).
 """
 
 
@@ -77,9 +81,15 @@ def _build_prompt(bundle: EvidenceBundle, *, repair: bool) -> str:
             "Cite evidence ids from the bundle or remove uncited claims. "
             "Do not invent ids.\n"
         )
+    conflict_line = ""
+    if payload.get("conflicts"):
+        conflict_line = (
+            "\nCONFLICTS PRESENT: Surface disagreements explicitly; "
+            "do not invent consensus. Cite the listed evidence item_ids.\n"
+        )
     return (
         f"You are FolioTracker's thesis agent. Ground every material claim in evidence.\n"
-        f"{repair_line}\n"
+        f"{repair_line}{conflict_line}\n"
         f"EvidenceBundle JSON:\n{json.dumps(payload, indent=2)}\n\n"
         f"{_THESIS_SCHEMA_HINT}"
     )

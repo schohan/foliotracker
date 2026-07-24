@@ -1,10 +1,11 @@
-"""Phase 0 end-to-end research pipeline."""
+"""Phase 0/1 end-to-end research pipeline."""
 
 from __future__ import annotations
 
 import logging
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from app.agents.report.thesis_agent import (
@@ -21,18 +22,27 @@ from app.services.evidence import (
     EmptyMetricsError,
     aggregate_evidence,
     evidence_from_metrics,
+    evidence_from_news,
 )
 from app.services.phase0_cache import cache_lookup, cache_store
 from app.services.phase0_session import new_research_session
 from app.tools.finance.yahoo_finance import (
     TickerNotFoundError,
-    ToolParseError,
-    ToolTimeoutError,
-    ToolUpstreamError,
+    ToolParseError as YahooParseError,
+    ToolTimeoutError as YahooTimeoutError,
+    ToolUpstreamError as YahooUpstreamError,
     fetch_financial_metrics,
+)
+from app.tools.news.google_news import (
+    ToolParseError as NewsParseError,
+    ToolTimeoutError as NewsTimeoutError,
+    ToolUpstreamError as NewsUpstreamError,
+    fetch_google_news,
 )
 
 logger = logging.getLogger(__name__)
+
+_NEWS_ERRORS = (NewsTimeoutError, NewsUpstreamError, NewsParseError)
 
 
 def _error_result(
@@ -61,7 +71,7 @@ def run_phase0_research(
     skip_cache: bool = False,
     model_caller: Any | None = None,
 ) -> Phase0Result:
-    """Run Phase 0: validate → cache → yahoo → evidence → thesis → cache store.
+    """Run research: validate → cache → yahoo+news → evidence → thesis → cache.
 
     Pure orchestration; safe to expose as an ADK tool.
     """
@@ -99,14 +109,50 @@ def run_phase0_research(
             )
             return hit
 
+    # Fan out Yahoo + Google News; Yahoo failure is fatal, news failure → partial
+    news_failed = False
+    news_batch = None
     try:
-        metrics = fetch_financial_metrics(normalized)
-        state["financial_metrics"] = metrics.model_dump()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            fut_yahoo = pool.submit(fetch_financial_metrics, normalized)
+            fut_news = pool.submit(fetch_google_news, normalized)
+            try:
+                metrics = fut_yahoo.result()
+            except (
+                YahooTimeoutError,
+                YahooUpstreamError,
+                TickerNotFoundError,
+                YahooParseError,
+                InvalidTickerError,
+            ) as exc:
+                # Cancel news; fail closed on Yahoo
+                fut_news.cancel()
+                result = _error_result(
+                    normalized, request_id, f"{type(exc).__name__}: {exc}"
+                )
+                logger.info(
+                    "pipeline_end request_id=%s ticker=%s status=error latency_ms=%.0f",
+                    request_id,
+                    normalized,
+                    (time.perf_counter() - started) * 1000,
+                )
+                return result
+
+            try:
+                news_batch = fut_news.result()
+            except _NEWS_ERRORS as exc:
+                news_failed = True
+                logger.warning(
+                    "news_failed request_id=%s ticker=%s err=%s",
+                    request_id,
+                    normalized,
+                    exc,
+                )
     except (
-        ToolTimeoutError,
-        ToolUpstreamError,
+        YahooTimeoutError,
+        YahooUpstreamError,
         TickerNotFoundError,
-        ToolParseError,
+        YahooParseError,
         InvalidTickerError,
     ) as exc:
         result = _error_result(normalized, request_id, f"{type(exc).__name__}: {exc}")
@@ -118,9 +164,19 @@ def run_phase0_research(
         )
         return result
 
+    state["financial_metrics"] = metrics.model_dump()
+    if news_batch is not None:
+        state["news_batch"] = news_batch.model_dump(mode="json")
+
     try:
-        evidence = evidence_from_metrics(metrics)
-        bundle = aggregate_evidence(normalized, [evidence])
+        evidence_items = [evidence_from_metrics(metrics)]
+        if news_batch is not None:
+            evidence_items.extend(evidence_from_news(news_batch))
+        bundle = aggregate_evidence(
+            normalized,
+            evidence_items,
+            news_failed=news_failed,
+        )
         state["evidence_bundle"] = bundle.model_dump(mode="json")
     except (EmptyMetricsError, EmptyEvidenceError) as exc:
         result = _error_result(normalized, request_id, f"{type(exc).__name__}: {exc}")
@@ -166,10 +222,11 @@ def run_phase0_research(
     state["cache_hit"] = False
 
     logger.info(
-        "pipeline_end request_id=%s ticker=%s status=%s cache_hit=false latency_ms=%.0f",
+        "pipeline_end request_id=%s ticker=%s status=%s cache_hit=false conflicts=%s latency_ms=%.0f",
         request_id,
         normalized,
         status.value,
+        len(bundle.conflicts),
         (time.perf_counter() - started) * 1000,
     )
     return result

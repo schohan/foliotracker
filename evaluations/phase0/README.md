@@ -18,19 +18,17 @@ evaluations/phase0/
 | `happy_nvda.json` | Full metrics → cited thesis only |
 | `partial_metrics.json` | Null fields → no claims on missing data |
 | `empty_bundle.json` | Hostile empty evidence → fail closed |
+| `multi_evidence_nvda.json` | Financial + news bundle → multi-source citations |
+| `conflict_nvda.json` | Conflicting headlines vs financials; conflict item_ids must resolve |
 
-## How to run (after thesis_agent exists)
+## How to run
 
 ```bash
 # NOT in default CI (CEO decision 7A)
-python -m evaluations.phase0.run   # to be added at impl time
-```
-
-Until the runner exists, review cases manually against the rubric in `rubrics/groundedness.md`.
-
-```bash
 python -m evaluations.phase0.run
 python -m evaluations.phase0.run --case happy_nvda
+python -m evaluations.phase0.run --case multi_evidence_nvda
+python -m evaluations.phase0.run --case conflict_nvda
 ```
 
 ## CI policy (7A)
@@ -40,8 +38,6 @@ python -m evaluations.phase0.run --case happy_nvda
 | `pytest tests/unit` | Always / CI |
 | LLM evals here | On-demand only |
 
-Acceptance specs under `tests/unit/test_yahoo_*.py`, `test_evidence_*.py`, `test_phase0_cache.py`, `test_session_clear.py` are **skipped** until implementation (`Phase 0 implementation pending`). They are the contract for implementers — remove the skip marker as each module lands.
-
 ## Pass bar
 
-All three cases meet groundedness rubric ≥ 4 before Phase 0 thesis is considered shippable.
+Cases meet groundedness rubric ≥ 4; conflict fixtures also require every conflict `item_ids` ⊆ bundle evidence ids.

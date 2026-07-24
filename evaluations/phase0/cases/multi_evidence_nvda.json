@@ -1,0 +1,54 @@
+{
+  "id": "multi_evidence_nvda",
+  "description": "Multi-source bundle: financial + news; thesis must cite only fixture evidence ids.",
+  "input": {
+    "ticker": "NVDA",
+    "evidence_bundle": {
+      "ticker": "NVDA",
+      "status": "ok",
+      "conflicts": [],
+      "items": [
+        {
+          "id": "ev_financial_NVDA_1",
+          "type": "financial",
+          "source": "Yahoo Finance",
+          "confidence": 0.95,
+          "citation": "https://finance.yahoo.com/quote/NVDA",
+          "data": {
+            "ticker": "NVDA",
+            "market_cap": 3000000000000,
+            "revenue_growth": 0.18,
+            "gross_margin": 0.75,
+            "operating_margin": 0.55,
+            "free_cash_flow": 25000000000,
+            "debt_to_equity": 0.2,
+            "pe_ratio": 45.0
+          }
+        },
+        {
+          "id": "ev_news_NVDA_1",
+          "type": "news",
+          "source": "Google News",
+          "confidence": 0.7,
+          "citation": "https://example.com/nvda-ai-demand",
+          "data": {
+            "ticker": "NVDA",
+            "title": "NVDA growth continues as AI demand stays strong",
+            "publisher": "Example Wire",
+            "published_at": "2026-07-20T12:00:00+00:00",
+            "url": "https://example.com/nvda-ai-demand"
+          }
+        }
+      ]
+    }
+  },
+  "expect": {
+    "status_in": ["ok", "partial"],
+    "all_claim_evidence_ids_in_bundle": true,
+    "conflict_item_ids_in_bundle": true,
+    "no_numbers_absent_from_evidence": true,
+    "disclaimer_present": true,
+    "cache_hit": false,
+    "request_id_present": true
+  }
+}

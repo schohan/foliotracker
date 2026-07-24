@@ -1,18 +1,21 @@
-"""Phase 0 pipeline with mocked Yahoo + thesis (no live network/LLM)."""
+"""Phase 0/1 pipeline with mocked Yahoo + news + thesis (no live network/LLM)."""
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 from app.configs.settings import Settings
 from app.schemas.financials import FinancialMetrics
+from app.schemas.news import NewsArticle, NewsBatch
 from app.schemas.phase0 import Phase0Status
 from app.schemas.report import InvestmentThesis, ThesisClaim
 from app.services import phase0_pipeline as pipe
-from app.services.evidence import evidence_from_metrics
+from app.services.evidence import evidence_from_metrics, evidence_from_news
 from app.services.phase0_pipeline import run_phase0_research
+from app.tools.news.google_news import ToolTimeoutError as NewsTimeoutError
 
 
 def _metrics() -> FinancialMetrics:
@@ -22,10 +25,27 @@ def _metrics() -> FinancialMetrics:
         revenue_growth=0.18,
         pe_ratio=40.0,
         gross_margin=0.7,
+        operating_margin=0.55,
+        free_cash_flow=2.5e10,
+        debt_to_equity=0.2,
     )
 
 
-def test_pipeline_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def _news() -> NewsBatch:
+    return NewsBatch(
+        ticker="NVDA",
+        articles=[
+            NewsArticle(
+                title="NVDA growth continues as AI demand stays strong",
+                url="https://example.com/nvda-news",
+                published_at=datetime(2026, 7, 20, tzinfo=timezone.utc),
+                publisher="Example",
+            )
+        ],
+    )
+
+
+def _patch_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
         pipe,
         "settings",
@@ -34,35 +54,80 @@ def test_pipeline_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
             phase0_cache_dir=tmp_path,
             phase0_cache_ttl_seconds=3600,
             yahoo_timeout_seconds=15,
+            news_timeout_seconds=15,
+            news_max_articles=5,
         ),
     )
+
+
+def test_pipeline_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_settings(monkeypatch, tmp_path)
     monkeypatch.setattr(pipe, "fetch_financial_metrics", lambda ticker, **k: _metrics())
+    monkeypatch.setattr(pipe, "fetch_google_news", lambda ticker, **k: _news())
 
     def fake_model(prompt: str) -> str:
-        ev = evidence_from_metrics(_metrics())
+        fin = evidence_from_metrics(_metrics())
+        news_items = evidence_from_news(_news())
         thesis = InvestmentThesis(
             ticker="NVDA",
             thesis="Growth is strong.",
             claims=[
                 ThesisClaim(
                     text="Revenue growth is 18%.",
-                    evidence_ids=[ev.id],
-                )
+                    evidence_ids=[fin.id],
+                ),
+                ThesisClaim(
+                    text="News notes continued AI demand.",
+                    evidence_ids=[news_items[0].id],
+                ),
             ],
         )
         return thesis.model_dump_json()
 
     result = run_phase0_research("nvda", model_caller=fake_model, skip_cache=True)
-    assert result.status in (Phase0Status.OK, Phase0Status.PARTIAL)
+    assert result.status == Phase0Status.OK
     assert result.cache_hit is False
     assert result.thesis is not None
     assert result.disclaimer
     assert result.request_id
     assert result.evidence is not None
+    assert len(result.evidence.items) >= 2
+    assert result.evidence.conflicts == []
 
     result2 = run_phase0_research("NVDA", model_caller=fake_model, skip_cache=False)
     assert result2.cache_hit is True
     assert result2.request_id != result.request_id
+
+
+def test_pipeline_news_timeout_yields_partial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_settings(monkeypatch, tmp_path)
+    monkeypatch.setattr(pipe, "fetch_financial_metrics", lambda ticker, **k: _metrics())
+
+    def boom(ticker: str, **k):
+        raise NewsTimeoutError("timeout")
+
+    monkeypatch.setattr(pipe, "fetch_google_news", boom)
+
+    def fake_model(prompt: str) -> str:
+        fin = evidence_from_metrics(_metrics())
+        thesis = InvestmentThesis(
+            ticker="NVDA",
+            thesis="Financials only.",
+            claims=[
+                ThesisClaim(text="Revenue growth is 18%.", evidence_ids=[fin.id]),
+            ],
+        )
+        return thesis.model_dump_json()
+
+    result = run_phase0_research("NVDA", model_caller=fake_model, skip_cache=True)
+    assert result.status == Phase0Status.PARTIAL
+    assert result.evidence is not None
+    assert len(result.evidence.items) == 1
+    assert result.evidence.items[0].type == "financial"
+    assert result.thesis is not None
+    assert result.error_message is None
 
 
 def test_pipeline_invalid_ticker() -> None:

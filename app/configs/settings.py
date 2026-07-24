@@ -19,6 +19,8 @@ class Settings:
     phase0_cache_ttl_seconds: int = 3600
     phase0_cache_dir: Path = Path(".cache/foliotracker/phase0")
     yahoo_timeout_seconds: int = 15
+    news_timeout_seconds: int = 15
+    news_max_articles: int = 5
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -37,6 +39,8 @@ class Settings:
             phase0_cache_ttl_seconds=int(ttl),
             phase0_cache_dir=Path(cache_dir),
             yahoo_timeout_seconds=int(os.getenv("YAHOO_TIMEOUT_SECONDS", "15")),
+            news_timeout_seconds=int(os.getenv("NEWS_TIMEOUT_SECONDS", "15")),
+            news_max_articles=int(os.getenv("NEWS_MAX_ARTICLES", "5")),
         )
 
 

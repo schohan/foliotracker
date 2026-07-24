@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -27,9 +27,20 @@ class Evidence(BaseModel):
     data: dict[str, Any] = Field(default_factory=dict)
 
 
+class EvidenceConflict(BaseModel):
+    """Deterministic disagreement between evidence items (no LLM)."""
+
+    id: str
+    topic: str = Field(description="Conflict topic, e.g. growth, margin, headline_tone")
+    item_ids: list[str] = Field(description="Disagreeing evidence ids")
+    summary: str = Field(description="Short deterministic description")
+    severity: Literal["info", "warn"] = "warn"
+
+
 class EvidenceBundle(BaseModel):
     """Collection of evidence for a single ticker or research session."""
 
     ticker: str
     items: list[Evidence] = Field(default_factory=list)
+    conflicts: list[EvidenceConflict] = Field(default_factory=list)
     status: BundleStatus = BundleStatus.OK

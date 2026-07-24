@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Phase 0 thin slice only (see architecture.md). Deferred work lives in [TODOS.md](../TODOS.md).
+**Active scope:** Phase 1 evidence spine (Yahoo + Google News + conflict aggregator) on the Phase 0 cited-thesis path. Deferred work lives in [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -24,12 +24,12 @@ Update this file whenever a module moves from stub → working.
 | ADK entrypoint (`app/`) | Done | `analyze_ticker` tool → Phase 0 pipeline |
 | Project config (`pyproject.toml`, `.env.example`) | Done | Includes yfinance + Phase 0 env vars |
 | Shared schemas (`app/schemas/`) | Done | Phase 0 contracts wired |
-| Evidence layer | Done | `evidence_from_metrics` + pass-through aggregate |
-| Evidence aggregator | Done | Pass-through only (Phase 0) |
-| Configs (`settings`, `models`) | Done | TTL, cache dir, Yahoo timeout |
+| Evidence layer | Done | `evidence_from_metrics` + `evidence_from_news` |
+| Evidence aggregator | Done | Dedupe, news cap, `EvidenceConflict`, status rules |
+| Configs (`settings`, `models`) | Done | TTL, cache dir, Yahoo + news timeouts, news max |
 | Memory layer | Todo | Stub classes only |
 | Cache runtime | Done | Local TTL file cache (`.cache/foliotracker/phase0/`) |
-| Evaluations framework | Done | Cases + rubric + `python -m evaluations.phase0.run` |
+| Evaluations framework | Done | Cases + rubric + `python -m evaluations.phase0.run` (incl. multi-evidence + conflict) |
 | Prompts library | Todo | Thesis prompt inline in thesis_agent |
 
 ---
@@ -67,7 +67,9 @@ Update this file whenever a module moves from stub → working.
 |----------|---------|--------|
 | Finance | `yahoo_finance` | Done (yfinance) |
 | Finance | `alpha_vantage`, `finnhub`, `polygon` | Todo |
-| Filings / search / web / news / social / ai / cache tools / persistence | — | Todo |
+| News | `google_news` | Done (RSS) |
+| News | `news_api` | Todo (stub) |
+| Filings / search / web / social / ai / cache tools / persistence | — | Todo |
 
 ---
 

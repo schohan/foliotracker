@@ -1,0 +1,83 @@
+{
+  "id": "conflict_nvda",
+  "description": "Conflicting news tone vs constructive financials; thesis must not invent consensus and must cite valid evidence ids.",
+  "input": {
+    "ticker": "NVDA",
+    "evidence_bundle": {
+      "ticker": "NVDA",
+      "status": "partial",
+      "conflicts": [
+        {
+          "id": "conflict_headline_tone_demo",
+          "topic": "headline_tone",
+          "item_ids": ["ev_news_NVDA_pos", "ev_news_NVDA_neg"],
+          "summary": "News headlines disagree on tone: positive vs negative cues in recent coverage.",
+          "severity": "warn"
+        },
+        {
+          "id": "conflict_growth_demo",
+          "topic": "growth",
+          "item_ids": ["ev_financial_NVDA_1", "ev_news_NVDA_neg"],
+          "summary": "Financial metrics look constructive while recent news headlines carry negative cues.",
+          "severity": "warn"
+        }
+      ],
+      "items": [
+        {
+          "id": "ev_financial_NVDA_1",
+          "type": "financial",
+          "source": "Yahoo Finance",
+          "confidence": 0.95,
+          "citation": "https://finance.yahoo.com/quote/NVDA",
+          "data": {
+            "ticker": "NVDA",
+            "market_cap": 3000000000000,
+            "revenue_growth": 0.18,
+            "gross_margin": 0.75,
+            "operating_margin": 0.55,
+            "free_cash_flow": 25000000000,
+            "debt_to_equity": 0.2,
+            "pe_ratio": 45.0
+          }
+        },
+        {
+          "id": "ev_news_NVDA_pos",
+          "type": "news",
+          "source": "Google News",
+          "confidence": 0.7,
+          "citation": "https://example.com/nvda-surge",
+          "data": {
+            "ticker": "NVDA",
+            "title": "NVDA stock surges on strong AI demand",
+            "publisher": "Bull Wire",
+            "published_at": "2026-07-20T12:00:00+00:00",
+            "url": "https://example.com/nvda-surge"
+          }
+        },
+        {
+          "id": "ev_news_NVDA_neg",
+          "type": "news",
+          "source": "Google News",
+          "confidence": 0.7,
+          "citation": "https://example.com/nvda-plunge",
+          "data": {
+            "ticker": "NVDA",
+            "title": "NVDA plunges after guidance cut",
+            "publisher": "Bear Wire",
+            "published_at": "2026-07-21T09:00:00+00:00",
+            "url": "https://example.com/nvda-plunge"
+          }
+        }
+      ]
+    }
+  },
+  "expect": {
+    "status_in": ["ok", "partial"],
+    "all_claim_evidence_ids_in_bundle": true,
+    "conflict_item_ids_in_bundle": true,
+    "no_numbers_absent_from_evidence": true,
+    "disclaimer_present": true,
+    "cache_hit": false,
+    "request_id_present": true
+  }
+}

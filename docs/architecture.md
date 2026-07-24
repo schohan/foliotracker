@@ -2,7 +2,7 @@
 
 AI portfolio / stock research on [Google ADK](https://adk.dev/).
 
-**Status:** Phase 0 (thin slice) is the only active build scope. The capability OS below remains the 12-month target; it is **not** in scope until Phase 0 ships and passes evals.
+**Status:** Phase 1 (news + real aggregator) is active on top of the Phase 0 cited-thesis spine. Deferred work remains in [TODOS.md](../TODOS.md).
 
 **Related:** [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -38,17 +38,29 @@ User provides a ticker → system returns **`EvidenceBundle` + `InvestmentThesis
 
 `financial_statement_agent` remains a deferred stub (future narrative/interpretation over statements). Phase 0 does **not** use it.
 
-### Explicitly NOT in scope (Phase 0)
+### Phase 1 additions (shipped on Phase 0 spine)
 
-- Company / news / SEC / technical / social / macro agents
-- Parallel multi-specialist fan-out and disagreement resolution
-- Real evidence graph, merge/dedupe across sources
+| Piece | Role |
+|-------|------|
+| `google_news` tool | Google News RSS → `NewsBatch` (no API key; no LLM) |
+| `evidence_from_news` service | Pure Python: articles → `Evidence` (`type=news`, confidence 0.7) |
+| Evidence aggregator (merge) | Dedupe, news cap, `EvidenceConflict` records; status `partial` on gaps/conflicts |
+| Pipeline fan-out | Yahoo + news via thread pool; news failure alone → financial-only `partial` |
+| Disagreement surface | `evidence.conflicts` on `Phase0Result` (JSON-first; no custom UI) |
+
+SEC specialist remains deferred (see TODOS).
+
+### Explicitly NOT in scope (Phase 0 historical — still deferred beyond Phase 1 news)
+
+- SEC / technical / social / macro agents
+- ADK `ParallelAgent` rewrite (Phase 1 uses Python thread-pool fan-out instead)
+- Full evidence graph edges / confidence calibration
 - Scoring service (Growth/Value/Moat/…)
 - Memory layers, Mongo, vector store (local TTL file cache **is** in Phase 0 — see below)
 - Portfolio / correlation / multi-ticker risk
 - Custom HTTP API / UI beyond `adk web`
 - Production deploy, dashboards, rate-limit platform
-- Web scraping paths (no prompt-injection surface in Phase 0)
+- Web scraping of article bodies (RSS headlines + URLs only in Phase 1)
 
 ---
 
@@ -72,16 +84,17 @@ User: "Analyze NVDA"
    HIT  │             │ MISS / expired
         ▼             ▼
   return cached   ┌───────────────────────────┐
-  Phase0Result    │ yahoo_finance tool        │
-  (skip Yahoo +   │ (no LLM)                  │
+  Phase0Result    │ yahoo_finance + google_news│
+  (skip tools +   │ (parallel; no LLM)         │
    LLM)           └─────────────┬─────────────┘
-                                │ metrics | ToolError
+                                │ metrics + news | ToolError
                                 ▼
                   ┌───────────────────────────┐
                   │ evidence_from_metrics     │  PURE PYTHON
-                  │ + evidence_aggregator     │
+                  │ evidence_from_news        │
+                  │ + evidence_aggregator     │  dedupe / conflicts
                   └─────────────┬─────────────┘
-                                │ EvidenceBundle
+                                │ EvidenceBundle (+ conflicts)
                                 ▼
                   ┌───────────────────────────┐
                   │ thesis_agent (+1 repair)  │  ONLY LLM step
@@ -120,23 +133,23 @@ INPUT ──▶ VALIDATE ──▶ TOOL ──▶ EVIDENCE ──▶ AGGREGATE �
 ### ADK mapping (Phase 0 only)
 
 ```
-root_agent = SequentialAgent (or Agent with fixed sub-agent order)
+root_agent = Agent with analyze_ticker tool → run_phase0_research
   1. ensure_ticker + clear session keys (5A)
   2. cache_lookup (Python — hit returns Phase0Result, skip rest)
-  3. run_yahoo_tool            (tool call)
-  4. evidence_from_metrics     (Python service)
-  5. evidence_aggregator       (Python service)
-  6. thesis_agent              (LLM + one citation repair)
-  7. cache_store               (Python — only status ok|partial)
+  3. fan-out: yahoo_finance + google_news (thread pool)
+  4. evidence_from_metrics / evidence_from_news (Python services)
+  5. evidence_aggregator (dedupe, conflicts, status)
+  6. thesis_agent (LLM + one citation repair; aware of conflicts)
+  7. cache_store (Python — only status ok|partial)
 ```
 
 Rules:
 
-- Prefer **SequentialAgent** for Phase 0 (one path, deterministic order).
-- Do **not** introduce ParallelAgent until a second specialist exists.
-- `evidence_from_metrics`, aggregator, and cache are **services**, not reasoning agents.
-- **Session (5A):** On each new research request, clear `financial_metrics`, `evidence_bundle`, `thesis`, `phase0_status`, then set `ticker`.
-- Session state keys: `ticker`, `financial_metrics`, `evidence_bundle`, `thesis`, `phase0_status`, `cache_hit`.
+- Prefer a single ADK tool + Python orchestrator for the research path.
+- Do **not** require ADK `ParallelAgent` while fan-out lives in the pipeline service.
+- Evidence builders, aggregator, and cache are **services**, not reasoning agents.
+- **Session (5A):** On each new research request, clear `financial_metrics`, `news_batch`, `evidence_bundle`, `thesis`, `phase0_status`, then set `ticker`.
+- Session state keys: `ticker`, `financial_metrics`, `news_batch`, `evidence_bundle`, `thesis`, `phase0_status`, `cache_hit`.
 
 ---
 
@@ -151,7 +164,7 @@ File-backed, process-local (and durable across `adk` restarts on the same machin
 | Store | Directory from settings, default `.cache/foliotracker/phase0/` (gitignored) |
 | File | `{ticker}.json` plus `cached_at` ISO timestamp inside payload or sidecar |
 | TTL | `PHASE0_CACHE_TTL_SECONDS` in settings (default **3600**) |
-| Hit | If `now - cached_at < TTL` → return cached result with `cache_hit=true`; skip Yahoo + thesis |
+| Hit | If `now - cached_at < TTL` → return cached result with `cache_hit=true`; skip tools + thesis |
 | Miss / expired | Full pipeline (`cache_hit=false`); on `ok`/`partial` write/overwrite cache and reset TTL clock |
 | Invalidate | TTL expiry only in Phase 0 (no manual bust API yet) |
 | Errors | Corrupt JSON / IO error → treat as miss, log warning, continue pipeline |
@@ -169,29 +182,31 @@ Do **not** use Redis/Mongo for Phase 0. Do **not** share cache across machines.
 
 ---
 
-### Evidence aggregator (Phase 0 contract)
+### Evidence aggregator (Phase 1 contract)
 
-Pass-through only. No cross-source merge.
+Merge across financial + news. Still pure Python (no LLM).
 
 ```
-FinancialMetrics
-      │
-      ▼
-Evidence(
-  id: "ev_financial_{ticker}_{hash_or_counter}",
-  type: "financial",
-  source: "Yahoo Finance",
-  confidence: 0.95,          # fixed for this source in Phase 0
-  citation: <yahoo url or tool ref>,
-  timestamp: now,
-  data: <metrics dict>
+FinancialMetrics ──▶ Evidence(type=financial, confidence=0.95)
+NewsBatch        ──▶ Evidence(type=news, confidence=0.7) × N
+        │
+        ▼
+  dedupe by (type, citation) or (type, normalized title)
+  cap news to NEWS_MAX_ARTICLES (default 5, newest first)
+  detect EvidenceConflict records (keyword heuristics)
+        │
+        ▼
+EvidenceBundle(
+  ticker,
+  items=[Evidence, ...],
+  conflicts=[EvidenceConflict, ...],
+  status=ok|partial|error
 )
-      │
-      ▼
-EvidenceBundle(ticker, items=[Evidence], status=ok|partial|error)
 ```
 
-**Later (not Phase 0):** dedupe keys, conflict records, confidence calibration, graph edges.
+**Status rules:** `error` only if zero items; `partial` if Yahoo metrics incomplete, news missing/failed, or any conflicts; else `ok`.
+
+**After Phase 1:** confidence calibration, graph edges, SEC specialist.
 
 ---
 
@@ -243,22 +258,27 @@ Fixed disclaimer copy (Phase 0):
 | `PHASE0_CACHE_TTL_SECONDS` | `3600` | Local result cache TTL |
 | `PHASE0_CACHE_DIR` | `.cache/foliotracker/phase0` | Cache directory (gitignored) |
 | `YAHOO_TIMEOUT_SECONDS` | `15` | Yahoo HTTP timeout (8A) |
+| `NEWS_TIMEOUT_SECONDS` | `15` | Google News RSS timeout |
+| `NEWS_MAX_ARTICLES` | `5` | Cap news evidence after dedupe |
 | `GOOGLE_API_KEY` | (required) | LLM |
 
 ### Security notes (Phase 0)
 
 - Secrets only in `.env` (never logged; redaction in tool/HTTP error logs).
 - Ticker validated to a strict pattern before tool call or prompt inclusion (e.g. `^[A-Z]{1,10}(\\.[A-Z]{1,3})?$`).
-- No web scrape in Phase 0 → no HTML/prompt-injection from page content.
+- Phase 1 news uses RSS headlines + URLs only (no article-body scrape → limited prompt-injection surface).
 - Every `Phase0Result` includes the fixed `disclaimer` field (4A).
 
-### Source trust (Phase 0)
+### Source trust
 
 | Source | Confidence | Notes |
 |--------|------------|-------|
-| Yahoo Finance (financial metrics) | `0.95` fixed | Only live source in Phase 0 |
+| Yahoo Finance (financial metrics) | `0.95` fixed | Primary financial source |
+| Google News (RSS headlines) | `0.7` fixed | Headlines only; lower trust than filings/metrics |
 
-No Reddit/news/SEC in this phase — no trust ladder required yet.
+SEC remains deferred — no filing trust ladder yet.
+
+**Cache note (Phase 1):** Bundle schema gained `conflicts`. Clear `.cache/foliotracker/phase0/` after upgrading if old cached JSON misbehaves; Pydantic defaults empty conflicts for missing keys.
 
 ---
 
@@ -496,13 +516,13 @@ Future composition (when Phase 0 is done): ETF, dividend, M&A, earnings preview,
 | Path dependency | Evidence + citation spine is the load-bearing choice — good |
 | 1-year readability | Phase 0 section at top of this doc is the on-ramp |
 
-**After Phase 0 ships:** second specialist (news or SEC) forces real aggregator merge + disagreement — that’s Phase 1, not sneaked into P0.
+**After Phase 0 shipped:** second specialist (news) forced real aggregator merge + disagreement — Phase 1. Next: SEC specialist, scoring, portfolio layer (see TODOS).
 
 ## Dream state delta
 
-| Now | After Phase 0 | 12-month ideal |
+| Now | After Phase 1 | 12-month ideal |
 |-----|---------------|----------------|
-| Stub root agent; empty modules | One cited financial thesis path + evals | Multi-domain evidence graph, portfolio, scoring, memory |
+| Yahoo + news cited thesis + conflicts | Multi-domain evidence spine with disagreement records | Full evidence graph, portfolio, scoring, memory |
 
 Phase 0 moves toward the ideal by proving the spine. It does not pretend the cathedral is built.
 
@@ -526,6 +546,7 @@ Phase 0 moves toward the ideal by proving the spine. It does not pretend the cat
 
 | Date | Change |
 |------|--------|
+| 2026-07-24 | Phase 1: Google News specialist, aggregator merge/conflicts, JSON disagreement surface |
 | 2026-07-21 | CEO review complete (REDUCTION): TODOS.md for Phase 1+; `.cache/` gitignored |
 | 2026-07-21 | CEO review: Phase0Result.request_id required (9A); new id on cache hit serves |
 | 2026-07-21 | CEO review: YAHOO_TIMEOUT_SECONDS=15 (8A); CI unit-only (7A); minimal structured logs |

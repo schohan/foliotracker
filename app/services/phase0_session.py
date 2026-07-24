@@ -8,6 +8,7 @@ from app.schemas.ticker import normalize_ticker
 
 _CLEAR_KEYS = (
     "financial_metrics",
+    "news_batch",
     "evidence_bundle",
     "thesis",
     "phase0_status",

@@ -14,17 +14,19 @@ logger = logging.getLogger(__name__)
 
 
 def analyze_ticker(ticker: str) -> dict:
-    """Run Phase 0 research for a stock ticker and return Phase0Result JSON.
+    """Run research for a stock ticker and return Phase0Result JSON.
 
-    Fetches Yahoo Finance metrics, builds cited evidence, generates an
-    investment thesis that must cite evidence ids, and uses a local TTL cache.
+    Fetches Yahoo Finance metrics and Google News headlines in parallel,
+    merges cited evidence (with conflict records when sources disagree),
+    generates an investment thesis that must cite evidence ids, and uses a
+    local TTL cache.
 
     Args:
         ticker: Equity symbol, e.g. NVDA or AAPL.
 
     Returns:
         Phase0Result as a JSON-serializable dict (always includes disclaimer,
-        cache_hit, and request_id).
+        cache_hit, and request_id). Evidence may include a conflicts list.
     """
     result = run_phase0_research(ticker)
     payload = result.model_dump(mode="json")
@@ -42,15 +44,17 @@ root_agent = Agent(
     name="portfolio_research_agent",
     model=settings.default_model,
     description=(
-        "Portfolio Research Agent — Phase 0: Yahoo financials → evidence → "
-        "cited investment thesis (with local TTL cache)."
+        "Portfolio Research Agent — Yahoo financials + Google News → "
+        "merged evidence (with conflicts) → cited investment thesis."
     ),
     instruction=(
-        "You are the FolioTracker Portfolio Research Agent (Phase 0).\n"
+        "You are the FolioTracker Portfolio Research Agent.\n"
         "When the user asks to research or analyze a stock, extract the ticker "
         "and call analyze_ticker.\n"
         "Return the tool JSON to the user clearly. Always surface status, "
         "disclaimer, request_id, and whether cache_hit was true.\n"
+        "If evidence.conflicts is non-empty, call out each conflict explicitly "
+        "instead of averaging sources into false consensus.\n"
         "If the user does not provide a ticker, ask for one.\n"
         "Do not invent financial metrics yourself — only use analyze_ticker.\n"
         "Remind users the output is not investment advice when presenting results."

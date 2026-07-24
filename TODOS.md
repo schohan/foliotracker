@@ -1,44 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21). Phase 0 thin slice is active — see [docs/architecture.md](docs/architecture.md). Do not pull these into Phase 0 without an explicit scope decision.
-
-## Phase 1 — Evidence spine expansion
-
-### Second specialist agent (news or SEC)
-
-**What:** Add one non-financial specialist and fan-out beside the Yahoo financial path.
-
-**Why:** Proves multi-domain research; forces real aggregation instead of pass-through.
-
-**Context:** Phase 0 has a single evidence source. Pick news *or* SEC first (not both). Wire via ADK ParallelAgent or sequential join into the aggregator. Update evals for multi-evidence citation.
-
-**Effort:** L  
-**Priority:** P1  
-**Depends on:** Phase 0 shipped (cited thesis path + evals green)
-
-### Evidence aggregator merge + conflict model
-
-**What:** Replace pass-through aggregator with dedupe, conflict records, and multi-item bundles.
-
-**Why:** Specialists will disagree; silent overwrite is a product bug.
-
-**Context:** Architecture names a “evidence graph” but Phase 0 is a flat list. Define merge keys, conflict schema, and thesis rules when evidence disagrees. Keep aggregator as a service (no LLM).
-
-**Effort:** L  
-**Priority:** P1  
-**Depends on:** Second specialist agent
-
-### Agent disagreement / adjudication UX
-
-**What:** Surface conflicting specialist conclusions to the user (or a human PM) instead of averaging them away.
-
-**Why:** FundaPod-style independence beats false consensus for investment research.
-
-**Context:** Not Phase 0. Requires conflict model first. Could be JSON conflict list before any UI.
-
-**Effort:** M  
-**Priority:** P2  
-**Depends on:** Evidence aggregator merge + conflict model
+Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + aggregator conflicts) is implemented — see [docs/architecture.md](docs/architecture.md).
 
 ## Phase 2 — Product depth
 
@@ -78,6 +40,18 @@ Deferred work from CEO plan review (2026-07-21). Phase 0 thin slice is active �
 **Priority:** P3  
 **Depends on:** Phase 0 cache proven in use
 
+### SEC specialist agent
+
+**What:** Add SEC filings specialist beside Yahoo + news.
+
+**Why:** Completes multi-domain research with primary filings evidence.
+
+**Context:** Stubs under `app/agents/governance/sec_agent.py` and `app/tools/filings/`. Wire into pipeline fan-out and aggregator conflict topics.
+
+**Effort:** L  
+**Priority:** P2  
+**Depends on:** Phase 1 aggregator + conflict model
+
 ## Phase 3 — Platform
 
 ### Custom API / UI beyond `adk web`
@@ -86,7 +60,7 @@ Deferred work from CEO plan review (2026-07-21). Phase 0 thin slice is active �
 
 **Why:** Real users won’t live in ADK’s default chat forever.
 
-**Context:** Run `/plan-design-review` before building UI. Keep Phase0Result as the contract.
+**Context:** Run `/plan-design-review` before building UI. Keep Phase0Result as the contract. Conflicts UI can render `evidence.conflicts`.
 
 **Effort:** L  
 **Priority:** P3  
@@ -118,4 +92,8 @@ Deferred work from CEO plan review (2026-07-21). Phase 0 thin slice is active �
 
 ## Completed
 
-_(none yet)_
+### Phase 1 — Evidence spine expansion (2026-07-24)
+
+- Second specialist agent (Google News RSS) beside Yahoo
+- Evidence aggregator merge + conflict model (`EvidenceConflict`, dedupe, news cap)
+- Agent disagreement / adjudication UX as JSON `evidence.conflicts` (no custom UI)

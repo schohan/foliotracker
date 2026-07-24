@@ -1,18 +1,78 @@
-"""Evidence builders — pure Python, no LLM."""
+"""Evidence builders and aggregator — pure Python, no LLM."""
 
 from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from datetime import datetime, timezone
 
-from app.schemas.evidence import BundleStatus, Evidence, EvidenceBundle
+from app.configs.settings import settings
+from app.schemas.evidence import (
+    BundleStatus,
+    Evidence,
+    EvidenceBundle,
+    EvidenceConflict,
+)
 from app.schemas.financials import FinancialMetrics
+from app.schemas.news import NewsBatch
 
 logger = logging.getLogger(__name__)
 
 YAHOO_SOURCE = "Yahoo Finance"
 YAHOO_CONFIDENCE = 0.95
+NEWS_SOURCE = "Google News"
+NEWS_CONFIDENCE = 0.7
+
+_POSITIVE_CUES = frozenset(
+    {
+        "surge",
+        "soar",
+        "beat",
+        "beats",
+        "growth",
+        "record",
+        "rally",
+        "upgrade",
+        "upgraded",
+        "profit",
+        "strong",
+        "outperform",
+        "bullish",
+        "gain",
+        "gains",
+        "rise",
+        "rises",
+        "jump",
+        "jumps",
+    }
+)
+_NEGATIVE_CUES = frozenset(
+    {
+        "plunge",
+        "plunges",
+        "miss",
+        "misses",
+        "cut",
+        "cuts",
+        "downgrade",
+        "downgraded",
+        "lawsuit",
+        "fraud",
+        "decline",
+        "weak",
+        "loss",
+        "losses",
+        "crash",
+        "fall",
+        "falls",
+        "drop",
+        "drops",
+        "bearish",
+        "slump",
+        "warning",
+    }
+)
 
 
 class EmptyMetricsError(ValueError):
@@ -58,6 +118,13 @@ def evidence_id_for(ticker: str, data: dict) -> str:
     return f"ev_financial_{ticker}_{digest}"
 
 
+def news_evidence_id_for(ticker: str, data: dict) -> str:
+    digest = hashlib.sha256(
+        repr(sorted((k, v) for k, v in data.items())).encode("utf-8")
+    ).hexdigest()[:10]
+    return f"ev_news_{ticker}_{digest}"
+
+
 def evidence_from_metrics(metrics: FinancialMetrics) -> Evidence:
     """Convert FinancialMetrics into a single financial Evidence item."""
     if not _has_any_metric(metrics):
@@ -76,30 +143,237 @@ def evidence_from_metrics(metrics: FinancialMetrics) -> Evidence:
     )
 
 
-def aggregate_evidence(ticker: str, items: list[Evidence]) -> EvidenceBundle:
-    """Pass-through aggregator — assigns bundle status, no cross-source merge."""
+def evidence_from_news(batch: NewsBatch) -> list[Evidence]:
+    """Convert a NewsBatch into news Evidence items (one per article)."""
+    items: list[Evidence] = []
+    for article in batch.articles:
+        published = article.published_at
+        published_iso = published.isoformat() if published is not None else None
+        data = {
+            "ticker": batch.ticker,
+            "title": article.title,
+            "publisher": article.publisher,
+            "published_at": published_iso,
+            "url": article.url,
+        }
+        eid = news_evidence_id_for(batch.ticker, data)
+        items.append(
+            Evidence(
+                id=eid,
+                type="news",
+                source=NEWS_SOURCE,
+                confidence=NEWS_CONFIDENCE,
+                timestamp=datetime.now(timezone.utc),
+                citation=article.url,
+                data=data,
+            )
+        )
+    return items
+
+
+def _normalize_title(title: str) -> str:
+    return re.sub(r"\s+", " ", title.strip().lower())
+
+
+def _headline_tone(title: str) -> str | None:
+    """Return 'positive', 'negative', or None from simple keyword cues."""
+    tokens = set(re.findall(r"[a-z]+", title.lower()))
+    pos = bool(tokens & _POSITIVE_CUES)
+    neg = bool(tokens & _NEGATIVE_CUES)
+    if pos and not neg:
+        return "positive"
+    if neg and not pos:
+        return "negative"
+    return None
+
+
+def _financial_partial(item: Evidence) -> bool:
+    values = [v for k, v in item.data.items() if k != "ticker"]
+    if not values:
+        return True
+    return any(v is None for v in values)
+
+
+def _dedupe_items(items: list[Evidence]) -> list[Evidence]:
+    """Dedupe by (type, citation) or (type, normalized title); keep best."""
+
+    def score(ev: Evidence) -> tuple[float, float]:
+        ts = ev.timestamp.timestamp() if ev.timestamp else 0.0
+        return (ev.confidence, ts)
+
+    def matches(a: Evidence, b: Evidence) -> bool:
+        if a.type != b.type:
+            return False
+        if (
+            a.citation
+            and b.citation
+            and a.citation.strip().lower() == b.citation.strip().lower()
+        ):
+            return True
+        title_a = a.data.get("title")
+        title_b = b.data.get("title")
+        if isinstance(title_a, str) and isinstance(title_b, str):
+            return _normalize_title(title_a) == _normalize_title(title_b)
+        return False
+
+    winners: list[Evidence] = []
+    for item in items:
+        idx = next((i for i, w in enumerate(winners) if matches(w, item)), None)
+        if idx is None:
+            winners.append(item)
+        elif score(item) > score(winners[idx]):
+            winners[idx] = item
+    return winners
+
+
+def _cap_news(items: list[Evidence], max_articles: int) -> list[Evidence]:
+    financial = [i for i in items if i.type == "financial"]
+    news = [i for i in items if i.type == "news"]
+    other = [i for i in items if i.type not in ("financial", "news")]
+
+    def published_key(ev: Evidence) -> float:
+        raw = ev.data.get("published_at")
+        if isinstance(raw, str):
+            try:
+                return datetime.fromisoformat(raw).timestamp()
+            except ValueError:
+                pass
+        return ev.timestamp.timestamp() if ev.timestamp else 0.0
+
+    news_sorted = sorted(news, key=published_key, reverse=True)[:max_articles]
+    return financial + news_sorted + other
+
+
+def _detect_conflicts(items: list[Evidence]) -> list[EvidenceConflict]:
+    conflicts: list[EvidenceConflict] = []
+    news = [i for i in items if i.type == "news"]
+    financial = [i for i in items if i.type == "financial"]
+
+    # News vs news opposing headline tones
+    pos_news = [i for i in news if _headline_tone(str(i.data.get("title") or "")) == "positive"]
+    neg_news = [i for i in news if _headline_tone(str(i.data.get("title") or "")) == "negative"]
+    if pos_news and neg_news:
+        ids = [pos_news[0].id, neg_news[0].id]
+        digest = hashlib.sha256("|".join(sorted(ids)).encode()).hexdigest()[:8]
+        conflicts.append(
+            EvidenceConflict(
+                id=f"conflict_headline_tone_{digest}",
+                topic="headline_tone",
+                item_ids=ids,
+                summary=(
+                    "News headlines disagree on tone: positive vs negative cues "
+                    "in recent coverage."
+                ),
+                severity="warn",
+            )
+        )
+
+    # News tone vs financial growth / margin signals
+    if financial and news:
+        fin = financial[0]
+        growth = fin.data.get("revenue_growth")
+        gross = fin.data.get("gross_margin")
+        fin_positive = (isinstance(growth, (int, float)) and growth > 0) or (
+            isinstance(gross, (int, float)) and gross > 0.4
+        )
+        fin_negative = isinstance(growth, (int, float)) and growth < 0
+
+        if fin_positive and neg_news:
+            ids = [fin.id, neg_news[0].id]
+            digest = hashlib.sha256("|".join(sorted(ids)).encode()).hexdigest()[:8]
+            conflicts.append(
+                EvidenceConflict(
+                    id=f"conflict_growth_{digest}",
+                    topic="growth",
+                    item_ids=ids,
+                    summary=(
+                        "Financial metrics look constructive while recent news "
+                        "headlines carry negative cues."
+                    ),
+                    severity="warn",
+                )
+            )
+        if fin_negative and pos_news:
+            ids = [fin.id, pos_news[0].id]
+            digest = hashlib.sha256("|".join(sorted(ids)).encode()).hexdigest()[:8]
+            conflicts.append(
+                EvidenceConflict(
+                    id=f"conflict_growth_{digest}",
+                    topic="growth",
+                    item_ids=ids,
+                    summary=(
+                        "Financial growth is negative while recent news headlines "
+                        "carry positive cues."
+                    ),
+                    severity="warn",
+                )
+            )
+
+        if isinstance(gross, (int, float)) and gross < 0.2 and pos_news:
+            ids = [fin.id, pos_news[0].id]
+            digest = hashlib.sha256("|".join(sorted(ids)).encode()).hexdigest()[:8]
+            conflicts.append(
+                EvidenceConflict(
+                    id=f"conflict_margin_{digest}",
+                    topic="margin",
+                    item_ids=ids,
+                    summary=(
+                        "Gross margin is weak while news headlines carry "
+                        "positive cues."
+                    ),
+                    severity="info",
+                )
+            )
+
+    return conflicts
+
+
+def aggregate_evidence(
+    ticker: str,
+    items: list[Evidence],
+    *,
+    news_failed: bool = False,
+    max_news_articles: int | None = None,
+) -> EvidenceBundle:
+    """Merge evidence: dedupe, cap news, detect conflicts, assign status."""
+    if not items and not news_failed:
+        raise EmptyEvidenceError(f"no evidence for {ticker}")
     if not items:
         raise EmptyEvidenceError(f"no evidence for {ticker}")
 
-    # partial if any financial item has mostly nulls in data
+    max_n = (
+        max_news_articles
+        if max_news_articles is not None
+        else settings.news_max_articles
+    )
+
+    merged = _dedupe_items(list(items))
+    merged = _cap_news(merged, max_n)
+    conflicts = _detect_conflicts(merged)
+
+    financial_items = [i for i in merged if i.type == "financial"]
+    news_items = [i for i in merged if i.type == "news"]
     partial = False
-    for item in items:
-        if item.type == "financial":
-            values = [
-                v
-                for k, v in item.data.items()
-                if k != "ticker"
-            ]
-            if values and all(v is None for v in values):
-                partial = True
-            elif values and any(v is None for v in values):
-                partial = True
+    if any(_financial_partial(i) for i in financial_items):
+        partial = True
+    if news_failed or not news_items:
+        # Multi-source spine expects news; missing/failed news → partial
+        partial = True
+    if conflicts:
+        partial = True
 
     status = BundleStatus.PARTIAL if partial else BundleStatus.OK
     logger.info(
-        "aggregate_ok ticker=%s items=%s status=%s",
+        "aggregate_ok ticker=%s items=%s conflicts=%s status=%s news_failed=%s",
         ticker,
-        len(items),
+        len(merged),
+        len(conflicts),
         status.value,
+        news_failed,
     )
-    return EvidenceBundle(ticker=ticker, items=list(items), status=status)
+    return EvidenceBundle(
+        ticker=ticker,
+        items=merged,
+        conflicts=conflicts,
+        status=status,
+    )

@@ -47,6 +47,15 @@ def _score_case(case: dict, result: Phase0Result) -> tuple[bool, list[str]]:
             if missing:
                 problems.append(f"dangling ids: {missing}")
 
+    if expect.get("conflict_item_ids_in_bundle") and result.evidence:
+        known = {i.id for i in result.evidence.items}
+        for conflict in result.evidence.conflicts:
+            missing = set(conflict.item_ids) - known
+            if missing:
+                problems.append(
+                    f"conflict {conflict.id} dangling item_ids: {missing}"
+                )
+
     if expect.get("thesis_null_or_no_material_claims"):
         if result.thesis and result.thesis.claims:
             problems.append("expected no material thesis claims for empty bundle")

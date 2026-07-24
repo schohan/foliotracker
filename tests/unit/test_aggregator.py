@@ -1,1 +1,1 @@
-"""Alias module — aggregator specs live with evidence_from_metrics tests."""
+"""Aggregator specs — see test_evidence_from_metrics for merge/conflict coverage."""
