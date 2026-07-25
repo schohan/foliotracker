@@ -74,3 +74,17 @@ def test_nested_balance_sheet_gap() -> None:
     assert snap.balance_sheet is not None
     snap.balance_sheet.total_assets = None
     assert missing_minimum_fundamentals(snap) == ["balance_sheet.total_assets"]
+
+
+def test_missing_cash_flow_object() -> None:
+    snap = _full_snapshot()
+    snap.cash_flow = None
+    assert "cash_flow" in missing_minimum_fundamentals(snap)
+    assert has_minimum_fundamentals(snap) is False
+
+
+def test_missing_scalar_gross_margin() -> None:
+    snap = _full_snapshot()
+    snap.gross_margin = None
+    assert missing_minimum_fundamentals(snap) == ["gross_margin"]
+    assert has_minimum_fundamentals(snap) is False

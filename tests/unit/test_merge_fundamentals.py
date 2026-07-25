@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from app.schemas.financials import FinancialMetrics, PeriodMetric, StatementSummary
+from app.schemas.financials import (
+    CompanyProfile,
+    FinancialMetrics,
+    PeriodMetric,
+    PriceReturns,
+    StatementSummary,
+)
 from app.services.merge_fundamentals import (
     ProviderSnapshot,
     merge_fundamentals,
@@ -113,3 +119,72 @@ def test_list_fill_from_sec() -> None:
         ticker="AAPL",
     )
     assert len(result.snapshot.earnings_history) == 1
+
+
+def test_market_field_disagreement_prefers_yahoo() -> None:
+    yahoo = FinancialMetrics(ticker="AAPL", pe_ratio=25.0, source_id=SOURCE_YAHOO)
+    sec = FinancialMetrics(ticker="AAPL", pe_ratio=40.0, source_id=SOURCE_SEC_XBRL)
+    result = merge_fundamentals(
+        [
+            ProviderSnapshot(SOURCE_YAHOO, yahoo),
+            ProviderSnapshot(SOURCE_SEC_XBRL, sec),
+        ],
+        ticker="AAPL",
+    )
+    assert result.snapshot.pe_ratio == 25.0
+    assert result.snapshot.field_provenance["pe_ratio"].source_id == SOURCE_YAHOO
+    pe_conflicts = [c for c in result.conflicts if c.field_path == "pe_ratio"]
+    assert len(pe_conflicts) == 1
+    assert pe_conflicts[0].chosen_source_id == SOURCE_YAHOO
+
+
+def test_float_within_tolerance_no_conflict() -> None:
+    yahoo = FinancialMetrics(ticker="AAPL", total_cash=100.0, source_id=SOURCE_YAHOO)
+    sec = FinancialMetrics(ticker="AAPL", total_cash=100.5, source_id=SOURCE_SEC_XBRL)
+    result = merge_fundamentals(
+        [
+            ProviderSnapshot(SOURCE_YAHOO, yahoo),
+            ProviderSnapshot(SOURCE_SEC_XBRL, sec),
+        ],
+        ticker="AAPL",
+    )
+    assert result.snapshot.total_cash == 100.5  # SEC wins statement field
+    assert result.conflicts == []
+
+
+def test_yahoo_profile_and_returns_preserved() -> None:
+    yahoo = FinancialMetrics(
+        ticker="AAPL",
+        pe_ratio=25.0,
+        profile=CompanyProfile(name="Apple Inc.", sector="Technology"),
+        returns=PriceReturns(return_1y=0.2, return_ytd=0.1),
+        source_id=SOURCE_YAHOO,
+    )
+    sec = FinancialMetrics(
+        ticker="AAPL",
+        eps_trailing=6.5,
+        source_id=SOURCE_SEC_XBRL,
+    )
+    result = merge_fundamentals(
+        [
+            ProviderSnapshot(SOURCE_YAHOO, yahoo),
+            ProviderSnapshot(SOURCE_SEC_XBRL, sec),
+        ],
+        ticker="AAPL",
+    )
+    assert result.snapshot.profile is not None
+    assert result.snapshot.profile.name == "Apple Inc."
+    assert result.snapshot.returns is not None
+    assert result.snapshot.returns.return_1y == 0.2
+    assert result.snapshot.field_provenance["profile"].source_id == SOURCE_YAHOO
+
+
+def test_none_providers_filtered() -> None:
+    yahoo = FinancialMetrics(ticker="AAPL", pe_ratio=12.0, source_id=SOURCE_YAHOO)
+    result = merge_fundamentals(
+        [None, ProviderSnapshot(SOURCE_YAHOO, yahoo), None],
+        ticker="AAPL",
+    )
+    assert result.snapshot.pe_ratio == 12.0
+    assert result.sources_used == [SOURCE_YAHOO]
+    assert result.snapshot.source_id == SOURCE_YAHOO

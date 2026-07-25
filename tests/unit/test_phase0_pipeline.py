@@ -345,3 +345,96 @@ def test_pipeline_yahoo_fail_without_min_set_still_errors(
     assert result.status == Phase0Status.ERROR
     assert result.error_code == Phase0ErrorCode.DATA_FETCH_FAILED.value
     assert result.thesis is None
+
+
+def test_pipeline_yahoo_fail_sparse_xbrl_still_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """XBRL returns data, but below MINIMUM_FUNDAMENTALS_FIELD_PATHS → still fatal."""
+    _patch_settings(monkeypatch, tmp_path)
+    monkeypatch.setattr(pipe, "fetch_google_news", lambda ticker, **k: _news())
+    monkeypatch.setattr(pipe, "fetch_sec_filings", lambda ticker, **k: _filings())
+    monkeypatch.setattr(
+        pipe,
+        "fetch_sec_xbrl_fundamentals",
+        lambda ticker, **k: FinancialMetrics(
+            ticker="NVDA", eps_trailing=1.0, source_id="sec_xbrl"
+        ),
+    )
+
+    def boom(ticker: str, **k):
+        raise YahooUpstreamError("yahoo down")
+
+    monkeypatch.setattr(pipe, "fetch_financial_metrics", boom)
+
+    result = run_phase0_research("NVDA", skip_cache=True)
+    assert result.status == Phase0Status.ERROR
+    assert result.error_code == Phase0ErrorCode.DATA_FETCH_FAILED.value
+    assert result.thesis is None
+    assert result.error_message is not None
+    assert "minimum set" in result.error_message
+
+
+def test_pipeline_yahoo_and_xbrl_merge_fill_nulls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_settings(monkeypatch, tmp_path)
+    yahoo = _metrics()
+    yahoo.eps_trailing = None
+    yahoo.balance_sheet = None
+    # Avoid statement-field disagreements so status stays OK (fill-nulls only).
+    yahoo.gross_margin = None
+    yahoo.operating_margin = None
+    monkeypatch.setattr(pipe, "fetch_financial_metrics", lambda ticker, **k: yahoo)
+    monkeypatch.setattr(pipe, "fetch_google_news", lambda ticker, **k: _news())
+    monkeypatch.setattr(pipe, "fetch_sec_filings", lambda ticker, **k: _filings())
+    monkeypatch.setattr(
+        pipe, "fetch_sec_xbrl_fundamentals", lambda ticker, **k: _min_fundamentals()
+    )
+    monkeypatch.setattr(pipe, "generate_thesis", _thesis_from_bundle)
+
+    result = run_phase0_research("NVDA", skip_cache=True)
+    assert result.status == Phase0Status.OK
+    assert result.fundamentals is not None
+    assert result.fundamentals.pe_ratio == 40.0  # Yahoo market field
+    assert result.fundamentals.eps_trailing == 6.5  # SEC fill-null
+    assert result.fundamentals.balance_sheet is not None
+    assert result.fundamentals.balance_sheet.total_assets == 500.0
+    assert result.fundamentals.source_id == "merged"
+    assert result.fundamentals.field_provenance["pe_ratio"].source_id == "yahoo"
+    assert (
+        result.fundamentals.field_provenance["eps_trailing"].source_id == "sec_xbrl"
+    )
+
+
+def test_pipeline_merge_field_conflicts_on_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_settings(monkeypatch, tmp_path)
+    yahoo = _metrics()
+    yahoo.total_cash = 10.0
+    yahoo.balance_sheet = StatementSummary(total_assets=100.0, total_cash=10.0)
+    xbrl = _min_fundamentals()
+    xbrl.total_cash = 50.0
+    assert xbrl.balance_sheet is not None
+    xbrl.balance_sheet.total_assets = 500.0
+    xbrl.balance_sheet.total_cash = 50.0
+
+    monkeypatch.setattr(pipe, "fetch_financial_metrics", lambda ticker, **k: yahoo)
+    monkeypatch.setattr(pipe, "fetch_google_news", lambda ticker, **k: _news())
+    monkeypatch.setattr(pipe, "fetch_sec_filings", lambda ticker, **k: _filings())
+    monkeypatch.setattr(
+        pipe, "fetch_sec_xbrl_fundamentals", lambda ticker, **k: xbrl
+    )
+    monkeypatch.setattr(pipe, "generate_thesis", _thesis_from_bundle)
+
+    result = run_phase0_research("NVDA", skip_cache=True)
+    assert result.status == Phase0Status.PARTIAL
+    assert result.evidence is not None
+    fund_conflicts = [
+        c for c in result.evidence.conflicts if c.topic == "fundamentals_field"
+    ]
+    assert fund_conflicts
+    assert any("total_cash" in c.summary for c in fund_conflicts)
+    assert result.fundamentals is not None
+    assert result.fundamentals.total_cash == 50.0  # SEC preferred for statements
