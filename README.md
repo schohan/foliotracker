@@ -9,22 +9,41 @@ Implementation status: [docs/implementation-status.md](docs/implementation-statu
 ## Layout
 
 ```
-app/                 # ADK entrypoint + capability packages (agents, tools, workflows, services, schemas)
+app/                 # ADK entrypoint, API, agents, tools, services, schemas
+web/                 # Svelte 5 watchlist dashboard (Vite)
 docs/                # PRD, architecture, implementation tracker
 ```
 
 ## Setup
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install .
-cp .env.example .env   # add GOOGLE_API_KEY
+# Python (uv recommended)
+uv sync --extra dev
+cp .env.example .env   # add GOOGLE_API_KEY; optional ALPHA_VANTAGE_API_KEY
+
+# Dashboard UI
+cd web && npm install && cd ..
 ```
 
 ## Run
 
-From the repo root:
+### Watchlist dashboard (recommended for dogfood)
+
+Terminal 1 — API:
+
+```bash
+uv run uvicorn app.api.main:app --reload --port 8000
+```
+
+Terminal 2 — UI:
+
+```bash
+cd web && npm run dev
+```
+
+Open http://localhost:5173 — add held/watched tickers, refresh, open detail panel.
+
+### ADK chat (single-ticker)
 
 ```bash
 adk web
@@ -32,13 +51,13 @@ adk web
 adk run app
 ```
 
-Ask the agent to analyze a ticker (e.g. `Analyze NVDA`). Phase 0 calls `analyze_ticker`, which runs Yahoo → evidence → cited thesis, with local TTL cache.
+Ask the agent to analyze a ticker (e.g. `Analyze NVDA`). Uses `analyze_ticker` → `Phase0Result` JSON.
 
 ### Tests / evals
 
 ```bash
-pytest tests/unit          # CI default
-python -m evaluations.phase0.run   # on-demand LLM evals (needs GOOGLE_API_KEY)
+uv run pytest tests/unit          # CI default
+python -m evaluations.phase0.run  # on-demand LLM evals (needs GOOGLE_API_KEY)
 ```
 
 ## Design principles
@@ -47,3 +66,4 @@ python -m evaluations.phase0.run   # on-demand LLM evals (needs GOOGLE_API_KEY)
 - **Tools** fetch structured data
 - **Services** own calculations (CAGR, DCF, scores)
 - **Schemas / Evidence** are the contracts between layers
+- Dashboard renders `Phase0Result` — never invents metrics

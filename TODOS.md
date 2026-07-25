@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C Approach B1 **complete** (through AV forward fill-gaps). Next: portfolio/watchlist dashboard — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped** (FastAPI + Svelte 5). Next: portfolio/correlation layer or Phase 3 polish — see [docs/architecture.md](docs/architecture.md).
 
 **Phase 2 lock (2026-07-24):** Thin Phase 2 = **SEC specialist → scoring service**. Portfolio and cache/memory deferred.
 
@@ -9,18 +9,6 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
 
 ## Deferred beyond Phase 2C
-
-### Portfolio / watchlist dashboard
-
-**What:** Personalized surface to review held + watched tickers for buy/trim/add without per-ticker Yahoo grind.
-
-**Why:** Product job-to-be-done beyond single-ticker ADK JSON; primary UX for dogfood reliability.
-
-**Context:** Depends on richer FundamentalsSnapshot + multi-source spine. Run `/plan-design-review` before UI. Keep Phase0Result (or successor) as contract.
-
-**Effort:** XL  
-**Priority:** P2  
-**Depends on:** Phase 2C core (2C.1–2C.3)
 
 ### Portfolio / correlation layer
 
@@ -85,6 +73,13 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Custom API or hosted ADK decision
 
 ## Completed
+
+### Watchlist dashboard v1 (2026-07-25)
+
+- FastAPI (`app/api`) over `run_phase0_research`; local JSON membership (held/watched)
+- Svelte 5 + Vite UI (`web/`): rows, refresh, detail panel, disclaimer
+- Summaries derived from `Phase0Result` only — no auto buy/trim signals
+- Design lock: navy/paper/copper accent, Fraunces + IBM Plex Sans
 
 ### Phase 2C — Alpha Vantage forward fill-gaps (2026-07-25)
 

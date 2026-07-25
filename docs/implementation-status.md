@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 **complete**. Phase **2C done** (through Alpha Vantage fill-gaps). **Next:** portfolio/watchlist dashboard (design review first). See [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 + **2C done**. Watchlist dashboard **v1 shipped** (API + Svelte UI). **Next:** portfolio/correlation or Phase 3. See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -34,6 +34,9 @@ Update this file whenever a module moves from stub → working.
 | Min fundamentals checklist (`fundamentals_minimum`) | Done | Editable `MINIMUM_FUNDAMENTALS_FIELD_PATHS`; gate for soften Yahoo-fatal |
 | Evaluations framework | Done | Cases + rubric + `python -m evaluations.phase0.run` |
 | Prompts library | Todo | Thesis prompt inline in thesis_agent |
+| Watchlist HTTP API (`app/api`) | Done | FastAPI: membership, refresh, research GET |
+| Watchlist store / service | Done | Local JSON + `Phase0Result` → summary |
+| Watchlist UI (`web/`) | Done | Svelte 5 dashboard (held/watched, detail panel) |
 
 ---
 
@@ -44,7 +47,7 @@ Update this file whenever a module moves from stub → working.
 | `stock_research_agent` | Todo |
 | `earnings_agent` | Todo |
 | `screening_agent` | Todo |
-| `portfolio_agent` | Todo (deferred past thin Phase 2) |
+| `portfolio_agent` | Todo (dashboard uses API/service; ADK agent still stub) |
 | `valuation_agent` | Todo |
 | `app/agent.py` (Portfolio Research root) | Done |
 
@@ -117,6 +120,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `filings` | Done (2A) | `SecFiling`, `SecFilingsBatch` |
 | `financials` / others | Done (2C.2) | Enriched `FinancialMetrics` (= `FundamentalsSnapshot`); series + statement summaries |
 | `fundamentals_minimum` | Done | Editable min field paths for soften Yahoo-fatal (2C.3 gate) |
+| `watchlist` | Done | Membership + ticker summaries for dashboard |
 
 ---
 
@@ -130,9 +134,9 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 ## Suggested next milestones
 
-1. Set `ALPHA_VANTAGE_API_KEY` + real `SEC_USER_AGENT`; dogfood AV fill of `forward_pe` when Yahoo gaps
-2. Run `/plan-design-review` before portfolio/watchlist dashboard UI
-3. Optional later: estimate endpoint / FMP if `eps_forward` gaps matter in dogfood
+1. Dogfood dashboard: `uvicorn app.api.main:app` + `cd web && npm run dev`; held + watched refresh
+2. Set `ALPHA_VANTAGE_API_KEY` + real `SEC_USER_AGENT` for live fill-gaps
+3. Portfolio/correlation layer (multi-ticker risk) when dashboard dogfood is trusted
 
 ---
 
@@ -140,6 +144,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Watchlist dashboard v1: FastAPI + Svelte 5 UI over Phase0Result |
 | 2026-07-25 | Alpha Vantage fill-gaps: OVERVIEW → forward/market fields; optional key; soft-fail |
 | 2026-07-25 | Phase 2C.3 done: `sec_xbrl`, `merge_fundamentals`, soften Yahoo-fatal |
 | 2026-07-25 | Lock 2C.3 min fundamentals field set + unit tests (`fundamentals_minimum`) |

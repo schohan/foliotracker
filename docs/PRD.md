@@ -1,7 +1,7 @@
 # FolioTracker Product Requirements Document (PRD)
 
 **Product:** FolioTracker — AI portfolio and stock research on [Google ADK](https://adk.dev/)  
-**Status:** Thin Phase 2 **complete**; Phase **2C done** (provider port, Yahoo enrich, merge + SEC XBRL, soften Yahoo-fatal, Alpha Vantage fill-gaps)  
+**Status:** Thin Phase 2 + **2C done**; watchlist dashboard **v1 shipped** (FastAPI + Svelte 5)  
 **Audience:** Executives (vision, roadmap, risk) and engineers (contracts, acceptance criteria, phase boundaries)  
 **Last updated:** 2026-07-25
 
@@ -35,7 +35,7 @@ Today the product ships locally via `adk web` / `adk run app`. The user asks to 
 
 **What exists now (Phase 0–2C):** single-ticker research from enriched Yahoo Finance fundamentals (profile, returns, BS/CF, trailing/forward P/E), Google News RSS headlines, SEC EDGAR filing metadata + XBRL companyfacts, and optional Alpha Vantage OVERVIEW fill-gaps for forward/market fields when keyed. Evidence aggregator surfaces `evidence.conflicts`; `scorecard` + `fundamentals` on `Phase0Result`. Dual cache: whole-result TTL plus per-source TTL/quota. Yahoo failure softens to `partial` when merged fundamentals pass the min field checklist.
 
-**What comes next:** personalized portfolio/watchlist dashboard; Phase 3 platform. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
+**What comes next:** portfolio/correlation risk; Phase 3 platform polish. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
 
 How the system is built lives in [architecture.md](architecture.md). What is implemented vs stub lives in [implementation-status.md](implementation-status.md). Deferred work lives in [TODOS.md](../TODOS.md).
 
@@ -75,7 +75,7 @@ Users will prefer a labeled, citable, sometimes-partial result over a fluent but
 |----------|---------------|
 | Investment advice | Output is informational/educational only; fixed disclaimer always present |
 | Brokerage / order execution | No trading, accounts, or order routing |
-| Full research terminal | No custom UI yet; delivery is ADK chat + JSON |
+| Full research terminal | ADK chat + JSON remain; watchlist dashboard v1 for multi-ticker review |
 | Production multi-tenant SaaS | Local process + file cache only until Phase 3 |
 | Web scraping of article bodies | Phase 1 news is RSS headlines + URLs only |
 | Pretending stubs are live | Scaffold agents/tools stay marked Todo until implemented |
@@ -126,7 +126,7 @@ Capabilities the human experiences. Separate from [system features](#6-system-fe
 
 | Feature | What the user gets | Phase | Status |
 |---------|--------------------|-------|--------|
-| Portfolio / watchlist dashboard | Fast buy/trim/add read across held + watched names | — | Deferred (2C done; design review first) |
+| Portfolio / watchlist dashboard | Fast buy/trim/add read across held + watched names | — | **Shipped v1** (local UI + API) |
 | Portfolio risk view | Multi-ticker concentration and correlation-aware risk | — | Deferred past thin Phase 2 (XL) |
 | Session continuity | Richer memory across research sessions | — | Deferred past thin Phase 2 (P3) |
 | First-party research UI / API | Use FolioTracker without living in ADK chat | 3 | Planned |
@@ -298,7 +298,7 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 | **2C.3** | Soften Yahoo-fatal + SEC XBRL fundamentals provider | L | **Done** (2026-07-25) |
 | Later | Alpha Vantage OVERVIEW fill-gaps | M | **Done** (2026-07-25) |
 
-**Deferred past 2C:** portfolio / watchlist dashboard (XL; design review), portfolio / correlation (XL), cache / memory (P3), Kafka ingestion, Redis rate-limit platform.
+**Deferred past 2C:** portfolio / correlation (XL), cache / memory (P3), Kafka ingestion, Redis rate-limit platform. Watchlist dashboard v1 shipped.
 
 ### Phase 3 backlog (planned)
 
@@ -356,7 +356,7 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, and m
 
 ### Still open
 
-1. **Portfolio timing** — Start only after 2C richer fundamentals are trusted (recommended), or earlier thin multi-ticker batch?
+_(none — portfolio timing resolved: UI-first dashboard after 2C trusted, 2026-07-25)_
 
 ---
 
@@ -376,6 +376,7 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, and m
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Watchlist dashboard v1 shipped; resolve portfolio timing open Q |
 | 2026-07-25 | Alpha Vantage fill-gaps shipped; Phase 2C complete |
 | 2026-07-25 | Phase 2C.3 shipped: merge + SEC XBRL + soften Yahoo-fatal |
 | 2026-07-25 | Lock 2C.3 minimum fundamentals field set (`fundamentals_minimum.py`); resolve open PRD question |

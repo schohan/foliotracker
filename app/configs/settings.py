@@ -42,6 +42,9 @@ class Settings:
     alpha_vantage_rate_limit_calls: int = 25
     alpha_vantage_rate_limit_window_seconds: int = 86400
     alpha_vantage_timeout_seconds: int = 20
+    # Watchlist dashboard (local JSON)
+    watchlist_path: Path = Path(".cache/foliotracker/watchlist.json")
+    watchlist_cors_origins: str = "http://localhost:5173"
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -111,6 +114,16 @@ class Settings:
             ),
             alpha_vantage_timeout_seconds=int(
                 os.getenv("ALPHA_VANTAGE_TIMEOUT_SECONDS", "20")
+            ),
+            watchlist_path=Path(
+                os.getenv(
+                    "WATCHLIST_PATH",
+                    ".cache/foliotracker/watchlist.json",
+                )
+            ),
+            watchlist_cors_origins=os.getenv(
+                "WATCHLIST_CORS_ORIGINS",
+                "http://localhost:5173",
             ),
         )
 

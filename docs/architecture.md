@@ -2,7 +2,7 @@
 
 AI portfolio / stock research on [Google ADK](https://adk.dev/).
 
-**Status:** Thin Phase 2 **complete**. Phase **2C done** (provider port, Yahoo enrich, merge + SEC XBRL, soften Yahoo-fatal, Alpha Vantage fill-gaps). **Next:** portfolio/watchlist dashboard (design review). See [TODOS.md](../TODOS.md).
+**Status:** Thin Phase 2 + **2C done**. Watchlist dashboard **v1 shipped** (FastAPI + Svelte 5). **Next:** portfolio/correlation or Phase 3. See [TODOS.md](../TODOS.md).
 
 **Related:** [PRD.md](PRD.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -115,7 +115,7 @@ analyze_ticker
 | 2 | Enrich Yahoo (statements/trends/forward where yfinance allows); expand schemas; evidence + scoring consume richer fields | **Done** (2026-07-25) |
 | 3 | Soften Yahoo-fatal once merge rules allow; `sec_xbrl` fundamentals provider | **Done** (2026-07-25) |
 | Later | Alpha Vantage OVERVIEW fill-gaps | **Done** (2026-07-25) |
-| Next | Portfolio / watchlist dashboard | Todo (see TODOS; design review first) |
+| Next | Portfolio / watchlist dashboard v1 | **Done** (2026-07-25) — FastAPI + `web/` Svelte 5 |
 
 #### Rate limits vs platform
 
@@ -686,10 +686,10 @@ Phase 0–2B proved the spine. 2C makes fundamentals multi-provider-ready withou
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | mode: SCOPE_REDUCTION; Phase 0 thin slice; 0 critical gaps left open |
 | Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
 | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | Phase 2C B1 locked; 4 issues closed into design; 0 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | SKIPPED (no custom UI; dashboard deferred) |
+| Design Review | `/plan-design-review` | UI/UX gaps | — | — | Dashboard v1 design locked in plan (navy/paper/copper; Fraunces + IBM Plex) |
 
 **UNRESOLVED:** 0  
-**VERDICT:** CEO + ENG CLEARED — Phase 2C shipped (incl. AV fill-gaps); `/plan-design-review` when dashboard UI starts.
+**VERDICT:** CEO + ENG CLEARED — Phase 2C + watchlist dashboard v1 shipped.
 
 ### Eng review notes (2026-07-25 — Phase 2C)
 
@@ -739,7 +739,7 @@ COVERAGE: 2C.1–2C.2 unit-covered; 2C.3 + cache-interaction paths remain GAPs
 
 **NOT in scope / What already exists:** See Phase 2C section above and TODOS.md.
 
-**Parallelization:** Phase 2C done. Next product slice: portfolio/watchlist dashboard after design review.
+**Parallelization:** Phase 2C + dashboard v1 done. Next: portfolio/correlation risk or Phase 3 platform.
 
 ---
 
@@ -747,6 +747,7 @@ COVERAGE: 2C.1–2C.2 unit-covered; 2C.3 + cache-interaction paths remain GAPs
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Watchlist dashboard v1: FastAPI + Svelte 5 over Phase0Result (local JSON membership) |
 | 2026-07-25 | Alpha Vantage fill-gaps shipped: OVERVIEW → `forward_pe`/market fields; optional key; soft-fail |
 | 2026-07-25 | Phase 2C.3 shipped: `sec_xbrl`, `merge_fundamentals`, soften Yahoo-fatal via min field checklist |
 | 2026-07-25 | Lock 2C.3 min fundamentals paths (`fundamentals_minimum.py`); soften Yahoo only when checklist passes |
