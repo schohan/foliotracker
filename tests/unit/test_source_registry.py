@@ -10,6 +10,7 @@ from app.configs.settings import Settings
 from app.services.source_registry import (
     SOURCE_GOOGLE_NEWS,
     SOURCE_SEC_EDGAR,
+    SOURCE_SEC_XBRL,
     SOURCE_YAHOO,
     UnknownSourceError,
     build_registry,
@@ -35,17 +36,23 @@ def _settings(**kwargs) -> Settings:
 
 def test_build_registry_has_live_sources() -> None:
     reg = build_registry(_settings())
-    assert set(reg) == {SOURCE_YAHOO, SOURCE_GOOGLE_NEWS, SOURCE_SEC_EDGAR}
+    assert set(reg) == {
+        SOURCE_YAHOO,
+        SOURCE_GOOGLE_NEWS,
+        SOURCE_SEC_EDGAR,
+        SOURCE_SEC_XBRL,
+    }
     assert reg[SOURCE_YAHOO].confidence == 0.95
     assert reg[SOURCE_GOOGLE_NEWS].ttl_seconds == 900
     assert reg[SOURCE_SEC_EDGAR].rate_limit_calls == 5
+    assert reg[SOURCE_SEC_XBRL].confidence == 0.95
 
 
 def test_get_source_and_list() -> None:
     s = _settings()
     assert get_source(SOURCE_YAHOO, s).source_id == SOURCE_YAHOO
     assert list_source_ids(s) == sorted(
-        [SOURCE_YAHOO, SOURCE_GOOGLE_NEWS, SOURCE_SEC_EDGAR]
+        [SOURCE_YAHOO, SOURCE_GOOGLE_NEWS, SOURCE_SEC_EDGAR, SOURCE_SEC_XBRL]
     )
 
 

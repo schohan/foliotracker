@@ -2,7 +2,7 @@
 
 AI portfolio / stock research on [Google ADK](https://adk.dev/).
 
-**Status:** Thin Phase 2 **complete**. Phase **2C.1–2C.2 done** (provider port + Yahoo enrichment). **Next:** 2C.3 soften Yahoo-fatal + SEC XBRL. Portfolio/memory/dashboard deferred. See [TODOS.md](../TODOS.md).
+**Status:** Thin Phase 2 **complete**. Phase **2C.1–2C.3 done** (provider port, Yahoo enrich, merge + SEC XBRL, soften Yahoo-fatal). **Next:** optional AV/FMP fill-gaps. Portfolio/memory/dashboard deferred. See [TODOS.md](../TODOS.md).
 
 **Related:** [PRD.md](PRD.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -59,7 +59,7 @@ User provides a ticker → system returns **`EvidenceBundle` + `InvestmentThesis
 
 `sec_xbrl` stays stubbed until Phase 2C slice 3. Portfolio/memory/dashboard stay deferred (see TODOS). Thin Phase 2 complete = 2A + 2B.
 
-### Phase 2C — Multi-source ingestion (PLANNED — design locked 2026-07-25)
+### Phase 2C — Multi-source ingestion (DONE through 2C.3 — design locked 2026-07-25)
 
 **Job:** Richer, reliable fundamentals for buy / hold / trim / add decisions without a long Yahoo click-tour. Sources are plumbing; field completeness + honest degradation are the product.
 
@@ -73,7 +73,8 @@ User provides a ticker → system returns **`EvidenceBundle` + `InvestmentThesis
 | Per-source cache | `.cache/foliotracker/sources/{source_id}/{TICKER}.json` with `fetched_at`, normalized payload, status |
 | `FundamentalsSnapshot` | Evolve beyond thin `FinancialMetrics`: profile, returns (YTD/1Y/3M), earnings/revenue series, BS/CF summaries, trailing + forward P/E, FCF; each filled field records `source_id` + `as_of` |
 | Merge policy | Fill-nulls by trust ladder; same-field disagreement → conflict + prefer higher trust; never invent values |
-| Pipeline | Fetch each source independently by TTL; evidence + scoring consume merged snapshot; Yahoo-alone failure → `partial` once merge has enough, else clear `error` |
+| Minimum field set | Editable frozenset `MINIMUM_FUNDAMENTALS_FIELD_PATHS` in `app/schemas/fundamentals_minimum.py` — gate for soften Yahoo-fatal → `partial` |
+| Pipeline | Fetch each source independently by TTL; evidence + scoring consume merged snapshot; Yahoo-alone failure → `partial` only if `has_minimum_fundamentals(merged)`, else clear `error` |
 
 #### Target data flow
 
@@ -112,7 +113,7 @@ analyze_ticker
 | Docs | This section + PRD/TODOS/implementation-status | **Done** (2026-07-25) |
 | 1 | Source registry + per-source cache; wrap existing Yahoo / news / SEC tools; behavior-compatible | **Done** (2026-07-25) |
 | 2 | Enrich Yahoo (statements/trends/forward where yfinance allows); expand schemas; evidence + scoring consume richer fields | **Done** (2026-07-25) |
-| 3 | Soften Yahoo-fatal once merge rules allow; `sec_xbrl` fundamentals provider | Todo |
+| 3 | Soften Yahoo-fatal once merge rules allow; `sec_xbrl` fundamentals provider | **Done** (2026-07-25) |
 | Later | Alpha Vantage / FMP fill-gaps; portfolio / watchlist dashboard | Todo (see TODOS) |
 
 #### Rate limits vs platform
@@ -128,8 +129,8 @@ analyze_ticker
 |----------|---------|-----------|
 | Per-source cache | Corrupt / IO | Treat as miss; log; fetch |
 | Source rate budget exhausted | Soft skip | Serve stale if present, else gap → often `partial` |
-| Yahoo down, merge incomplete | No usable fundamentals | `status=error`, `DATA_FETCH_FAILED` (until slice 3 softens) |
-| Yahoo down, SEC XBRL (later) filled BS/CF | Partial fundamentals | `status=partial`, provenance shows SEC |
+| Yahoo down, merge fails min field set | Missing paths in `MINIMUM_FUNDAMENTALS_FIELD_PATHS` | `status=error`, `DATA_FETCH_FAILED` |
+| Yahoo down, SEC XBRL (later) fills min set | Enough fundamentals | `status=partial`, provenance shows SEC |
 | Field disagreement across providers | Conflict record | Prefer higher trust; `partial` when conflict fires |
 
 ### Explicitly NOT in scope (beyond thin Phase 2 / 2C design)
@@ -156,7 +157,7 @@ User: "Analyze NVDA"
         │
         ▼
 ┌───────────────────────────┐
-│ portfolio_research_agent  │  ADK root (SequentialAgent or equiv.)
+│ portfolio_research_agent  │  ADK root (Agent + analyze_ticker tool)
 │ validate ticker           │
 │ clear prior session keys  │  (5A — no cross-ticker contamination)
 └─────────────┬─────────────┘
@@ -265,7 +266,7 @@ File-backed, process-local (and durable across `adk` restarts on the same machin
 | Invalidate | TTL expiry only in Phase 0 (no manual bust API yet) |
 | Errors | Corrupt JSON / IO error → treat as miss, log warning, continue pipeline |
 
-**Phase 2C note:** Result cache remains a coarse “skip whole pipeline” optimization. **Authoritative freshness** moves to the per-source cache (ticker × `source_id`) so Yahoo, news, and SEC can refresh on independent TTLs. When 2C lands, a result-cache hit should not force all sources to look equally fresh — prefer source-level reuse, then rebuild evidence/score/thesis only when needed (exact invalidation rules land with slice 1).
+**Phase 2C note:** Result cache remains a coarse “skip whole pipeline” optimization. **Authoritative freshness** for live fetches is the per-source cache (ticker × `source_id`) so Yahoo, news, and SEC refresh on independent TTLs. A whole-result cache hit still short-circuits the pipeline today; finer invalidation (rebuild evidence/score/thesis when only some sources stale) remains a follow-up after 2C.3.
 
 ```
 cache_lookup(ticker)
@@ -523,18 +524,20 @@ Hard gate: you review these artifacts before any tool/agent implementation code.
 - **Runner (7A):** on-demand script under `evaluations/phase0/` — **not** in default CI
 - **CI:** unit tests only (`tests/unit/`)
 
-Suggested layout:
+Suggested layout (Phase 0 core; later phases added more unit files):
 
 ```
 tests/
   unit/
     test_ticker.py
     test_yahoo_finance_parse.py
-    test_evidence_from_metrics.py
-    test_aggregator.py
+    test_evidence_from_metrics.py   # also aggregator / news / filings evidence
     test_thesis_schema_invariants.py
     test_phase0_cache.py
     test_session_clear.py
+    test_google_news.py / test_sec_edgar.py / test_scoring.py
+    test_source_registry.py / test_source_cache.py / test_source_fetch.py
+    test_phase0_pipeline.py / test_agent_output_contract.py
 evaluations/
   phase0/
     cases/
@@ -685,7 +688,7 @@ Phase 0–2B proved the spine. 2C makes fundamentals multi-provider-ready withou
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | SKIPPED (no custom UI; dashboard deferred) |
 
 **UNRESOLVED:** 0  
-**VERDICT:** CEO + ENG CLEARED — implement 2C.1 (registry + per-source cache) next; `/plan-design-review` when dashboard UI starts.
+**VERDICT:** CEO + ENG CLEARED — 2C.1–2C.3 shipped; optional AV/FMP next; `/plan-design-review` when dashboard UI starts.
 
 ### Eng review notes (2026-07-25 — Phase 2C)
 
@@ -702,33 +705,32 @@ Phase 0–2B proved the spine. 2C makes fundamentals multi-provider-ready withou
 **Test coverage plan (impl):**
 
 ```
-CODE PATH COVERAGE (Phase 2C — planned)
+CODE PATH COVERAGE (Phase 2C)
 ===========================
-[+] source_registry / source_cache
-    ├── [GAP] hit within TTL — NO TEST YET
-    ├── [GAP] miss / expired — NO TEST YET
-    ├── [GAP] corrupt file → miss — NO TEST YET
-    └── [GAP] rate budget exhausted → skip — NO TEST YET
+[+] source_registry / source_cache / source_fetch
+    ├── [★★  TESTED] hit / miss / expired / corrupt / rate budget — unit tests
+    └── [GAP] pipeline integration under rate-limit + stale Yahoo — thin
 
-[+] merge_fundamentals
-    ├── [GAP] fill-nulls by trust — NO TEST YET
+[+] merge_fundamentals (2C.3)
+    ├── [GAP] fill-nulls by trust — NO TEST YET (feature not built)
     ├── [GAP] field disagreement → conflict — NO TEST YET
     └── [GAP] never invent values — NO TEST YET
 
 [+] phase0_pipeline (source-aware)
-    ├── [★★  TESTED] Yahoo+news+SEC fan-out today — test_phase0_pipeline.py
-    ├── [GAP] independent source refresh — NO TEST YET
-    └── [GAP] Yahoo fail + merge enough → partial (2C.3) — NO TEST YET
+    ├── [★★  TESTED] Yahoo+news+SEC fan-out + fundamentals attach — test_phase0_pipeline.py
+    ├── [GAP] independent source refresh vs whole-result TTL
+    └── [GAP] Yahoo fail + merge enough → partial (2C.3)
 
 USER FLOW COVERAGE
 ===========================
 [+] Analyze ticker (adk)
     ├── [★★  TESTED] Happy / partial / Yahoo error (current) — unit + evals
+    ├── [~] Root agent full-JSON instruction contract — test_agent_output_contract.py
     ├── [GAP] [→E2E] Re-analyze with staggered source TTLs
     └── [GAP] Dogfood field checklist (3 tickers) — manual acceptance
 
 ─────────────────────────────────
-COVERAGE: current spine tested; 2C paths are GAPs until impl slices
+COVERAGE: 2C.1–2C.2 unit-covered; 2C.3 + cache-interaction paths remain GAPs
 ─────────────────────────────────
 ```
 
@@ -736,7 +738,7 @@ COVERAGE: current spine tested; 2C paths are GAPs until impl slices
 
 **NOT in scope / What already exists:** See Phase 2C section above and TODOS.md.
 
-**Parallelization:** Lane A: 2C.1 registry/cache → 2C.2 Yahoo enrich. Lane B (after 2C.1): tests for merge. Then 2C.3 SEC XBRL. Sequential preferred until registry lands.
+**Parallelization:** 2C.1–2C.3 done. Next optional: AV/FMP for forward-estimate gaps (helps SEC-only soften vs locked min set).
 
 ---
 
@@ -744,6 +746,9 @@ COVERAGE: current spine tested; 2C paths are GAPs until impl slices
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Phase 2C.3 shipped: `sec_xbrl`, `merge_fundamentals`, soften Yahoo-fatal via min field checklist |
+| 2026-07-25 | Lock 2C.3 min fundamentals paths (`fundamentals_minimum.py`); soften Yahoo only when checklist passes |
+| 2026-07-25 | Doc hygiene: PRD/TODOS/architecture status aligned to 2C.1–2C.2 shipped; 2C.3 next |
 | 2026-07-25 | Phase0Result.fundamentals + root agent must emit full JSON for debug |
 | 2026-07-25 | Phase 2C.2 shipped: enriched `FinancialMetrics` / `FundamentalsSnapshot`; Yahoo profile, returns, BS/CF, forward P/E |
 | 2026-07-25 | Phase 2C.1 shipped: `source_registry` / `source_cache` / `cached_fetch`; pipeline fan-out per-source |

@@ -8,9 +8,9 @@ from app.schemas.sources import DataSourceConfig
 SOURCE_YAHOO = "yahoo"
 SOURCE_GOOGLE_NEWS = "google_news"
 SOURCE_SEC_EDGAR = "sec_edgar"
+SOURCE_SEC_XBRL = "sec_xbrl"
 
 # Planned (not registered as live until implemented):
-# SOURCE_SEC_XBRL = "sec_xbrl"
 # SOURCE_ALPHA_VANTAGE = "alpha_vantage"
 
 
@@ -47,6 +47,15 @@ def build_registry(app_settings: Settings | None = None) -> dict[str, DataSource
             rate_limit_calls=s.sec_rate_limit_calls,
             rate_limit_window_seconds=s.source_rate_limit_window_seconds,
             timeout_seconds=s.sec_timeout_seconds,
+            enabled=True,
+        ),
+        SOURCE_SEC_XBRL: DataSourceConfig(
+            source_id=SOURCE_SEC_XBRL,
+            confidence=0.95,
+            ttl_seconds=s.sec_xbrl_source_ttl_seconds,
+            rate_limit_calls=s.sec_xbrl_rate_limit_calls,
+            rate_limit_window_seconds=s.source_rate_limit_window_seconds,
+            timeout_seconds=s.sec_xbrl_timeout_seconds,
             enabled=True,
         ),
     }

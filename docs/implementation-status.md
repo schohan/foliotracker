@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 **complete**. Phase **2C.1–2C.2 done**. **Next:** 2C.3 soften Yahoo-fatal + SEC XBRL. See [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 **complete**. Phase **2C.1–2C.3 done**. **Next:** optional AV/FMP fill-gaps / dogfood. See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -30,7 +30,8 @@ Update this file whenever a module moves from stub → working.
 | Memory layer | Todo | Stub classes only (deferred past Phase 2) |
 | Cache runtime | Done | Local TTL file cache (`.cache/foliotracker/phase0/`) — whole Phase0Result |
 | Per-source cache / DataSource registry | Done (2C.1) | `source_registry`, `source_cache`, `cached_fetch`; wraps Yahoo/news/SEC |
-| Fundamentals merge + provenance | Partial | Enriched Yahoo snapshot (2C.2); multi-source merge in 2C.3 |
+| Fundamentals merge + provenance | Done (2C.3) | `merge_fundamentals` + `field_provenance` + field conflicts |
+| Min fundamentals checklist (`fundamentals_minimum`) | Done | Editable `MINIMUM_FUNDAMENTALS_FIELD_PATHS`; gate for soften Yahoo-fatal |
 | Evaluations framework | Done | Cases + rubric + `python -m evaluations.phase0.run` |
 | Prompts library | Todo | Thesis prompt inline in thesis_agent |
 
@@ -73,7 +74,7 @@ Update this file whenever a module moves from stub → working.
 | News | `google_news` | Done (RSS) — via `cached_fetch` (2C.1) |
 | News | `news_api` | Todo (stub) |
 | Filings | `sec_edgar` | Done (2A metadata) — via `cached_fetch` (2C.1) |
-| Filings | `sec_xbrl` | Todo — Phase 2C.3 first secondary fundamentals provider |
+| Filings | `sec_xbrl` | Done (2C.3) — companyfacts → BS/CF/EPS/margins via `cached_fetch` |
 | Search / web / social / ai / cache tools / persistence | — | Todo |
 
 ---
@@ -95,10 +96,10 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `evidence` (`evidence_from_metrics`, `evidence_from_news`, `evidence_from_filings`, aggregator) | Done |
 | `phase0_cache` | Done |
 | `phase0_session` | Done (clears `scorecard`) |
-| `phase0_pipeline` | Done — fan-out via per-source `cached_fetch` (2C.1) + scoring + thesis |
-| `scoring` | Done (2B) — `score_from_metrics` (consumes merged snapshot in 2C.2+) |
-| `source_registry` / `source_cache` / `source_fetch` | Done (2C.1) |
-| `merge_fundamentals` | Todo (Phase 2C.3) |
+| `phase0_pipeline` | Done — Yahoo/news/SEC/XBRL fan-out, merge, soften Yahoo-fatal (2C.3), score, thesis |
+| `scoring` | Done (2B) — `score_from_metrics` (consumes merged snapshot) |
+| `source_registry` / `source_cache` / `source_fetch` | Done (2C.1; registry includes `sec_xbrl`) |
+| `merge_fundamentals` | Done (2C.3) |
 | `valuation` / `financial_math` / `ranking` / `normalization` | Todo |
 
 ---
@@ -114,6 +115,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `news` | Done | `NewsArticle`, `NewsBatch` |
 | `filings` | Done (2A) | `SecFiling`, `SecFilingsBatch` |
 | `financials` / others | Done (2C.2) | Enriched `FinancialMetrics` (= `FundamentalsSnapshot`); series + statement summaries |
+| `fundamentals_minimum` | Done | Editable min field paths for soften Yahoo-fatal (2C.3 gate) |
 
 ---
 
@@ -127,8 +129,8 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 ## Suggested next milestones
 
-1. Clear `.cache/foliotracker/phase0/` then dogfood via `adk web` — confirm full JSON includes `fundamentals`
-2. Implement 2C.3 — soften Yahoo-fatal + `sec_xbrl`; then optional AV/FMP
+1. Clear `.cache/foliotracker/phase0/` + source cache; dogfood via `adk web` — confirm merge provenance + soften path
+2. Optional AV/FMP for `forward_pe` / `eps_forward` enrichment (not required for soften gate)
 3. Set a real `SEC_USER_AGENT` contact email before heavy live EDGAR/XBRL use
 
 ---
@@ -137,6 +139,9 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Phase 2C.3 done: `sec_xbrl`, `merge_fundamentals`, soften Yahoo-fatal |
+| 2026-07-25 | Lock 2C.3 min fundamentals field set + unit tests (`fundamentals_minimum`) |
+| 2026-07-25 | Docs aligned: PRD/TODOS/architecture reflect 2C.1–2C.2 shipped; 2C.3 next |
 | 2026-07-25 | Phase0Result.fundamentals + root agent full-JSON presentation for debugging |
 | 2026-07-25 | Phase 2C.2 done: enriched FinancialMetrics, Yahoo profile/returns/statements, scoring/evidence wire-up |
 | 2026-07-25 | Phase 2C.1 done: DataSource registry, per-source cache, soft rate budgets, pipeline wire-up |

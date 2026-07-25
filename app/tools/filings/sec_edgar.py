@@ -194,6 +194,25 @@ def clear_ticker_map_cache() -> None:
     _ticker_cik_cache = None
 
 
+def resolve_ticker_cik(
+    ticker: str,
+    *,
+    timeout: float,
+    user_agent: str,
+) -> tuple[str, str]:
+    """Return ``(zero_padded_cik, company_title)`` for a ticker.
+
+    Raises:
+        InvalidTickerError, TickerNotFoundError, ToolParseError,
+        and whatever ``_load_ticker_map`` / HTTP raises.
+    """
+    normalized = normalize_ticker(ticker)
+    mapping = _load_ticker_map(timeout=timeout, user_agent=user_agent)
+    if normalized not in mapping:
+        raise TickerNotFoundError(f"no SEC CIK for ticker {normalized}")
+    return mapping[normalized]
+
+
 def fetch_sec_filings(
     ticker: str,
     *,
@@ -221,10 +240,9 @@ def fetch_sec_filings(
     ua = user_agent or settings.sec_user_agent
 
     def _work() -> SecFilingsBatch:
-        mapping = _load_ticker_map(timeout=timeout, user_agent=ua)
-        if normalized not in mapping:
-            raise TickerNotFoundError(f"no SEC CIK for ticker {normalized}")
-        cik, _title = mapping[normalized]
+        cik, _title = resolve_ticker_cik(
+            normalized, timeout=timeout, user_agent=ua
+        )
         url = SUBMISSIONS_URL.format(cik=cik)
         raw = _http_get_bytes(url, timeout=timeout, user_agent=ua)
         try:

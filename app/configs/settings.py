@@ -23,14 +23,17 @@ class Settings:
     yahoo_source_ttl_seconds: int = 3600
     news_source_ttl_seconds: int = 900
     sec_source_ttl_seconds: int = 3600
+    sec_xbrl_source_ttl_seconds: int = 86400
     source_rate_limit_window_seconds: int = 3600
     yahoo_rate_limit_calls: int = 100
     news_rate_limit_calls: int = 100
     sec_rate_limit_calls: int = 30
+    sec_xbrl_rate_limit_calls: int = 20
     yahoo_timeout_seconds: int = 15
     news_timeout_seconds: int = 15
     news_max_articles: int = 5
     sec_timeout_seconds: int = 15
+    sec_xbrl_timeout_seconds: int = 30
     sec_max_filings: int = 5
     sec_user_agent: str = "FolioTracker contact@example.com"
 
@@ -64,6 +67,9 @@ class Settings:
             sec_source_ttl_seconds=int(
                 os.getenv("SEC_SOURCE_TTL_SECONDS", "3600")
             ),
+            sec_xbrl_source_ttl_seconds=int(
+                os.getenv("SEC_XBRL_SOURCE_TTL_SECONDS", "86400")
+            ),
             source_rate_limit_window_seconds=int(
                 os.getenv("SOURCE_RATE_LIMIT_WINDOW_SECONDS", "3600")
             ),
@@ -72,10 +78,16 @@ class Settings:
             ),
             news_rate_limit_calls=int(os.getenv("NEWS_RATE_LIMIT_CALLS", "100")),
             sec_rate_limit_calls=int(os.getenv("SEC_RATE_LIMIT_CALLS", "30")),
+            sec_xbrl_rate_limit_calls=int(
+                os.getenv("SEC_XBRL_RATE_LIMIT_CALLS", "20")
+            ),
             yahoo_timeout_seconds=int(os.getenv("YAHOO_TIMEOUT_SECONDS", "15")),
             news_timeout_seconds=int(os.getenv("NEWS_TIMEOUT_SECONDS", "15")),
             news_max_articles=int(os.getenv("NEWS_MAX_ARTICLES", "5")),
             sec_timeout_seconds=int(os.getenv("SEC_TIMEOUT_SECONDS", "15")),
+            sec_xbrl_timeout_seconds=int(
+                os.getenv("SEC_XBRL_TIMEOUT_SECONDS", "30")
+            ),
             sec_max_filings=int(os.getenv("SEC_MAX_FILINGS", "5")),
             sec_user_agent=os.getenv(
                 "SEC_USER_AGENT",

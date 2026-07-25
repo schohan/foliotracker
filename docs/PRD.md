@@ -1,7 +1,7 @@
 # FolioTracker Product Requirements Document (PRD)
 
 **Product:** FolioTracker — AI portfolio and stock research on [Google ADK](https://adk.dev/)  
-**Status:** Thin Phase 2 **complete**; Phase 2C.1–2C.2 **done** (provider port + Yahoo enrichment); 2C.3 pending  
+**Status:** Thin Phase 2 **complete**; Phase 2C.1–2C.3 **done** (provider port, Yahoo enrich, merge + SEC XBRL, soften Yahoo-fatal)  
 **Audience:** Executives (vision, roadmap, risk) and engineers (contracts, acceptance criteria, phase boundaries)  
 **Last updated:** 2026-07-25
 
@@ -33,9 +33,9 @@ FolioTracker turns a ticker symbol into **structured, citable research**: an evi
 
 Today the product ships locally via `adk web` / `adk run app`. The user asks to analyze a ticker (for example, `Analyze NVDA`); the system returns a `Phase0Result` JSON payload with status, evidence (including conflicts when sources disagree), a cited thesis when possible, a fixed non-advice disclaimer, cache metadata, and a request id for log correlation.
 
-**What exists now (Phase 0–2B):** single-ticker research from Yahoo Finance metrics, Google News RSS headlines, and SEC EDGAR filing metadata, merged by a deterministic evidence aggregator, with disagreement surfaced as `evidence.conflicts`, plus a deterministic `scorecard` on `Phase0Result`. Cache is a single whole-result TTL; Yahoo failure is fatal for the pipeline.
+**What exists now (Phase 0–2C.2):** single-ticker research from enriched Yahoo Finance fundamentals (profile, returns, BS/CF, trailing/forward P/E), Google News RSS headlines, and SEC EDGAR filing metadata, merged by a deterministic evidence aggregator, with disagreement surfaced as `evidence.conflicts`, plus a deterministic `scorecard` and optional `fundamentals` on `Phase0Result`. Dual cache: whole-result TTL plus per-source TTL/quota (`DataSource` registry). Yahoo failure is still fatal for the pipeline (soften in 2C.3).
 
-**What comes next (Phase 2C):** multi-provider-ready fundamentals — provider port, per-source TTL/quota, field provenance, Yahoo enrichment day-1, then SEC XBRL for statements, then commercial APIs (e.g. Alpha Vantage) for forward-estimate gaps. Personalized portfolio/watchlist dashboard and Phase 3 platform work follow. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
+**What comes next:** optional Alpha Vantage / FMP for forward-estimate enrichment; personalized portfolio/watchlist dashboard; Phase 3 platform. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
 
 How the system is built lives in [architecture.md](architecture.md). What is implemented vs stub lives in [implementation-status.md](implementation-status.md). Deferred work lives in [TODOS.md](../TODOS.md).
 
@@ -105,27 +105,28 @@ Users will prefer a labeled, citable, sometimes-partial result over a fluent but
 
 Capabilities the human experiences. Separate from [system features](#6-system-features).
 
-### 5.1 Shipped (Phase 0–2B)
+### 5.1 Shipped (Phase 0–2C.2)
 
 | Feature | What the user gets | Acceptance notes |
 |---------|--------------------|------------------|
 | Single-ticker analysis | Ask e.g. `Analyze NVDA`; receive structured research | Ticker validated before tools run |
-| Structured research payload | Status, evidence bundle, thesis (when available), scorecard (when scorable), error message when failed | Contract: `Phase0Result` |
+| Structured research payload | Status, evidence bundle, thesis (when available), scorecard + fundamentals (when available), error message when failed | Contract: `Phase0Result` |
 | Cited thesis | Summary + material claims each citing evidence IDs | Ships only with ≥1 material claim citing bundle evidence IDs; empty claims or uncited/dangling citations after one repair → fail closed (`status=error`); evidence may still be returned |
 | Source disagreement | Conflicts listed under `evidence.conflicts` | JSON-first; no custom conflicts UI yet |
 | Filings-aware research | SEC filing metadata in the same result as metrics + news | EDGAR metadata only (form, dates, accession, index URL); no full-document scrape |
+| Enriched fundamentals | Forward P/E, returns, earnings/revenue series, BS/CF summaries on result | Yahoo + SEC XBRL merge (`Phase0Result.fundamentals` + `field_provenance`) |
+| Resilient multi-source data | Yahoo failure → `partial` when merge meets min field checklist | Soften gate: `has_minimum_fundamentals` |
 | Deterministic scorecard | Growth / Value / Profitability / Moat / Risk scores (0–100 or null) | Pure Python from Yahoo metrics; `execution_score` null in v1; never LLM arithmetic |
-| Fast repeat lookup | Same ticker within TTL returns prior result quickly | `cache_hit=true`; new `request_id` per serve |
+| Per-source freshness | Yahoo / news / SEC refresh on independent TTLs + soft rate budgets | `.cache/foliotracker/sources/{source_id}/`; whole-result TTL still skips full pipeline |
+| Fast repeat lookup | Same ticker within result TTL returns prior result quickly | `cache_hit=true`; new `request_id` per serve |
 | Always-on disclaimer | Non-advice copy on every response including errors | Fixed string; not optional |
 | Honest status labels | `ok` / `partial` / `error` | Partial on gaps/conflicts; error when research cannot ship; thesis-stage failures use stable `error_code` |
 
-### 5.2 Planned (Phase 2C + deferred)
+### 5.2 Planned (deferred / Phase 3)
 
 | Feature | What the user gets | Phase | Status |
 |---------|--------------------|-------|--------|
-| Richer fundamentals | Forward P/E, returns, earnings/revenue series, BS/CF summaries in research | 2C | Designed — Yahoo enrich then SEC XBRL |
-| Resilient multi-source data | Research continues with honest `partial` when one provider fails | 2C | Designed — provider port + merge |
-| Independent source freshness | Each source refreshes on its own cadence (not one blob TTL) | 2C | Designed — per-source cache |
+| Forward-estimate gap fill | Commercial APIs when Yahoo/SEC leave `forward_pe` / `eps_forward` empty | Later | Todo (AV/FMP) |
 | Portfolio / watchlist dashboard | Fast buy/trim/add read across held + watched names | — | Deferred (depends on 2C) |
 | Portfolio risk view | Multi-ticker concentration and correlation-aware risk | — | Deferred past thin Phase 2 (XL) |
 | Session continuity | Richer memory across research sessions | — | Deferred past thin Phase 2 (P3) |
@@ -140,22 +141,26 @@ Planned items are sequenced in [TODOS.md](../TODOS.md); 2C contracts are locked 
 
 Platform capabilities engineers build behind the user experience. Separate from [user features](#5-user-features).
 
-### 6.1 Shipped (Phase 0–2B)
+### 6.1 Shipped (Phase 0–2C.2)
 
 | Feature | Role | Contract / location |
 |---------|------|---------------------|
 | Yahoo Finance tool | Fetch enriched fundamentals (no LLM) | `yahoo_finance.py` → `FinancialMetrics` / `FundamentalsSnapshot` (profile, returns, BS/CF, forward P/E) |
 | Google News RSS tool | Fetch headlines + URLs (no API key, no LLM) | `app/tools/news/google_news.py` → `NewsBatch` |
 | SEC EDGAR tool | Fetch recent filing metadata (User-Agent required; no LLM) | `app/tools/filings/sec_edgar.py` → `SecFilingsBatch` |
+| DataSource registry | `source_id`, trust, TTL, local rate budget, timeout, enabled | `source_registry` (yahoo / google_news / sec_edgar) |
+| Per-source cache | File cache ticker × source; independent refresh; soft budgets | `source_cache` + `cached_fetch` |
 | Evidence from metrics | Pure Python: metrics → `Evidence` (`type=financial`, confidence `0.95`) | `evidence_from_metrics` |
 | Evidence from news | Pure Python: articles → `Evidence` (`type=news`, confidence `0.7`) | `evidence_from_news` |
 | Evidence from filings | Pure Python: filings → `Evidence` (`type=sec`, confidence `0.9`) | `evidence_from_filings` |
 | Evidence aggregator | Dedupe, news/SEC caps, `EvidenceConflict`, bundle status rules | `aggregate_evidence` |
 | Scoring service | Pure Python: metrics → `Scorecard` (0–100 or null per dim) | `score_from_metrics` |
-| Pipeline fan-out | Yahoo + news + SEC via thread pool; news- or SEC-only failure → `partial`; score before thesis | `phase0_pipeline` |
+| Pipeline fan-out | Yahoo + news + SEC filings + XBRL via `cached_fetch`; merge; Yahoo failure softens when min set met; score before thesis | `phase0_pipeline` |
+| SEC XBRL tool | Companyfacts → statement/EPS/margins fundamentals | `sec_xbrl` |
+| Fundamentals merge | Fill-nulls by trust; `field_provenance`; field conflicts | `merge_fundamentals` |
 | Thesis agent | Sole LLM step; optional bull/bear/risks/conviction; one citation repair | `thesis_agent` |
 | Local TTL cache | File-backed `Phase0Result` cache (`ok`/`partial` only) | `.cache/foliotracker/phase0/` |
-| Session clear (5A) | New ticker clears prior evidence/scorecard/thesis session keys | `phase0_session` |
+| Session clear (5A) | New ticker clears prior evidence/scorecard/fundamentals/thesis session keys | `phase0_session` |
 | Schema invariants | Claim `evidence_ids` ⊆ bundle item ids when status ok/partial | `Phase0Result`, `InvestmentThesis` |
 | CI unit tests | Default `pytest tests/unit` | No LLM required |
 | On-demand LLM evals | Groundedness / citation fixtures | `python -m evaluations.phase0.run` |
@@ -175,22 +180,16 @@ Platform capabilities engineers build behind the user experience. Separate from 
 
 | Source | Confidence | Notes |
 |--------|------------|-------|
-| Yahoo Finance metrics | `0.95` | Primary financial source today (also feeds scores); enrich in 2C |
+| Yahoo Finance metrics | `0.95` | Primary financial source today (enriched 2C.2; also feeds scores) |
 | SEC EDGAR filing metadata | `0.9` | Primary filings; metadata only in 2A |
 | SEC XBRL statement facts | `0.95` planned | 2C slice 3 — preferred for BS/CF truth |
 | Google News RSS | `0.7` | Headlines + URLs only |
 | Alpha Vantage / FMP | TBD | After SEC XBRL — forward estimates / gap fill |
 
-### 6.2 Planned (Phase 2C + deferred / Phase 3)
+### 6.2 Planned (deferred / Phase 3)
 
 | Feature | Role | Phase | Status |
 |---------|------|-------|--------|
-| DataSource registry | `source_id`, trust, TTL, local rate budget, timeout, enabled | 2C | Designed |
-| Per-source cache | File cache ticker × source; independent refresh | 2C | Designed |
-| FundamentalsSnapshot + merge | Field provenance; fill-nulls by trust; conflicts on disagreement | 2C | Designed |
-| Yahoo fundamentals enrichment | Statements/trends/forward where yfinance allows | 2C slice 2 | Todo |
-| XBRL fact extraction | `sec_xbrl` structured BS/CF/EPS (no LLM in tools) | 2C slice 3 | Todo (after port) |
-| Soften Yahoo-fatal | Yahoo down → `partial` when merge has enough | 2C slice 3 | Todo |
 | Alpha Vantage / FMP | Forward estimates / gap fill after SEC XBRL | Later | Todo |
 | Portfolio schemas + risk services | Batch evidence, concentration, correlation | — | Deferred past thin Phase 2 |
 | Memory beyond TTL files | Ticker / company / session / portfolio memory | — | Deferred past thin Phase 2 (P3) |
@@ -281,7 +280,7 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 | **0** | Thin vertical slice | Single-ticker cited thesis from financials | Yahoo → evidence → thesis → TTL cache | **Shipped** |
 | **1** | Evidence spine expansion | News context + visible source conflicts | News tool, merge aggregator, conflicts on result | **Shipped** (2026-07-24) |
 | **2** | Product depth (thin) | Filings context + scorecards | SEC specialist → scoring service | **Complete** (2A+2B) |
-| **2C** | Multi-source ingestion | Richer, resilient fundamentals | Provider port, per-source cache, Yahoo → SEC XBRL → AV | **Designed** (2026-07-25) |
+| **2C** | Multi-source ingestion | Richer, resilient fundamentals | Provider port, per-source cache, Yahoo → SEC XBRL → AV | **Done through 2C.3** (AV/FMP optional later) |
 | **3** | Platform | First-party UI/API, hosted product | Observability, deploy/rollback runbooks | **Planned** |
 
 ### Phase 2 sequence (locked 2026-07-24)
@@ -298,7 +297,7 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 | Docs | Architecture / PRD / TODOS contracts | S | **Done** (2026-07-25) |
 | **2C.1** | Source registry + per-source cache; wrap Yahoo/news/SEC | M | **Done** (2026-07-25) |
 | **2C.2** | Yahoo fundamentals enrichment + richer schemas | M | **Done** (2026-07-25) |
-| **2C.3** | Soften Yahoo-fatal + SEC XBRL fundamentals provider | L | Todo |
+| **2C.3** | Soften Yahoo-fatal + SEC XBRL fundamentals provider | L | **Done** (2026-07-25) |
 | Later | Alpha Vantage / FMP; portfolio/watchlist dashboard | L–XL | Todo |
 
 **Deferred past 2C core:** portfolio / correlation (XL), cache / memory (P3), Kafka ingestion, Redis rate-limit platform.
@@ -339,11 +338,27 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, and m
 ### Resolved (2026-07-25)
 
 4. **Multi-source ingestion shape** → Approach B1: provider port + per-source cache; Yahoo enrich day-1; SEC XBRL next; Alpha Vantage later. No Kafka. See [architecture.md](architecture.md) Phase 2C.
+5. **Minimum fundamentals set (soften Yahoo-fatal)** → Locked checklist in `app/schemas/fundamentals_minimum.py` (`MINIMUM_FUNDAMENTALS_FIELD_PATHS`). Edit that frozenset to add/remove fields as dogfood teaches us. Soften Yahoo → `partial` only when `has_minimum_fundamentals(merged)` is true. Market fields `pe_ratio` / `forward_pe` / `eps_forward` trimmed for now (SEC cannot fill them).
+
+| Path | Notes |
+|------|--------|
+| `balance_sheet` | Object present |
+| `cash_flow` | Object present |
+| `earnings_history` | Non-empty list |
+| `gross_margin` | Scalar |
+| `operating_margin` | Scalar |
+| `total_debt` | Top-level scalar |
+| `total_cash` | Top-level scalar |
+| `eps_trailing` | Scalar |
+| `balance_sheet.total_revenue` | Nested (`total_revenue` on statement summary) |
+| `balance_sheet.total_assets` | Nested |
+| `balance_sheet.total_liabilities` | Nested |
+| `balance_sheet.total_cash` | Nested (also required top-level) |
+| `balance_sheet.total_debt` | Nested (also required top-level) |
 
 ### Still open
 
 1. **Portfolio timing** — Start only after 2C richer fundamentals are trusted (recommended), or earlier thin multi-ticker batch?
-2. **Minimum fundamentals set** — Which fields must be present before Yahoo-fatal can soften to `partial`? (Founder assignment: checklist from 3 watchlist tickers.)
 
 ---
 
@@ -363,6 +378,9 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, and m
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Phase 2C.3 shipped: merge + SEC XBRL + soften Yahoo-fatal |
+| 2026-07-25 | Lock 2C.3 minimum fundamentals field set (`fundamentals_minimum.py`); resolve open PRD question |
+| 2026-07-25 | Align shipped sections with 2C.1–2C.2 (registry, per-source cache, Yahoo enrich, fundamentals on result) |
 | 2026-07-24 | Phase 2B shipped (scorecard on Phase0Result); thin Phase 2 complete |
 | 2026-07-24 | Lock 2B scoring dimensions; mark SEC/filings shipped (2A); resolve scoring open question |
 | 2026-07-24 | Phase 2A shipped (SEC EDGAR); 2B scoring remains next |

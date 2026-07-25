@@ -1,4 +1,4 @@
-"""Phase 0/1/2 end-to-end research pipeline."""
+"""Phase 0/1/2/2C end-to-end research pipeline."""
 
 from __future__ import annotations
 
@@ -16,8 +16,13 @@ from app.agents.report.thesis_agent import (
     generate_thesis,
 )
 from app.configs.settings import settings
+from app.schemas.evidence import EvidenceConflict
 from app.schemas.filings import SecFilingsBatch
 from app.schemas.financials import FinancialMetrics
+from app.schemas.fundamentals_minimum import (
+    has_minimum_fundamentals,
+    missing_minimum_fundamentals,
+)
 from app.schemas.news import NewsBatch
 from app.schemas.phase0 import (
     PHASE0_DISCLAIMER,
@@ -34,6 +39,10 @@ from app.services.evidence import (
     evidence_from_metrics,
     evidence_from_news,
 )
+from app.services.merge_fundamentals import (
+    ProviderSnapshot,
+    merge_fundamentals,
+)
 from app.services.phase0_cache import cache_lookup, cache_store
 from app.services.phase0_session import new_research_session
 from app.services.scoring import score_from_metrics
@@ -41,6 +50,7 @@ from app.services.source_fetch import SourceRateLimitedError, cached_fetch
 from app.services.source_registry import (
     SOURCE_GOOGLE_NEWS,
     SOURCE_SEC_EDGAR,
+    SOURCE_SEC_XBRL,
     SOURCE_YAHOO,
 )
 from app.tools.finance.yahoo_finance import (
@@ -56,6 +66,12 @@ from app.tools.filings.sec_edgar import (
     ToolTimeoutError as SecTimeoutError,
     ToolUpstreamError as SecUpstreamError,
     fetch_sec_filings,
+)
+from app.tools.filings.sec_xbrl import (
+    ToolParseError as XbrlParseError,
+    ToolTimeoutError as XbrlTimeoutError,
+    ToolUpstreamError as XbrlUpstreamError,
+    fetch_sec_xbrl_fundamentals,
 )
 from app.tools.news.google_news import (
     ToolParseError as NewsParseError,
@@ -76,6 +92,13 @@ _SEC_ERRORS = (
     SecTimeoutError,
     SecUpstreamError,
     SecParseError,
+    SecTickerNotFoundError,
+    SourceRateLimitedError,
+)
+_XBRL_ERRORS = (
+    XbrlTimeoutError,
+    XbrlUpstreamError,
+    XbrlParseError,
     SecTickerNotFoundError,
     SourceRateLimitedError,
 )
@@ -153,6 +176,28 @@ def _map_thesis_error(exc: Exception) -> Phase0ErrorCode:
     return Phase0ErrorCode.THESIS_GENERATION_FAILED
 
 
+def _fundamentals_conflicts_as_evidence(
+    conflicts: list[Any],
+) -> list[EvidenceConflict]:
+    """Map merge field conflicts into EvidenceConflict records."""
+    out: list[EvidenceConflict] = []
+    for i, c in enumerate(conflicts):
+        sources = ", ".join(sorted(c.values.keys()))
+        out.append(
+            EvidenceConflict(
+                id=f"conflict_fundamentals_{i}_{c.field_path}",
+                topic="fundamentals_field",
+                item_ids=[],
+                summary=(
+                    f"Field {c.field_path} disagreed across {sources}; "
+                    f"kept {c.chosen_source_id}"
+                ),
+                severity="warn",
+            )
+        )
+    return out
+
+
 def run_phase0_research(
     ticker: str,
     *,
@@ -160,10 +205,11 @@ def run_phase0_research(
     skip_cache: bool = False,
     model_caller: Any | None = None,
 ) -> Phase0Result:
-    """Run research: validate → result-cache → source-cached fan-out → evidence → score → thesis.
+    """Run research: validate → result-cache → source-cached fan-out → merge → evidence → score → thesis.
 
     Pure orchestration; safe to expose as an ADK tool.
-    Phase 2C.1: Yahoo / news / SEC go through per-source TTL + soft rate budgets.
+    Phase 2C.3: Yahoo + news + SEC filings + SEC XBRL; merge fundamentals;
+    Yahoo failure softens to partial when ``has_minimum_fundamentals``.
     """
     request_id = str(uuid.uuid4())
     started = time.perf_counter()
@@ -193,7 +239,6 @@ def run_phase0_research(
             ttl_seconds=settings.phase0_cache_ttl_seconds,
         )
         if hit is not None:
-            # Preserve pipeline request logging correlation: overwrite with this request_id
             hit = hit.model_copy(update={"request_id": request_id, "cache_hit": True})
             logger.info(
                 "pipeline_end request_id=%s ticker=%s status=%s cache_hit=true latency_ms=%.0f",
@@ -204,12 +249,14 @@ def run_phase0_research(
             )
             return hit
 
-    # Fan out Yahoo + news + SEC via per-source cache (2C.1).
-    # Yahoo failure is still fatal; news/SEC failure → partial.
     news_failed = False
     sec_failed = False
+    xbrl_failed = False
+    yahoo_failed = False
     news_batch = None
     filings_batch = None
+    yahoo_metrics: FinancialMetrics | None = None
+    xbrl_metrics: FinancialMetrics | None = None
 
     def _fetch_yahoo() -> FinancialMetrics:
         result = cached_fetch(
@@ -241,71 +288,125 @@ def run_phase0_research(
         )
         return result.data
 
-    try:
-        with ThreadPoolExecutor(max_workers=3) as pool:
-            fut_yahoo = pool.submit(_fetch_yahoo)
-            fut_news = pool.submit(_fetch_news)
-            fut_sec = pool.submit(_fetch_sec)
-            try:
-                metrics = fut_yahoo.result()
-            except _YAHOO_ERRORS as exc:
-                fut_news.cancel()
-                fut_sec.cancel()
-                result = _error_result(
-                    normalized,
-                    request_id,
-                    f"{type(exc).__name__}: {exc}",
-                    error_code=Phase0ErrorCode.DATA_FETCH_FAILED.value,
-                )
-                logger.info(
-                    "pipeline_end request_id=%s ticker=%s status=error "
-                    "error_code=%s latency_ms=%.0f",
-                    request_id,
-                    normalized,
-                    result.error_code,
-                    (time.perf_counter() - started) * 1000,
-                )
-                return result
+    def _fetch_xbrl() -> FinancialMetrics:
+        result = cached_fetch(
+            SOURCE_SEC_XBRL,
+            normalized,
+            lambda: fetch_sec_xbrl_fundamentals(normalized),
+            FinancialMetrics,
+            app_settings=settings,
+        )
+        return result.data
 
-            try:
-                news_batch = fut_news.result()
-            except _NEWS_ERRORS as exc:
-                news_failed = True
-                logger.warning(
-                    "news_failed request_id=%s ticker=%s err=%s",
-                    request_id,
-                    normalized,
-                    exc,
-                )
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        fut_yahoo = pool.submit(_fetch_yahoo)
+        fut_news = pool.submit(_fetch_news)
+        fut_sec = pool.submit(_fetch_sec)
+        fut_xbrl = pool.submit(_fetch_xbrl)
 
-            try:
-                filings_batch = fut_sec.result()
-            except _SEC_ERRORS as exc:
-                sec_failed = True
-                logger.warning(
-                    "sec_failed request_id=%s ticker=%s err=%s",
-                    request_id,
-                    normalized,
-                    exc,
-                )
-    except _YAHOO_ERRORS as exc:
+        try:
+            yahoo_metrics = fut_yahoo.result()
+        except _YAHOO_ERRORS as exc:
+            yahoo_failed = True
+            logger.warning(
+                "yahoo_failed request_id=%s ticker=%s err=%s",
+                request_id,
+                normalized,
+                exc,
+            )
+
+        try:
+            news_batch = fut_news.result()
+        except _NEWS_ERRORS as exc:
+            news_failed = True
+            logger.warning(
+                "news_failed request_id=%s ticker=%s err=%s",
+                request_id,
+                normalized,
+                exc,
+            )
+
+        try:
+            filings_batch = fut_sec.result()
+        except _SEC_ERRORS as exc:
+            sec_failed = True
+            logger.warning(
+                "sec_failed request_id=%s ticker=%s err=%s",
+                request_id,
+                normalized,
+                exc,
+            )
+
+        try:
+            xbrl_metrics = fut_xbrl.result()
+        except _XBRL_ERRORS as exc:
+            xbrl_failed = True
+            logger.warning(
+                "xbrl_failed request_id=%s ticker=%s err=%s",
+                request_id,
+                normalized,
+                exc,
+            )
+
+    providers: list[ProviderSnapshot | None] = []
+    if yahoo_metrics is not None:
+        providers.append(
+            ProviderSnapshot(source_id=SOURCE_YAHOO, snapshot=yahoo_metrics)
+        )
+    if xbrl_metrics is not None:
+        providers.append(
+            ProviderSnapshot(source_id=SOURCE_SEC_XBRL, snapshot=xbrl_metrics)
+        )
+
+    merge_result = merge_fundamentals(providers, ticker=normalized)
+    metrics = merge_result.snapshot
+
+    # Soften Yahoo-fatal only when merge satisfies the locked min field set.
+    # Yahoo success keeps prior behavior (partial metrics via evidence rules).
+    if yahoo_metrics is None and xbrl_metrics is None:
         result = _error_result(
             normalized,
             request_id,
-            f"{type(exc).__name__}: {exc}",
+            "DATA_FETCH_FAILED: no Yahoo or SEC XBRL fundamentals",
             error_code=Phase0ErrorCode.DATA_FETCH_FAILED.value,
         )
         logger.info(
             "pipeline_end request_id=%s ticker=%s status=error "
-            "error_code=%s latency_ms=%.0f",
+            "error_code=%s yahoo_failed=%s xbrl_failed=%s latency_ms=%.0f",
             request_id,
             normalized,
             result.error_code,
+            yahoo_failed,
+            xbrl_failed,
             (time.perf_counter() - started) * 1000,
         )
         return result
 
-    state["financial_metrics"] = metrics.model_dump()
+    if yahoo_failed and not has_minimum_fundamentals(metrics):
+        missing = missing_minimum_fundamentals(metrics)
+        msg = (
+            f"Yahoo failed and merged fundamentals below minimum set "
+            f"(missing={missing[:8]})"
+        )
+        result = _error_result(
+            normalized,
+            request_id,
+            msg,
+            error_code=Phase0ErrorCode.DATA_FETCH_FAILED.value,
+        )
+        logger.info(
+            "pipeline_end request_id=%s ticker=%s status=error "
+            "error_code=%s yahoo_failed=true missing=%s latency_ms=%.0f",
+            request_id,
+            normalized,
+            result.error_code,
+            missing[:8],
+            (time.perf_counter() - started) * 1000,
+        )
+        return result
+
+    state["financial_metrics"] = metrics.model_dump(mode="json")
+    state["fundamentals"] = metrics.model_dump(mode="json")
     if news_batch is not None:
         state["news_batch"] = news_batch.model_dump(mode="json")
     if filings_batch is not None:
@@ -321,8 +422,18 @@ def run_phase0_research(
             normalized,
             evidence_items,
             news_failed=news_failed,
+            # Filings metadata gap only; XBRL is fundamentals (merged separately).
             sec_failed=sec_failed,
         )
+        if merge_result.conflicts:
+            extra = _fundamentals_conflicts_as_evidence(merge_result.conflicts)
+            bundle = bundle.model_copy(
+                update={"conflicts": list(bundle.conflicts) + extra}
+            )
+            from app.schemas.evidence import BundleStatus
+
+            if bundle.status == BundleStatus.OK:
+                bundle = bundle.model_copy(update={"status": BundleStatus.PARTIAL})
         state["evidence_bundle"] = bundle.model_dump(mode="json")
     except (EmptyMetricsError, EmptyEvidenceError) as exc:
         result = _error_result(
@@ -339,7 +450,7 @@ def run_phase0_research(
 
     status = (
         Phase0Status.PARTIAL
-        if bundle.status.value == "partial"
+        if bundle.status.value == "partial" or yahoo_failed
         else Phase0Status.OK
     )
 
@@ -359,7 +470,6 @@ def run_phase0_research(
             _thesis_user_message(normalized, request_id, code),
             error_code=code.value,
         )
-        # Still attach evidence + scorecard + fundamentals for debuggability
         result = result.model_copy(
             update={
                 "evidence": bundle,
@@ -397,11 +507,13 @@ def run_phase0_research(
 
     logger.info(
         "pipeline_end request_id=%s ticker=%s status=%s cache_hit=false "
-        "conflicts=%s latency_ms=%.0f",
+        "conflicts=%s yahoo_failed=%s xbrl_failed=%s latency_ms=%.0f",
         request_id,
         normalized,
         status.value,
         len(bundle.conflicts),
+        yahoo_failed,
+        xbrl_failed,
         (time.perf_counter() - started) * 1000,
     )
     return result

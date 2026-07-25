@@ -45,11 +45,19 @@ class StatementSummary(BaseModel):
     free_cash_flow: float | None = None
 
 
+class FieldProvenance(BaseModel):
+    """Which source filled a field on the merged snapshot."""
+
+    source_id: str
+    as_of: datetime | None = None
+
+
 class FinancialMetrics(BaseModel):
-    """Enriched fundamentals for one ticker (Yahoo day-1; multi-source later).
+    """Enriched fundamentals for one ticker (multi-source via merge in 2C.3).
 
     ``pe_ratio`` remains the scoring input (trailing preferred). Trailing and
     forward P/E are also stored explicitly when available.
+    ``field_provenance`` maps dotted field paths → source (merge output).
     """
 
     ticker: str
@@ -79,6 +87,7 @@ class FinancialMetrics(BaseModel):
     cash_flow: StatementSummary | None = None
     source_id: str = "yahoo"
     as_of: datetime | None = None
+    field_provenance: dict[str, FieldProvenance] = Field(default_factory=dict)
 
 
 # Phase 2C name for the enriched metrics contract (same model for now).

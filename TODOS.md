@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C multi-source ingestion **designed** (Approach B1) — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C Approach B1 **complete through 2C.3** (merge + SEC XBRL + soften Yahoo-fatal). Next: optional AV/FMP fill-gaps — see [docs/architecture.md](docs/architecture.md).
 
 **Phase 2 lock (2026-07-24):** Thin Phase 2 = **SEC specialist → scoring service**. Portfolio and cache/memory deferred.
 
@@ -9,18 +9,6 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL next; Alpha Vantage/FMP later. No Kafka.
 
 ## Phase 2C — Multi-source ingestion
-
-### Soften Yahoo-fatal + SEC XBRL fundamentals (2C.3)
-
-**What:** Merge policy so Yahoo failure alone can yield `partial` when another fundamentals source filled enough fields; implement `sec_xbrl` as first secondary fundamentals provider for BS/CF/EPS truth.
-
-**Why:** Reliability and statement accuracy; SEC is the logical source for audited statements. Soften hard-fail only after merge + minimum-field rules exist.
-
-**Context:** Today Yahoo errors abort the pipeline in `phase0_pipeline`. Enriched Yahoo snapshot exists (2C.2). `sec_xbrl` is stubbed. Prefer SEC over Alpha Vantage for statements. Minimum field set for “enough fundamentals” is an open PRD question. Add `merge_fundamentals` with field provenance.
-
-**Effort:** L  
-**Priority:** P1  
-**Depends on:** 2C.1 + 2C.2 (done); open question on minimum field set
 
 ### Alpha Vantage / FMP forward-estimate fill-gap
 
@@ -111,6 +99,14 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Custom API or hosted ADK decision
 
 ## Completed
+
+### Phase 2C.3 — Soften Yahoo-fatal + SEC XBRL (2026-07-25)
+
+- `sec_xbrl` companyfacts → `FinancialMetrics` (BS/CF/EPS/margins; no market P/E)
+- `merge_fundamentals` fill-nulls by trust + `field_provenance` + field conflicts
+- Pipeline fans out Yahoo + news + SEC filings + XBRL; Yahoo failure → `partial` iff `has_minimum_fundamentals(merged)`
+- Min field checklist remains editable in `fundamentals_minimum.py`
+- Min set trimmed: `pe_ratio` / `forward_pe` / `eps_forward` not required (SEC-only soften viable); may re-add when AV/FMP lands
 
 ### Phase 2C.2 — Yahoo fundamentals enrichment (2026-07-25)
 

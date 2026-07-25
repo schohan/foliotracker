@@ -154,13 +154,34 @@ def evidence_from_metrics(metrics: FinancialMetrics) -> Evidence:
 
     data = _metric_fields(metrics)
     eid = evidence_id_for(metrics.ticker, data)
+    source_id = (metrics.source_id or "yahoo").lower()
+    if source_id == "sec_xbrl":
+        source_name = "SEC XBRL"
+        citation = f"https://data.sec.gov/api/xbrl/companyfacts/"
+        confidence = 0.95
+    elif source_id == "merged":
+        source_name = "Merged fundamentals"
+        citation = f"https://finance.yahoo.com/quote/{metrics.ticker}"
+        confidence = YAHOO_CONFIDENCE
+    else:
+        source_name = YAHOO_SOURCE
+        citation = f"https://finance.yahoo.com/quote/{metrics.ticker}"
+        confidence = YAHOO_CONFIDENCE
+    if metrics.field_provenance:
+        data = {
+            **data,
+            "field_provenance": {
+                k: v.model_dump(mode="json")
+                for k, v in metrics.field_provenance.items()
+            },
+        }
     return Evidence(
         id=eid,
         type="financial",
-        source=YAHOO_SOURCE,
-        confidence=YAHOO_CONFIDENCE,
+        source=source_name,
+        confidence=confidence,
         timestamp=datetime.now(timezone.utc),
-        citation=f"https://finance.yahoo.com/quote/{metrics.ticker}",
+        citation=citation,
         data=data,
     )
 
