@@ -127,6 +127,9 @@ def test_pipeline_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert len(result.evidence.items) >= 3
     assert any(i.type == "sec" for i in result.evidence.items)
     assert result.evidence.conflicts == []
+    assert result.fundamentals is not None
+    assert result.fundamentals.ticker == "NVDA"
+    assert result.fundamentals.pe_ratio == 40.0
     assert result.scorecard is not None
     assert result.scorecard.ticker == "NVDA"
     assert result.scorecard.growth_score is not None
@@ -239,6 +242,8 @@ def test_pipeline_thesis_empty_claims_error(
     assert result.thesis is None
     assert result.evidence is not None
     assert len(result.evidence.items) >= 1
+    assert result.fundamentals is not None
+    assert result.fundamentals.pe_ratio == 40.0
     assert result.error_message is not None
     assert "UncitedClaimError" not in result.error_message
     assert "EmptyClaimsError" not in result.error_message

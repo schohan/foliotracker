@@ -165,9 +165,11 @@ Platform capabilities engineers build behind the user experience. Separate from 
 - Always set: `ticker`, `status`, `disclaimer`, `cache_hit`, `request_id`
 - On `ok`/`partial`: evidence bundle present; every claim citation resolves to an evidence id; thesis has ≥1 material claim
 - Optional `scorecard: Scorecard | null` — null when no scorable metrics; null dims ok; never invent scores
-- On `error`: set user-readable `error_message` and stable `error_code` (e.g. `THESIS_EMPTY_CLAIMS`); thesis-stage failures may still include `evidence` and `scorecard`
+- Optional `fundamentals: FinancialMetrics | null` — enriched Yahoo snapshot (P/E, returns, BS/CF, …) for debug and report rendering
+- On `error`: set user-readable `error_message` and stable `error_code` (e.g. `THESIS_EMPTY_CLAIMS`); thesis-stage failures may still include `evidence`, `scorecard`, and `fundamentals`
 - Never cache `status=error`
 - On cache hit: serve prior payload with `cache_hit=true` and a **new** `request_id`
+- ADK chat: agent must show the **complete** tool JSON (including `fundamentals`) before any prose summary
 
 **Source trust ladder (today):**
 

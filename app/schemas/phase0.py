@@ -7,6 +7,7 @@ from enum import Enum
 from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.evidence import EvidenceBundle
+from app.schemas.financials import FinancialMetrics
 from app.schemas.report import InvestmentThesis, Scorecard
 
 PHASE0_DISCLAIMER = (
@@ -34,13 +35,18 @@ class Phase0ErrorCode(str, Enum):
 
 
 class Phase0Result(BaseModel):
-    """End-to-end Phase 0 response — always includes disclaimer, cache_hit, request_id."""
+    """End-to-end Phase 0 response — always includes disclaimer, cache_hit, request_id.
+
+    ``fundamentals`` is the enriched Yahoo (later multi-source) snapshot for
+    debugging and report rendering — same object that feeds financial evidence.
+    """
 
     ticker: str
     status: Phase0Status
     evidence: EvidenceBundle | None = None
     thesis: InvestmentThesis | None = None
     scorecard: Scorecard | None = None
+    fundamentals: FinancialMetrics | None = None
     error_message: str | None = None
     error_code: str | None = None
     disclaimer: str = Field(default=PHASE0_DISCLAIMER)

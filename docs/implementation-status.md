@@ -108,7 +108,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | Module | Status | Notes |
 |--------|--------|-------|
 | `evidence` | Done | `id`, `BundleStatus`, conflicts |
-| `phase0` | Done | `Phase0Result` + optional `scorecard`, `Phase0ErrorCode`, disclaimer, cache_hit, request_id |
+| `phase0` | Done | `Phase0Result` + optional `scorecard` + `fundamentals`, error codes, disclaimer, cache_hit, request_id |
 | `report` | Done | `ThesisClaim`, cited thesis; `Scorecard` (0–100 dims) |
 | `ticker` | Done | `normalize_ticker` |
 | `news` | Done | `NewsArticle`, `NewsBatch` |
@@ -127,7 +127,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 ## Suggested next milestones
 
-1. Dogfood enriched fields via `adk web` — confirm forward P/E, returns, BS/CF in evidence JSON
+1. Clear `.cache/foliotracker/phase0/` then dogfood via `adk web` — confirm full JSON includes `fundamentals`
 2. Implement 2C.3 — soften Yahoo-fatal + `sec_xbrl`; then optional AV/FMP
 3. Set a real `SEC_USER_AGENT` contact email before heavy live EDGAR/XBRL use
 
@@ -137,6 +137,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Phase0Result.fundamentals + root agent full-JSON presentation for debugging |
 | 2026-07-25 | Phase 2C.2 done: enriched FinancialMetrics, Yahoo profile/returns/statements, scoring/evidence wire-up |
 | 2026-07-25 | Phase 2C.1 done: DataSource registry, per-source cache, soft rate budgets, pipeline wire-up |
 | 2026-07-25 | Phase 2C designed (B1): provider port, per-source cache, Yahoo → SEC XBRL → AV; status rows added |

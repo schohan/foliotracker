@@ -243,8 +243,9 @@ Rules:
 - Prefer a single ADK tool + Python orchestrator for the research path.
 - Do **not** require ADK `ParallelAgent` while fan-out lives in the pipeline service.
 - Evidence builders, aggregator, scoring (2B), and cache are **services**, not reasoning agents.
-- **Session (5A):** On each new research request, clear `financial_metrics`, `news_batch`, `filings_batch`, `evidence_bundle`, `scorecard`, `thesis`, `phase0_status`, then set `ticker`.
-- Session state keys: `ticker`, `financial_metrics`, `news_batch`, `filings_batch`, `evidence_bundle`, `scorecard`, `thesis`, `phase0_status`, `cache_hit`.
+- **Session (5A):** On each new research request, clear `financial_metrics`, `fundamentals`, `news_batch`, `filings_batch`, `evidence_bundle`, `scorecard`, `thesis`, `phase0_status`, then set `ticker`.
+- Session state keys: `ticker`, `financial_metrics`, `fundamentals`, `news_batch`, `filings_batch`, `evidence_bundle`, `scorecard`, `thesis`, `phase0_status`, `cache_hit`.
+- **ADK presentation:** Root agent must paste the **complete** `analyze_ticker` JSON (including `fundamentals`) before any prose summary.
 
 ---
 
@@ -362,6 +363,7 @@ Phase0Result
   evidence: EvidenceBundle | null
   thesis: InvestmentThesis | null
   scorecard: Scorecard | null   # 2B — optional; null when no scorable metrics
+  fundamentals: FinancialMetrics | null  # 2C.2 — enriched snapshot for debug/report
   error_message: str | null   # user-readable; no exception class names
   error_code: str | null      # stable machine code (Phase0ErrorCode)
   disclaimer: str   # REQUIRED always — fixed non-advice copy (4A)
@@ -421,6 +423,8 @@ Fixed disclaimer copy (Phase 0):
 **Cache note (Phase 1):** Bundle schema gained `conflicts`. Clear `.cache/foliotracker/phase0/` after upgrading if old cached JSON misbehaves; Pydantic defaults empty conflicts for missing keys.
 
 **Cache note (Phase 2B):** `Phase0Result` gained optional `scorecard`. Clear `.cache/foliotracker/phase0/` after upgrading so cached results include scores (or explicit nulls).
+
+**Cache note (fundamentals):** `Phase0Result` gained optional `fundamentals`. Clear `.cache/foliotracker/phase0/` after upgrading so cached results include the enriched snapshot (old cache loads with `fundamentals=null`).
 
 ---
 
@@ -740,6 +744,7 @@ COVERAGE: current spine tested; 2C paths are GAPs until impl slices
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Phase0Result.fundamentals + root agent must emit full JSON for debug |
 | 2026-07-25 | Phase 2C.2 shipped: enriched `FinancialMetrics` / `FundamentalsSnapshot`; Yahoo profile, returns, BS/CF, forward P/E |
 | 2026-07-25 | Phase 2C.1 shipped: `source_registry` / `source_cache` / `cached_fetch`; pipeline fan-out per-source |
 | 2026-07-25 | Phase 2C design locked (B1): provider port, per-source cache, Yahoo enrich → SEC XBRL → AV/FMP; local rate budgets in scope |

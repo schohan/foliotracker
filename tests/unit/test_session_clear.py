@@ -9,6 +9,7 @@ def test_session_clear_drops_prior_ticker_state() -> None:
     state = {
         "ticker": "NVDA",
         "financial_metrics": {"pe_ratio": 30},
+        "fundamentals": {"pe_ratio": 30},
         "news_batch": {"ticker": "NVDA"},
         "filings_batch": {"ticker": "NVDA"},
         "evidence_bundle": {"ticker": "NVDA"},
@@ -19,6 +20,7 @@ def test_session_clear_drops_prior_ticker_state() -> None:
     }
     cleared = clear_research_session(state)
     assert cleared.get("financial_metrics") is None
+    assert cleared.get("fundamentals") is None
     assert cleared.get("news_batch") is None
     assert cleared.get("filings_batch") is None
     assert cleared.get("evidence_bundle") is None

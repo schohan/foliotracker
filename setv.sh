@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Set the virtual environment
-source .venv/bin/activate
+# Set the virtual environment using function declared in bash_profile
+runvenv
 
 # Set the environment variables
 # export OPENAI_API_KEY=sk-proj-1234567890

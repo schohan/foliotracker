@@ -359,9 +359,13 @@ def run_phase0_research(
             _thesis_user_message(normalized, request_id, code),
             error_code=code.value,
         )
-        # Still attach evidence + scorecard for debuggability on thesis failure
+        # Still attach evidence + scorecard + fundamentals for debuggability
         result = result.model_copy(
-            update={"evidence": bundle, "scorecard": scorecard}
+            update={
+                "evidence": bundle,
+                "scorecard": scorecard,
+                "fundamentals": metrics,
+            }
         )
         logger.info(
             "pipeline_end request_id=%s ticker=%s status=error stage=thesis "
@@ -380,6 +384,7 @@ def run_phase0_research(
         evidence=bundle,
         thesis=thesis,
         scorecard=scorecard,
+        fundamentals=metrics,
         error_message=None,
         error_code=None,
         disclaimer=PHASE0_DISCLAIMER,
