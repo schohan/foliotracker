@@ -1,26 +1,12 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C Approach B1 **complete through 2C.3** (merge + SEC XBRL + soften Yahoo-fatal). Next: optional AV/FMP fill-gaps — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C Approach B1 **complete** (through AV forward fill-gaps). Next: portfolio/watchlist dashboard — see [docs/architecture.md](docs/architecture.md).
 
 **Phase 2 lock (2026-07-24):** Thin Phase 2 = **SEC specialist → scoring service**. Portfolio and cache/memory deferred.
 
 **Thin Phase 2 complete** = 2A + 2B (**both done 2026-07-24**).
 
-**Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL next; Alpha Vantage/FMP later. No Kafka.
-
-## Phase 2C — Multi-source ingestion
-
-### Alpha Vantage / FMP forward-estimate fill-gap
-
-**What:** Optional commercial provider for forward P/E / estimates when Yahoo gaps remain after SEC XBRL.
-
-**Why:** Forward metrics are part of the ritual; SEC filings do not replace analyst forward P/E.
-
-**Context:** `app/tools/finance/alpha_vantage.py` stub exists. Do **not** ship in 2C.1. Add API keys to settings/`.env.example` only when implementing. Same DataSource port and per-source TTL/quota.
-
-**Effort:** M  
-**Priority:** P2  
-**Depends on:** 2C.1; preferably after 2C.3
+**Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
 
 ## Deferred beyond Phase 2C
 
@@ -99,6 +85,14 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Custom API or hosted ADK decision
 
 ## Completed
+
+### Phase 2C — Alpha Vantage forward fill-gaps (2026-07-25)
+
+- `alpha_vantage` OVERVIEW → `forward_pe` / market fill-nulls (soft-fail; key optional)
+- Registry source `alpha_vantage` enabled only when `ALPHA_VANTAGE_API_KEY` set
+- Merge trust: Yahoo > AV for market fields; SEC > Yahoo > AV for statements
+- Pipeline fans out AV when keyed; AV failure never fatal
+- `eps_forward` still Yahoo-only (not on OVERVIEW); min fundamentals set unchanged
 
 ### Phase 2C.3 — Soften Yahoo-fatal + SEC XBRL (2026-07-25)
 

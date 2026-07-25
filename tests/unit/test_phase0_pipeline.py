@@ -17,6 +17,7 @@ from app.services import phase0_pipeline as pipe
 from app.services.phase0_pipeline import run_phase0_research
 from app.tools.filings.sec_edgar import ToolTimeoutError as SecTimeoutError
 from app.tools.filings.sec_xbrl import ToolTimeoutError as XbrlTimeoutError
+from app.tools.finance.alpha_vantage import ToolUpstreamError as AvUpstreamError
 from app.tools.finance.yahoo_finance import ToolUpstreamError as YahooUpstreamError
 from app.tools.news.google_news import ToolTimeoutError as NewsTimeoutError
 
@@ -106,6 +107,7 @@ def _patch_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
             sec_timeout_seconds=15,
             sec_xbrl_timeout_seconds=30,
             sec_max_filings=5,
+            alpha_vantage_api_key=None,
         ),
     )
 
@@ -405,6 +407,94 @@ def test_pipeline_yahoo_and_xbrl_merge_fill_nulls(
     assert (
         result.fundamentals.field_provenance["eps_trailing"].source_id == "sec_xbrl"
     )
+
+
+def test_pipeline_av_fills_forward_pe_gap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_settings(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        pipe,
+        "settings",
+        Settings(
+            google_api_key=None,
+            phase0_cache_dir=tmp_path,
+            phase0_cache_ttl_seconds=3600,
+            source_cache_dir=tmp_path / "sources",
+            yahoo_timeout_seconds=15,
+            news_timeout_seconds=15,
+            news_max_articles=5,
+            sec_timeout_seconds=15,
+            sec_xbrl_timeout_seconds=30,
+            sec_max_filings=5,
+            alpha_vantage_api_key="test-key",
+        ),
+    )
+    yahoo = _metrics()
+    yahoo.forward_pe = None
+    yahoo.eps_forward = None
+    _patch_xbrl_fail(monkeypatch)
+    monkeypatch.setattr(pipe, "fetch_financial_metrics", lambda ticker, **k: yahoo)
+    monkeypatch.setattr(pipe, "fetch_google_news", lambda ticker, **k: _news())
+    monkeypatch.setattr(pipe, "fetch_sec_filings", lambda ticker, **k: _filings())
+    monkeypatch.setattr(
+        pipe,
+        "fetch_alpha_vantage_fundamentals",
+        lambda ticker, **k: FinancialMetrics(
+            ticker="NVDA",
+            forward_pe=28.0,
+            source_id="alpha_vantage",
+        ),
+    )
+    monkeypatch.setattr(pipe, "generate_thesis", _thesis_from_bundle)
+
+    result = run_phase0_research("NVDA", skip_cache=True)
+    assert result.status == Phase0Status.OK
+    assert result.fundamentals is not None
+    assert result.fundamentals.forward_pe == 28.0
+    assert result.fundamentals.pe_ratio == 40.0  # Yahoo unchanged
+    assert (
+        result.fundamentals.field_provenance["forward_pe"].source_id
+        == "alpha_vantage"
+    )
+
+
+def test_pipeline_av_failure_is_soft(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _patch_settings(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        pipe,
+        "settings",
+        Settings(
+            google_api_key=None,
+            phase0_cache_dir=tmp_path,
+            phase0_cache_ttl_seconds=3600,
+            source_cache_dir=tmp_path / "sources",
+            yahoo_timeout_seconds=15,
+            news_timeout_seconds=15,
+            news_max_articles=5,
+            sec_timeout_seconds=15,
+            sec_xbrl_timeout_seconds=30,
+            sec_max_filings=5,
+            alpha_vantage_api_key="test-key",
+        ),
+    )
+    _patch_xbrl_fail(monkeypatch)
+    monkeypatch.setattr(pipe, "fetch_financial_metrics", lambda ticker, **k: _metrics())
+    monkeypatch.setattr(pipe, "fetch_google_news", lambda ticker, **k: _news())
+    monkeypatch.setattr(pipe, "fetch_sec_filings", lambda ticker, **k: _filings())
+
+    def boom(ticker: str, **k):
+        raise AvUpstreamError("av down")
+
+    monkeypatch.setattr(pipe, "fetch_alpha_vantage_fundamentals", boom)
+    monkeypatch.setattr(pipe, "generate_thesis", _thesis_from_bundle)
+
+    result = run_phase0_research("NVDA", skip_cache=True)
+    assert result.status == Phase0Status.OK
+    assert result.fundamentals is not None
+    assert result.fundamentals.pe_ratio == 40.0
 
 
 def test_pipeline_merge_field_conflicts_on_evidence(

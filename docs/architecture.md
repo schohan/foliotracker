@@ -2,7 +2,7 @@
 
 AI portfolio / stock research on [Google ADK](https://adk.dev/).
 
-**Status:** Thin Phase 2 **complete**. Phase **2C.1–2C.3 done** (provider port, Yahoo enrich, merge + SEC XBRL, soften Yahoo-fatal). **Next:** optional AV/FMP fill-gaps. Portfolio/memory/dashboard deferred. See [TODOS.md](../TODOS.md).
+**Status:** Thin Phase 2 **complete**. Phase **2C done** (provider port, Yahoo enrich, merge + SEC XBRL, soften Yahoo-fatal, Alpha Vantage fill-gaps). **Next:** portfolio/watchlist dashboard (design review). See [TODOS.md](../TODOS.md).
 
 **Related:** [PRD.md](PRD.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -114,7 +114,8 @@ analyze_ticker
 | 1 | Source registry + per-source cache; wrap existing Yahoo / news / SEC tools; behavior-compatible | **Done** (2026-07-25) |
 | 2 | Enrich Yahoo (statements/trends/forward where yfinance allows); expand schemas; evidence + scoring consume richer fields | **Done** (2026-07-25) |
 | 3 | Soften Yahoo-fatal once merge rules allow; `sec_xbrl` fundamentals provider | **Done** (2026-07-25) |
-| Later | Alpha Vantage / FMP fill-gaps; portfolio / watchlist dashboard | Todo (see TODOS) |
+| Later | Alpha Vantage OVERVIEW fill-gaps | **Done** (2026-07-25) |
+| Next | Portfolio / watchlist dashboard | Todo (see TODOS; design review first) |
 
 #### Rate limits vs platform
 
@@ -419,7 +420,7 @@ Fixed disclaimer copy (Phase 0):
 | SEC EDGAR (filing metadata) | `0.9` fixed | Primary filings; metadata only in 2A |
 | SEC XBRL (statement facts) | `0.95` planned | Phase 2C slice 3 — BS/CF/EPS truth; higher trust than commercial fill-gaps for statements |
 | Google News (RSS headlines) | `0.7` fixed | Headlines only; lower trust than filings/metrics |
-| Alpha Vantage / FMP (commercial) | TBD (~0.85) | After SEC XBRL — forward estimates / Yahoo gap fill; not slice 1 |
+| Alpha Vantage (commercial) | `0.85` | OVERVIEW fill-gaps for forward/market fields; enabled when API key set |
 
 **Cache note (Phase 1):** Bundle schema gained `conflicts`. Clear `.cache/foliotracker/phase0/` after upgrading if old cached JSON misbehaves; Pydantic defaults empty conflicts for missing keys.
 
@@ -688,7 +689,7 @@ Phase 0–2B proved the spine. 2C makes fundamentals multi-provider-ready withou
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | SKIPPED (no custom UI; dashboard deferred) |
 
 **UNRESOLVED:** 0  
-**VERDICT:** CEO + ENG CLEARED — 2C.1–2C.3 shipped; optional AV/FMP next; `/plan-design-review` when dashboard UI starts.
+**VERDICT:** CEO + ENG CLEARED — Phase 2C shipped (incl. AV fill-gaps); `/plan-design-review` when dashboard UI starts.
 
 ### Eng review notes (2026-07-25 — Phase 2C)
 
@@ -738,7 +739,7 @@ COVERAGE: 2C.1–2C.2 unit-covered; 2C.3 + cache-interaction paths remain GAPs
 
 **NOT in scope / What already exists:** See Phase 2C section above and TODOS.md.
 
-**Parallelization:** 2C.1–2C.3 done. Next optional: AV/FMP for forward-estimate gaps (helps SEC-only soften vs locked min set).
+**Parallelization:** Phase 2C done. Next product slice: portfolio/watchlist dashboard after design review.
 
 ---
 
@@ -746,6 +747,7 @@ COVERAGE: 2C.1–2C.2 unit-covered; 2C.3 + cache-interaction paths remain GAPs
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Alpha Vantage fill-gaps shipped: OVERVIEW → `forward_pe`/market fields; optional key; soft-fail |
 | 2026-07-25 | Phase 2C.3 shipped: `sec_xbrl`, `merge_fundamentals`, soften Yahoo-fatal via min field checklist |
 | 2026-07-25 | Lock 2C.3 min fundamentals paths (`fundamentals_minimum.py`); soften Yahoo only when checklist passes |
 | 2026-07-25 | Doc hygiene: PRD/TODOS/architecture status aligned to 2C.1–2C.2 shipped; 2C.3 next |

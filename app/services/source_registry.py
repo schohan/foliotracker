@@ -9,9 +9,7 @@ SOURCE_YAHOO = "yahoo"
 SOURCE_GOOGLE_NEWS = "google_news"
 SOURCE_SEC_EDGAR = "sec_edgar"
 SOURCE_SEC_XBRL = "sec_xbrl"
-
-# Planned (not registered as live until implemented):
-# SOURCE_ALPHA_VANTAGE = "alpha_vantage"
+SOURCE_ALPHA_VANTAGE = "alpha_vantage"
 
 
 class UnknownSourceError(KeyError):
@@ -57,6 +55,16 @@ def build_registry(app_settings: Settings | None = None) -> dict[str, DataSource
             rate_limit_window_seconds=s.source_rate_limit_window_seconds,
             timeout_seconds=s.sec_xbrl_timeout_seconds,
             enabled=True,
+        ),
+        SOURCE_ALPHA_VANTAGE: DataSourceConfig(
+            source_id=SOURCE_ALPHA_VANTAGE,
+            confidence=0.85,
+            ttl_seconds=s.alpha_vantage_source_ttl_seconds,
+            rate_limit_calls=s.alpha_vantage_rate_limit_calls,
+            rate_limit_window_seconds=s.alpha_vantage_rate_limit_window_seconds,
+            timeout_seconds=s.alpha_vantage_timeout_seconds,
+            # Optional commercial fill-gap — off without API key.
+            enabled=bool(s.alpha_vantage_api_key),
         ),
     }
 

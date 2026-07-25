@@ -12,7 +12,11 @@ from app.schemas.financials import (
     FundamentalsSnapshot,
     StatementSummary,
 )
-from app.services.source_registry import SOURCE_SEC_XBRL, SOURCE_YAHOO
+from app.services.source_registry import (
+    SOURCE_ALPHA_VANTAGE,
+    SOURCE_SEC_XBRL,
+    SOURCE_YAHOO,
+)
 
 # Relative tolerance for float disagreement (1%).
 _FLOAT_RTOL = 0.01
@@ -96,7 +100,11 @@ class MergeFundamentalsResult:
 
 
 def trust_rank(source_id: str, field_path: str) -> int:
-    """Higher = preferred. Statement fields prefer SEC XBRL; market fields prefer Yahoo."""
+    """Higher = preferred.
+
+    Statement fields: SEC XBRL > Yahoo > Alpha Vantage.
+    Market / forward fields: Yahoo > Alpha Vantage > SEC XBRL.
+    """
     root = field_path.split(".", 1)[0]
     is_statement = root in _STATEMENT_FIELDS or field_path.startswith(
         ("balance_sheet.", "cash_flow.")
@@ -106,9 +114,13 @@ def trust_rank(source_id: str, field_path: str) -> int:
             return 100
         if source_id == SOURCE_YAHOO:
             return 80
+        if source_id == SOURCE_ALPHA_VANTAGE:
+            return 60
     else:
         if source_id == SOURCE_YAHOO:
             return 100
+        if source_id == SOURCE_ALPHA_VANTAGE:
+            return 85
         if source_id == SOURCE_SEC_XBRL:
             return 70
     return 50

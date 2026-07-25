@@ -48,10 +48,18 @@ from app.services.phase0_session import new_research_session
 from app.services.scoring import score_from_metrics
 from app.services.source_fetch import SourceRateLimitedError, cached_fetch
 from app.services.source_registry import (
+    SOURCE_ALPHA_VANTAGE,
     SOURCE_GOOGLE_NEWS,
     SOURCE_SEC_EDGAR,
     SOURCE_SEC_XBRL,
     SOURCE_YAHOO,
+)
+from app.tools.finance.alpha_vantage import (
+    MissingApiKeyError as AvMissingKeyError,
+    ToolParseError as AvParseError,
+    ToolTimeoutError as AvTimeoutError,
+    ToolUpstreamError as AvUpstreamError,
+    fetch_alpha_vantage_fundamentals,
 )
 from app.tools.finance.yahoo_finance import (
     TickerNotFoundError,
@@ -108,6 +116,13 @@ _YAHOO_ERRORS = (
     TickerNotFoundError,
     YahooParseError,
     InvalidTickerError,
+    SourceRateLimitedError,
+)
+_AV_ERRORS = (
+    AvTimeoutError,
+    AvUpstreamError,
+    AvParseError,
+    AvMissingKeyError,
     SourceRateLimitedError,
 )
 
@@ -208,8 +223,9 @@ def run_phase0_research(
     """Run research: validate → result-cache → source-cached fan-out → merge → evidence → score → thesis.
 
     Pure orchestration; safe to expose as an ADK tool.
-    Phase 2C.3: Yahoo + news + SEC filings + SEC XBRL; merge fundamentals;
-    Yahoo failure softens to partial when ``has_minimum_fundamentals``.
+    Phase 2C: Yahoo + news + SEC filings + SEC XBRL + optional Alpha Vantage;
+    merge fundamentals; Yahoo failure softens to partial when
+    ``has_minimum_fundamentals``. AV fills forward/market gaps when keyed.
     """
     request_id = str(uuid.uuid4())
     started = time.perf_counter()
@@ -253,10 +269,13 @@ def run_phase0_research(
     sec_failed = False
     xbrl_failed = False
     yahoo_failed = False
+    av_failed = False
     news_batch = None
     filings_batch = None
     yahoo_metrics: FinancialMetrics | None = None
     xbrl_metrics: FinancialMetrics | None = None
+    av_metrics: FinancialMetrics | None = None
+    av_enabled = bool(settings.alpha_vantage_api_key)
 
     def _fetch_yahoo() -> FinancialMetrics:
         result = cached_fetch(
@@ -298,11 +317,22 @@ def run_phase0_research(
         )
         return result.data
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    def _fetch_av() -> FinancialMetrics:
+        result = cached_fetch(
+            SOURCE_ALPHA_VANTAGE,
+            normalized,
+            lambda: fetch_alpha_vantage_fundamentals(normalized),
+            FinancialMetrics,
+            app_settings=settings,
+        )
+        return result.data
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
         fut_yahoo = pool.submit(_fetch_yahoo)
         fut_news = pool.submit(_fetch_news)
         fut_sec = pool.submit(_fetch_sec)
         fut_xbrl = pool.submit(_fetch_xbrl)
+        fut_av = pool.submit(_fetch_av) if av_enabled else None
 
         try:
             yahoo_metrics = fut_yahoo.result()
@@ -348,6 +378,18 @@ def run_phase0_research(
                 exc,
             )
 
+        if fut_av is not None:
+            try:
+                av_metrics = fut_av.result()
+            except _AV_ERRORS as exc:
+                av_failed = True
+                logger.warning(
+                    "alpha_vantage_failed request_id=%s ticker=%s err=%s",
+                    request_id,
+                    normalized,
+                    exc,
+                )
+
     providers: list[ProviderSnapshot | None] = []
     if yahoo_metrics is not None:
         providers.append(
@@ -356,6 +398,10 @@ def run_phase0_research(
     if xbrl_metrics is not None:
         providers.append(
             ProviderSnapshot(source_id=SOURCE_SEC_XBRL, snapshot=xbrl_metrics)
+        )
+    if av_metrics is not None:
+        providers.append(
+            ProviderSnapshot(source_id=SOURCE_ALPHA_VANTAGE, snapshot=av_metrics)
         )
 
     merge_result = merge_fundamentals(providers, ticker=normalized)
@@ -507,13 +553,14 @@ def run_phase0_research(
 
     logger.info(
         "pipeline_end request_id=%s ticker=%s status=%s cache_hit=false "
-        "conflicts=%s yahoo_failed=%s xbrl_failed=%s latency_ms=%.0f",
+        "conflicts=%s yahoo_failed=%s xbrl_failed=%s av_failed=%s latency_ms=%.0f",
         request_id,
         normalized,
         status.value,
         len(bundle.conflicts),
         yahoo_failed,
         xbrl_failed,
+        av_failed,
         (time.perf_counter() - started) * 1000,
     )
     return result

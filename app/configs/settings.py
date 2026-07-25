@@ -36,6 +36,12 @@ class Settings:
     sec_xbrl_timeout_seconds: int = 30
     sec_max_filings: int = 5
     sec_user_agent: str = "FolioTracker contact@example.com"
+    # Phase 2C — Alpha Vantage fill-gaps (optional; disabled without API key)
+    alpha_vantage_api_key: str | None = None
+    alpha_vantage_source_ttl_seconds: int = 86400
+    alpha_vantage_rate_limit_calls: int = 25
+    alpha_vantage_rate_limit_window_seconds: int = 86400
+    alpha_vantage_timeout_seconds: int = 20
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -92,6 +98,19 @@ class Settings:
             sec_user_agent=os.getenv(
                 "SEC_USER_AGENT",
                 "FolioTracker contact@example.com",
+            ),
+            alpha_vantage_api_key=os.getenv("ALPHA_VANTAGE_API_KEY") or None,
+            alpha_vantage_source_ttl_seconds=int(
+                os.getenv("ALPHA_VANTAGE_SOURCE_TTL_SECONDS", "86400")
+            ),
+            alpha_vantage_rate_limit_calls=int(
+                os.getenv("ALPHA_VANTAGE_RATE_LIMIT_CALLS", "25")
+            ),
+            alpha_vantage_rate_limit_window_seconds=int(
+                os.getenv("ALPHA_VANTAGE_RATE_LIMIT_WINDOW_SECONDS", "86400")
+            ),
+            alpha_vantage_timeout_seconds=int(
+                os.getenv("ALPHA_VANTAGE_TIMEOUT_SECONDS", "20")
             ),
         )
 

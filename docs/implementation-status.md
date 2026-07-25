@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 **complete**. Phase **2C.1–2C.3 done**. **Next:** optional AV/FMP fill-gaps / dogfood. See [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 **complete**. Phase **2C done** (through Alpha Vantage fill-gaps). **Next:** portfolio/watchlist dashboard (design review first). See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -70,7 +70,8 @@ Update this file whenever a module moves from stub → working.
 | Category | Modules | Status |
 |----------|---------|--------|
 | Finance | `yahoo_finance` | Done (2C.2) — profile, returns, BS/CF, trailing/forward P/E via `cached_fetch` |
-| Finance | `alpha_vantage`, `finnhub`, `polygon` | Todo — after SEC XBRL (2C.3); same DataSource port |
+| Finance | `alpha_vantage` | Done — OVERVIEW forward/market fill-gaps via `cached_fetch` (key optional) |
+| Finance | `finnhub`, `polygon` | Todo (stubs) |
 | News | `google_news` | Done (RSS) — via `cached_fetch` (2C.1) |
 | News | `news_api` | Todo (stub) |
 | Filings | `sec_edgar` | Done (2A metadata) — via `cached_fetch` (2C.1) |
@@ -96,9 +97,9 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `evidence` (`evidence_from_metrics`, `evidence_from_news`, `evidence_from_filings`, aggregator) | Done |
 | `phase0_cache` | Done |
 | `phase0_session` | Done (clears `scorecard`) |
-| `phase0_pipeline` | Done — Yahoo/news/SEC/XBRL fan-out, merge, soften Yahoo-fatal (2C.3), score, thesis |
+| `phase0_pipeline` | Done — Yahoo/news/SEC/XBRL/AV fan-out, merge, soften Yahoo-fatal, score, thesis |
 | `scoring` | Done (2B) — `score_from_metrics` (consumes merged snapshot) |
-| `source_registry` / `source_cache` / `source_fetch` | Done (2C.1; registry includes `sec_xbrl`) |
+| `source_registry` / `source_cache` / `source_fetch` | Done (2C.1; registry includes `sec_xbrl`, `alpha_vantage`) |
 | `merge_fundamentals` | Done (2C.3) |
 | `valuation` / `financial_math` / `ranking` / `normalization` | Todo |
 
@@ -129,9 +130,9 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 ## Suggested next milestones
 
-1. Clear `.cache/foliotracker/phase0/` + source cache; dogfood via `adk web` — confirm merge provenance + soften path
-2. Optional AV/FMP for `forward_pe` / `eps_forward` enrichment (not required for soften gate)
-3. Set a real `SEC_USER_AGENT` contact email before heavy live EDGAR/XBRL use
+1. Set `ALPHA_VANTAGE_API_KEY` + real `SEC_USER_AGENT`; dogfood AV fill of `forward_pe` when Yahoo gaps
+2. Run `/plan-design-review` before portfolio/watchlist dashboard UI
+3. Optional later: estimate endpoint / FMP if `eps_forward` gaps matter in dogfood
 
 ---
 
@@ -139,6 +140,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Alpha Vantage fill-gaps: OVERVIEW → forward/market fields; optional key; soft-fail |
 | 2026-07-25 | Phase 2C.3 done: `sec_xbrl`, `merge_fundamentals`, soften Yahoo-fatal |
 | 2026-07-25 | Lock 2C.3 min fundamentals field set + unit tests (`fundamentals_minimum`) |
 | 2026-07-25 | Docs aligned: PRD/TODOS/architecture reflect 2C.1–2C.2 shipped; 2C.3 next |

@@ -8,6 +8,7 @@ import pytest
 
 from app.configs.settings import Settings
 from app.services.source_registry import (
+    SOURCE_ALPHA_VANTAGE,
     SOURCE_GOOGLE_NEWS,
     SOURCE_SEC_EDGAR,
     SOURCE_SEC_XBRL,
@@ -41,18 +42,32 @@ def test_build_registry_has_live_sources() -> None:
         SOURCE_GOOGLE_NEWS,
         SOURCE_SEC_EDGAR,
         SOURCE_SEC_XBRL,
+        SOURCE_ALPHA_VANTAGE,
     }
     assert reg[SOURCE_YAHOO].confidence == 0.95
     assert reg[SOURCE_GOOGLE_NEWS].ttl_seconds == 900
     assert reg[SOURCE_SEC_EDGAR].rate_limit_calls == 5
     assert reg[SOURCE_SEC_XBRL].confidence == 0.95
+    assert reg[SOURCE_ALPHA_VANTAGE].enabled is False
+    assert reg[SOURCE_ALPHA_VANTAGE].confidence == 0.85
+
+
+def test_alpha_vantage_enabled_when_api_key_set() -> None:
+    reg = build_registry(_settings(alpha_vantage_api_key="demo-key"))
+    assert reg[SOURCE_ALPHA_VANTAGE].enabled is True
 
 
 def test_get_source_and_list() -> None:
     s = _settings()
     assert get_source(SOURCE_YAHOO, s).source_id == SOURCE_YAHOO
     assert list_source_ids(s) == sorted(
-        [SOURCE_YAHOO, SOURCE_GOOGLE_NEWS, SOURCE_SEC_EDGAR, SOURCE_SEC_XBRL]
+        [
+            SOURCE_YAHOO,
+            SOURCE_GOOGLE_NEWS,
+            SOURCE_SEC_EDGAR,
+            SOURCE_SEC_XBRL,
+            SOURCE_ALPHA_VANTAGE,
+        ]
     )
 
 

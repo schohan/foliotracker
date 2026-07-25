@@ -14,15 +14,25 @@ from app.services.merge_fundamentals import (
     merge_fundamentals,
     trust_rank,
 )
-from app.services.source_registry import SOURCE_SEC_XBRL, SOURCE_YAHOO
+from app.services.source_registry import (
+    SOURCE_ALPHA_VANTAGE,
+    SOURCE_SEC_XBRL,
+    SOURCE_YAHOO,
+)
 
 
 def test_trust_rank_prefers_sec_for_statements() -> None:
     assert trust_rank(SOURCE_SEC_XBRL, "balance_sheet.total_assets") > trust_rank(
         SOURCE_YAHOO, "balance_sheet.total_assets"
     )
+    assert trust_rank(SOURCE_YAHOO, "balance_sheet.total_assets") > trust_rank(
+        SOURCE_ALPHA_VANTAGE, "balance_sheet.total_assets"
+    )
     assert trust_rank(SOURCE_YAHOO, "pe_ratio") > trust_rank(
-        SOURCE_SEC_XBRL, "pe_ratio"
+        SOURCE_ALPHA_VANTAGE, "pe_ratio"
+    )
+    assert trust_rank(SOURCE_ALPHA_VANTAGE, "forward_pe") > trust_rank(
+        SOURCE_SEC_XBRL, "forward_pe"
     )
 
 
@@ -188,3 +198,32 @@ def test_none_providers_filtered() -> None:
     assert result.snapshot.pe_ratio == 12.0
     assert result.sources_used == [SOURCE_YAHOO]
     assert result.snapshot.source_id == SOURCE_YAHOO
+
+
+def test_av_fills_forward_pe_when_yahoo_gaps() -> None:
+    yahoo = FinancialMetrics(
+        ticker="AAPL",
+        pe_ratio=25.0,
+        forward_pe=None,
+        source_id=SOURCE_YAHOO,
+    )
+    av = FinancialMetrics(
+        ticker="AAPL",
+        forward_pe=22.0,
+        pe_ratio=30.0,
+        source_id=SOURCE_ALPHA_VANTAGE,
+    )
+    result = merge_fundamentals(
+        [
+            ProviderSnapshot(SOURCE_YAHOO, yahoo),
+            ProviderSnapshot(SOURCE_ALPHA_VANTAGE, av),
+        ],
+        ticker="AAPL",
+    )
+    assert result.snapshot.forward_pe == 22.0
+    assert result.snapshot.pe_ratio == 25.0  # Yahoo wins market disagreement
+    assert (
+        result.snapshot.field_provenance["forward_pe"].source_id
+        == SOURCE_ALPHA_VANTAGE
+    )
+    assert result.snapshot.field_provenance["pe_ratio"].source_id == SOURCE_YAHOO

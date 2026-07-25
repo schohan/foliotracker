@@ -1,7 +1,7 @@
 # FolioTracker Product Requirements Document (PRD)
 
 **Product:** FolioTracker — AI portfolio and stock research on [Google ADK](https://adk.dev/)  
-**Status:** Thin Phase 2 **complete**; Phase 2C.1–2C.3 **done** (provider port, Yahoo enrich, merge + SEC XBRL, soften Yahoo-fatal)  
+**Status:** Thin Phase 2 **complete**; Phase **2C done** (provider port, Yahoo enrich, merge + SEC XBRL, soften Yahoo-fatal, Alpha Vantage fill-gaps)  
 **Audience:** Executives (vision, roadmap, risk) and engineers (contracts, acceptance criteria, phase boundaries)  
 **Last updated:** 2026-07-25
 
@@ -33,9 +33,9 @@ FolioTracker turns a ticker symbol into **structured, citable research**: an evi
 
 Today the product ships locally via `adk web` / `adk run app`. The user asks to analyze a ticker (for example, `Analyze NVDA`); the system returns a `Phase0Result` JSON payload with status, evidence (including conflicts when sources disagree), a cited thesis when possible, a fixed non-advice disclaimer, cache metadata, and a request id for log correlation.
 
-**What exists now (Phase 0–2C.2):** single-ticker research from enriched Yahoo Finance fundamentals (profile, returns, BS/CF, trailing/forward P/E), Google News RSS headlines, and SEC EDGAR filing metadata, merged by a deterministic evidence aggregator, with disagreement surfaced as `evidence.conflicts`, plus a deterministic `scorecard` and optional `fundamentals` on `Phase0Result`. Dual cache: whole-result TTL plus per-source TTL/quota (`DataSource` registry). Yahoo failure is still fatal for the pipeline (soften in 2C.3).
+**What exists now (Phase 0–2C):** single-ticker research from enriched Yahoo Finance fundamentals (profile, returns, BS/CF, trailing/forward P/E), Google News RSS headlines, SEC EDGAR filing metadata + XBRL companyfacts, and optional Alpha Vantage OVERVIEW fill-gaps for forward/market fields when keyed. Evidence aggregator surfaces `evidence.conflicts`; `scorecard` + `fundamentals` on `Phase0Result`. Dual cache: whole-result TTL plus per-source TTL/quota. Yahoo failure softens to `partial` when merged fundamentals pass the min field checklist.
 
-**What comes next:** optional Alpha Vantage / FMP for forward-estimate enrichment; personalized portfolio/watchlist dashboard; Phase 3 platform. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
+**What comes next:** personalized portfolio/watchlist dashboard; Phase 3 platform. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
 
 How the system is built lives in [architecture.md](architecture.md). What is implemented vs stub lives in [implementation-status.md](implementation-status.md). Deferred work lives in [TODOS.md](../TODOS.md).
 
@@ -126,8 +126,7 @@ Capabilities the human experiences. Separate from [system features](#6-system-fe
 
 | Feature | What the user gets | Phase | Status |
 |---------|--------------------|-------|--------|
-| Forward-estimate gap fill | Commercial APIs when Yahoo/SEC leave `forward_pe` / `eps_forward` empty | Later | Todo (AV/FMP) |
-| Portfolio / watchlist dashboard | Fast buy/trim/add read across held + watched names | — | Deferred (depends on 2C) |
+| Portfolio / watchlist dashboard | Fast buy/trim/add read across held + watched names | — | Deferred (2C done; design review first) |
 | Portfolio risk view | Multi-ticker concentration and correlation-aware risk | — | Deferred past thin Phase 2 (XL) |
 | Session continuity | Richer memory across research sessions | — | Deferred past thin Phase 2 (P3) |
 | First-party research UI / API | Use FolioTracker without living in ADK chat | 3 | Planned |
@@ -184,13 +183,12 @@ Platform capabilities engineers build behind the user experience. Separate from 
 | SEC EDGAR filing metadata | `0.9` | Primary filings; metadata only in 2A |
 | SEC XBRL statement facts | `0.95` planned | 2C slice 3 — preferred for BS/CF truth |
 | Google News RSS | `0.7` | Headlines + URLs only |
-| Alpha Vantage / FMP | TBD | After SEC XBRL — forward estimates / gap fill |
+| Alpha Vantage | `0.85` | Optional OVERVIEW fill-gaps for forward/market fields (key required) |
 
 ### 6.2 Planned (deferred / Phase 3)
 
 | Feature | Role | Phase | Status |
 |---------|------|-------|--------|
-| Alpha Vantage / FMP | Forward estimates / gap fill after SEC XBRL | Later | Todo |
 | Portfolio schemas + risk services | Batch evidence, concentration, correlation | — | Deferred past thin Phase 2 |
 | Memory beyond TTL files | Ticker / company / session / portfolio memory | — | Deferred past thin Phase 2 (P3) |
 | Observability backends | Metrics, traces, alerts beyond local logs | 3 | Planned |
@@ -280,7 +278,7 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 | **0** | Thin vertical slice | Single-ticker cited thesis from financials | Yahoo → evidence → thesis → TTL cache | **Shipped** |
 | **1** | Evidence spine expansion | News context + visible source conflicts | News tool, merge aggregator, conflicts on result | **Shipped** (2026-07-24) |
 | **2** | Product depth (thin) | Filings context + scorecards | SEC specialist → scoring service | **Complete** (2A+2B) |
-| **2C** | Multi-source ingestion | Richer, resilient fundamentals | Provider port, per-source cache, Yahoo → SEC XBRL → AV | **Done through 2C.3** (AV/FMP optional later) |
+| **2C** | Multi-source ingestion | Richer, resilient fundamentals | Provider port, per-source cache, Yahoo → SEC XBRL → AV | **Done** |
 | **3** | Platform | First-party UI/API, hosted product | Observability, deploy/rollback runbooks | **Planned** |
 
 ### Phase 2 sequence (locked 2026-07-24)
@@ -298,9 +296,9 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 | **2C.1** | Source registry + per-source cache; wrap Yahoo/news/SEC | M | **Done** (2026-07-25) |
 | **2C.2** | Yahoo fundamentals enrichment + richer schemas | M | **Done** (2026-07-25) |
 | **2C.3** | Soften Yahoo-fatal + SEC XBRL fundamentals provider | L | **Done** (2026-07-25) |
-| Later | Alpha Vantage / FMP; portfolio/watchlist dashboard | L–XL | Todo |
+| Later | Alpha Vantage OVERVIEW fill-gaps | M | **Done** (2026-07-25) |
 
-**Deferred past 2C core:** portfolio / correlation (XL), cache / memory (P3), Kafka ingestion, Redis rate-limit platform.
+**Deferred past 2C:** portfolio / watchlist dashboard (XL; design review), portfolio / correlation (XL), cache / memory (P3), Kafka ingestion, Redis rate-limit platform.
 
 ### Phase 3 backlog (planned)
 
@@ -378,6 +376,7 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, and m
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Alpha Vantage fill-gaps shipped; Phase 2C complete |
 | 2026-07-25 | Phase 2C.3 shipped: merge + SEC XBRL + soften Yahoo-fatal |
 | 2026-07-25 | Lock 2C.3 minimum fundamentals field set (`fundamentals_minimum.py`); resolve open PRD question |
 | 2026-07-25 | Align shipped sections with 2C.1–2C.2 (registry, per-source cache, Yahoo enrich, fundamentals on result) |
