@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 **complete** (2A SEC + 2B scoring). Next: deferred portfolio / memory or Phase 3 — see [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 **complete** (2A SEC + 2B scoring). **Next:** Phase 2C multi-source ingestion (provider port + per-source cache) — designed 2026-07-25, impl Todo. See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -28,7 +28,9 @@ Update this file whenever a module moves from stub → working.
 | Evidence aggregator | Done | Dedupe, news/SEC caps, `EvidenceConflict`, status rules |
 | Configs (`settings`, `models`) | Done | TTL, cache dir, Yahoo/news/SEC timeouts + User-Agent |
 | Memory layer | Todo | Stub classes only (deferred past Phase 2) |
-| Cache runtime | Done | Local TTL file cache (`.cache/foliotracker/phase0/`) |
+| Cache runtime | Done | Local TTL file cache (`.cache/foliotracker/phase0/`) — whole Phase0Result |
+| Per-source cache / DataSource registry | Todo | Phase 2C.1 — see architecture Phase 2C |
+| Fundamentals merge + provenance | Todo | Phase 2C — `FundamentalsSnapshot` beyond thin metrics |
 | Evaluations framework | Done | Cases + rubric + `python -m evaluations.phase0.run` |
 | Prompts library | Todo | Thesis prompt inline in thesis_agent |
 
@@ -66,12 +68,12 @@ Update this file whenever a module moves from stub → working.
 
 | Category | Modules | Status |
 |----------|---------|--------|
-| Finance | `yahoo_finance` | Done (yfinance) |
-| Finance | `alpha_vantage`, `finnhub`, `polygon` | Todo |
-| News | `google_news` | Done (RSS) |
+| Finance | `yahoo_finance` | Done (yfinance) — thin `info` metrics; enrich in 2C.2 |
+| Finance | `alpha_vantage`, `finnhub`, `polygon` | Todo — after SEC XBRL (2C.3); same DataSource port |
+| News | `google_news` | Done (RSS) — wrap as DataSource in 2C.1 |
 | News | `news_api` | Todo (stub) |
-| Filings | `sec_edgar` | Done (2A metadata) |
-| Filings | `sec_xbrl` | Todo (stub; deferred past 2A) |
+| Filings | `sec_edgar` | Done (2A metadata) — wrap as DataSource in 2C.1 |
+| Filings | `sec_xbrl` | Todo — Phase 2C.3 first secondary fundamentals provider |
 | Search / web / social / ai / cache tools / persistence | — | Todo |
 
 ---
@@ -80,7 +82,9 @@ Update this file whenever a module moves from stub → working.
 
 | Module | Status |
 |--------|--------|
-| All listed workflows | Todo (Phase 0 uses `phase0_pipeline` service instead) |
+| All listed workflows | Todo (scaffold only — not Temporal; Phase 0/2C uses `phase0_pipeline` + provider port) |
+
+Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-demand provider fetches with per-source cache inside the research pipeline.
 
 ---
 
@@ -91,8 +95,9 @@ Update this file whenever a module moves from stub → working.
 | `evidence` (`evidence_from_metrics`, `evidence_from_news`, `evidence_from_filings`, aggregator) | Done |
 | `phase0_cache` | Done |
 | `phase0_session` | Done (clears `scorecard`) |
-| `phase0_pipeline` | Done (Yahoo + news + SEC + scoring + thesis) |
-| `scoring` | Done (2B) — `score_from_metrics` |
+| `phase0_pipeline` | Done (Yahoo + news + SEC + scoring + thesis); 2C will make fan-out source-aware |
+| `scoring` | Done (2B) — `score_from_metrics` (consumes merged snapshot in 2C) |
+| `source_registry` / `source_cache` / `merge_fundamentals` | Todo (Phase 2C) |
 | `valuation` / `financial_math` / `ranking` / `normalization` | Todo |
 
 ---
@@ -107,7 +112,7 @@ Update this file whenever a module moves from stub → working.
 | `ticker` | Done | `normalize_ticker` |
 | `news` | Done | `NewsArticle`, `NewsBatch` |
 | `filings` | Done (2A) | `SecFiling`, `SecFilingsBatch` |
-| `financials` / others | Partial | Used by Phase 0 |
+| `financials` / others | Partial | Thin `FinancialMetrics` + stub `RevenueHistory`; 2C expands toward `FundamentalsSnapshot` |
 
 ---
 
@@ -121,10 +126,11 @@ Update this file whenever a module moves from stub → working.
 
 ## Suggested next milestones
 
-1. Dogfood via `adk web` — analyze a ticker; confirm `scorecard` on result
-2. Clear `.cache/foliotracker/phase0/` after upgrading (2B schema bump)
-3. Set a real `SEC_USER_AGENT` contact email before heavy live EDGAR use
-4. Next product work: portfolio / correlation (deferred) or Phase 3 platform — see TODOS
+1. Dogfood: 3 watchlist tickers — list Yahoo ritual fields FolioTracker still omits (2C.2 acceptance checklist)
+2. Implement 2C.1 — DataSource registry + per-source cache wrapping Yahoo/news/SEC
+3. Implement 2C.2 — Yahoo fundamentals enrichment + schema expansion
+4. Implement 2C.3 — soften Yahoo-fatal + `sec_xbrl`; then optional AV/FMP
+5. Set a real `SEC_USER_AGENT` contact email before heavy live EDGAR/XBRL use
 
 ---
 
@@ -132,6 +138,7 @@ Update this file whenever a module moves from stub → working.
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Phase 2C designed (B1): provider port, per-source cache, Yahoo → SEC XBRL → AV; status rows added |
 | 2026-07-24 | Phase 2B done: `score_from_metrics`, `Phase0Result.scorecard`, pipeline + session wire-up |
 | 2026-07-24 | Lock 2B scoring contract in docs; expand next milestones (schemas → tests → service → pipeline) |
 | 2026-07-24 | Phase 2A done: SEC EDGAR tool, filings evidence, pipeline fan-out |

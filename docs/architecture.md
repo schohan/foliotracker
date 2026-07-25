@@ -2,7 +2,7 @@
 
 AI portfolio / stock research on [Google ADK](https://adk.dev/).
 
-**Status:** Thin Phase 2 **complete** (2A SEC + 2B scoring). Portfolio/memory deferred. See [TODOS.md](../TODOS.md).
+**Status:** Thin Phase 2 **complete** (2A SEC + 2B scoring). **Next:** Phase 2C multi-source ingestion (provider port + per-source cache). Portfolio/memory/dashboard deferred. See [TODOS.md](../TODOS.md).
 
 **Related:** [PRD.md](PRD.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -57,21 +57,95 @@ User provides a ticker → system returns **`EvidenceBundle` + `InvestmentThesis
 | Pipeline fan-out | Yahoo + news + SEC; news or SEC failure alone → `partial` | **2A done** |
 | Scoring service | Deterministic Growth/Value/Moat/Risk from `FinancialMetrics` → `Scorecard`; no LLM math | **2B done** |
 
-`sec_xbrl` stays stubbed. Portfolio/memory stay deferred (see TODOS). Thin Phase 2 complete = 2A + 2B.
+`sec_xbrl` stays stubbed until Phase 2C slice 3. Portfolio/memory/dashboard stay deferred (see TODOS). Thin Phase 2 complete = 2A + 2B.
 
-### Explicitly NOT in scope (beyond thin Phase 2)
+### Phase 2C — Multi-source ingestion (PLANNED — design locked 2026-07-25)
+
+**Job:** Richer, reliable fundamentals for buy / hold / trim / add decisions without a long Yahoo click-tour. Sources are plumbing; field completeness + honest degradation are the product.
+
+**Approach B1 (locked):** Provider port + per-source TTL/quota cache; enrich Yahoo day-1; **SEC XBRL next** for statement truth; Alpha Vantage / FMP later for forward estimates if gaps remain. No Kafka / Celery / medallion warehouse — on-demand fetch + local per-source cache only.
+
+#### Contracts
+
+| Contract | Role |
+|----------|------|
+| `DataSource` registry | Config-driven: `source_id`, trust/confidence, `ttl_seconds`, soft rate budget (calls/window), timeout, enabled |
+| Per-source cache | `.cache/foliotracker/sources/{source_id}/{TICKER}.json` with `fetched_at`, normalized payload, status |
+| `FundamentalsSnapshot` | Evolve beyond thin `FinancialMetrics`: profile, returns (YTD/1Y/3M), earnings/revenue series, BS/CF summaries, trailing + forward P/E, FCF; each filled field records `source_id` + `as_of` |
+| Merge policy | Fill-nulls by trust ladder; same-field disagreement → conflict + prefer higher trust; never invent values |
+| Pipeline | Fetch each source independently by TTL; evidence + scoring consume merged snapshot; Yahoo-alone failure → `partial` once merge has enough, else clear `error` |
+
+#### Target data flow
+
+```
+analyze_ticker
+        │
+        ▼
+┌───────────────────────────────┐
+│ per-source cache              │  key = ticker × source_id
+│ fresh? → reuse                │
+│ stale / miss → fetch provider │
+└─────────────┬─────────────────┘
+              │
+    ┌─────────┼─────────┬──────────────┐
+    ▼         ▼         ▼              ▼ (later)
+ yahoo    google_news  sec_edgar    sec_xbrl / alpha_vantage
+    │         │         │              │
+    └─────────┴────┬────┘              │
+                   ▼                   │
+         merge_fundamentals ◄──────────┘
+         → FundamentalsSnapshot + provenance
+                   │
+                   ▼
+         evidence builders → aggregator
+         score_from_metrics (merged snapshot)
+         thesis_agent
+                   │
+                   ▼
+         Phase0Result (+ optional coarser result TTL)
+```
+
+#### Implementation slices
+
+| Slice | Deliver | Status |
+|-------|---------|--------|
+| Docs | This section + PRD/TODOS/implementation-status | **Done** (2026-07-25) |
+| 1 | Source registry + per-source cache; wrap existing Yahoo / news / SEC tools; behavior-compatible | Todo |
+| 2 | Enrich Yahoo (statements/trends/forward where yfinance allows); expand schemas; evidence + scoring consume richer fields | Todo |
+| 3 | Soften Yahoo-fatal once merge rules allow; `sec_xbrl` fundamentals provider | Todo |
+| Later | Alpha Vantage / FMP fill-gaps; portfolio / watchlist dashboard | Todo (see TODOS) |
+
+#### Rate limits vs platform
+
+| In scope (2C) | Still out of scope |
+|---------------|--------------------|
+| Per-source local budgets (calls/window) + skip/defer when exhausted | Redis / multi-tenant rate-limit platform |
+| Independent TTL per `source_id` | Background scheduled workers / Kafka |
+
+#### Failure modes (2C additions)
+
+| Codepath | Failure | User sees |
+|----------|---------|-----------|
+| Per-source cache | Corrupt / IO | Treat as miss; log; fetch |
+| Source rate budget exhausted | Soft skip | Serve stale if present, else gap → often `partial` |
+| Yahoo down, merge incomplete | No usable fundamentals | `status=error`, `DATA_FETCH_FAILED` (until slice 3 softens) |
+| Yahoo down, SEC XBRL (later) filled BS/CF | Partial fundamentals | `status=partial`, provenance shows SEC |
+| Field disagreement across providers | Conflict record | Prefer higher trust; `partial` when conflict fires |
+
+### Explicitly NOT in scope (beyond thin Phase 2 / 2C design)
 
 - Technical / social / macro agents
 - ADK `ParallelAgent` rewrite (fan-out stays in the Python pipeline)
 - Full evidence graph edges / confidence calibration
-- XBRL fact extraction (`sec_xbrl`)
 - Memory layers, Mongo, vector store (local TTL file cache **is** in Phase 0 — see below)
-- Portfolio / correlation / multi-ticker risk
+- Portfolio / correlation / multi-ticker risk / personalized dashboard UI (product next; separate design)
 - Custom HTTP API / UI beyond `adk web`
-- Production deploy, dashboards, rate-limit platform
-- Web scraping of article bodies or full filing HTML (RSS headlines + EDGAR metadata only)
+- Production deploy, Redis multi-tenant rate-limit platform, Kafka/Celery ingestion
+- Shipping Alpha Vantage / Finnhub / Polygon in slice 1
+- Web scraping of article bodies or full filing HTML (RSS headlines + EDGAR metadata only until XBRL slice)
 - `scoring_agent` ADK / LLM “explaining” scores (2B is service-only)
 - Ranking/screening, news/SEC-driven score adjustments
+- Claiming “100% uptime” — reliability = honest gaps + richer fields
 
 ---
 
@@ -189,6 +263,8 @@ File-backed, process-local (and durable across `adk` restarts on the same machin
 | Miss / expired | Full pipeline (`cache_hit=false`); on `ok`/`partial` write/overwrite cache and reset TTL clock |
 | Invalidate | TTL expiry only in Phase 0 (no manual bust API yet) |
 | Errors | Corrupt JSON / IO error → treat as miss, log warning, continue pipeline |
+
+**Phase 2C note:** Result cache remains a coarse “skip whole pipeline” optimization. **Authoritative freshness** moves to the per-source cache (ticker × `source_id`) so Yahoo, news, and SEC can refresh on independent TTLs. When 2C lands, a result-cache hit should not force all sources to look equally fresh — prefer source-level reuse, then rebuild evidence/score/thesis only when needed (exact invalidation rules land with slice 1).
 
 ```
 cache_lookup(ticker)
@@ -336,9 +412,11 @@ Fixed disclaimer copy (Phase 0):
 
 | Source | Confidence | Notes |
 |--------|------------|-------|
-| Yahoo Finance (financial metrics) | `0.95` fixed | Primary financial source |
+| Yahoo Finance (financial metrics) | `0.95` fixed | Primary financial source today; day-1 enrich in 2C slice 2 |
 | SEC EDGAR (filing metadata) | `0.9` fixed | Primary filings; metadata only in 2A |
+| SEC XBRL (statement facts) | `0.95` planned | Phase 2C slice 3 — BS/CF/EPS truth; higher trust than commercial fill-gaps for statements |
 | Google News (RSS headlines) | `0.7` fixed | Headlines only; lower trust than filings/metrics |
+| Alpha Vantage / FMP (commercial) | TBD (~0.85) | After SEC XBRL — forward estimates / Yahoo gap fill; not slice 1 |
 
 **Cache note (Phase 1):** Bundle schema gained `conflicts`. Clear `.cache/foliotracker/phase0/` after upgrading if old cached JSON misbehaves; Pydantic defaults empty conflicts for missing keys.
 
@@ -581,15 +659,15 @@ Future composition (when Phase 0 is done): ETF, dividend, M&A, earnings preview,
 | Path dependency | Evidence + citation spine is the load-bearing choice — good |
 | 1-year readability | Phase 0 section at top of this doc is the on-ramp |
 
-**After thin Phase 2 shipped (2A + 2B):** portfolio/memory deferred (see TODOS).
+**After thin Phase 2 shipped (2A + 2B):** Phase 2C multi-source ingestion next; portfolio/memory/dashboard deferred (see TODOS).
 
 ## Dream state delta
 
-| Now | After thin Phase 2 | 12-month ideal |
-|-----|--------------------|----------------|
-| Yahoo + news + SEC cited thesis + conflicts + Scorecard | (shipped) Multi-domain spine + deterministic scores | Full evidence graph, portfolio, scoring, memory |
+| Now | After Phase 2C | 12-month ideal |
+|-----|----------------|----------------|
+| Yahoo + news + SEC cited thesis + conflicts + Scorecard; single result TTL | Provider port, per-source TTL/quota, richer fundamentals + provenance; SEC XBRL for statements | Full evidence graph, portfolio dashboard, scoring, memory |
 
-Phase 0 moves toward the ideal by proving the spine. It does not pretend the cathedral is built.
+Phase 0–2B proved the spine. 2C makes fundamentals multi-provider-ready without pretending the cathedral is built.
 
 ---
 
@@ -599,11 +677,62 @@ Phase 0 moves toward the ideal by proving the spine. It does not pretend the cat
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | mode: SCOPE_REDUCTION; Phase 0 thin slice; 0 critical gaps left open |
 | Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 0 | — | — |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | SKIPPED (no custom UI) |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | Phase 2C B1 locked; 4 issues closed into design; 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | SKIPPED (no custom UI; dashboard deferred) |
 
 **UNRESOLVED:** 0  
-**VERDICT:** CEO CLEARED (REDUCTION) — eng review recommended before implementation; next build step is schemas + tests/evals for human review gate.
+**VERDICT:** CEO + ENG CLEARED — implement 2C.1 (registry + per-source cache) next; `/plan-design-review` when dashboard UI starts.
+
+### Eng review notes (2026-07-25 — Phase 2C)
+
+**Step 0:** Scope reduced to docs + sliced impl (not full Kafka platform). Approach B1 accepted via office-hours.
+
+**Architecture (issues closed into design):**
+1. Whole-result TTL cannot control per-source frequency → per-source cache
+2. Yahoo-fatal blocks resilience → soften only after merge + min fields (2C.3)
+3. Thin `FinancialMetrics` insufficient for ritual → `FundamentalsSnapshot` + Yahoo enrich
+4. Secondary provider priority → SEC XBRL before Alpha Vantage
+
+**Code quality:** Prefer wrapping existing tools over parallel ingestion paths; keep merge/provenance explicit (no clever silent coalesce).
+
+**Test coverage plan (impl):**
+
+```
+CODE PATH COVERAGE (Phase 2C — planned)
+===========================
+[+] source_registry / source_cache
+    ├── [GAP] hit within TTL — NO TEST YET
+    ├── [GAP] miss / expired — NO TEST YET
+    ├── [GAP] corrupt file → miss — NO TEST YET
+    └── [GAP] rate budget exhausted → skip — NO TEST YET
+
+[+] merge_fundamentals
+    ├── [GAP] fill-nulls by trust — NO TEST YET
+    ├── [GAP] field disagreement → conflict — NO TEST YET
+    └── [GAP] never invent values — NO TEST YET
+
+[+] phase0_pipeline (source-aware)
+    ├── [★★  TESTED] Yahoo+news+SEC fan-out today — test_phase0_pipeline.py
+    ├── [GAP] independent source refresh — NO TEST YET
+    └── [GAP] Yahoo fail + merge enough → partial (2C.3) — NO TEST YET
+
+USER FLOW COVERAGE
+===========================
+[+] Analyze ticker (adk)
+    ├── [★★  TESTED] Happy / partial / Yahoo error (current) — unit + evals
+    ├── [GAP] [→E2E] Re-analyze with staggered source TTLs
+    └── [GAP] Dogfood field checklist (3 tickers) — manual acceptance
+
+─────────────────────────────────
+COVERAGE: current spine tested; 2C paths are GAPs until impl slices
+─────────────────────────────────
+```
+
+**Performance:** Per-source cache cuts redundant Yahoo/news/SEC calls; watch unbounded source cache files (same local-only acceptance as Phase 0). No N+1 DB.
+
+**NOT in scope / What already exists:** See Phase 2C section above and TODOS.md.
+
+**Parallelization:** Lane A: 2C.1 registry/cache → 2C.2 Yahoo enrich. Lane B (after 2C.1): tests for merge. Then 2C.3 SEC XBRL. Sequential preferred until registry lands.
 
 ---
 
@@ -611,6 +740,7 @@ Phase 0 moves toward the ideal by proving the spine. It does not pretend the cat
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Phase 2C design locked (B1): provider port, per-source cache, Yahoo enrich → SEC XBRL → AV/FMP; local rate budgets in scope |
 | 2026-07-24 | Phase 2B shipped: `score_from_metrics`, `Phase0Result.scorecard`, clamp anchors documented |
 | 2026-07-24 | Lock 2B scoring contract: dimensions, Scorecard on Phase0Result, service-only (no scoring_agent) |
 | 2026-07-24 | Thesis empty-claims taxonomy: `EmptyClaimsError`, `Phase0ErrorCode`, user-readable thesis errors |

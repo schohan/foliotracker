@@ -1,12 +1,76 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + aggregator conflicts) is implemented — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C multi-source ingestion **designed** (Approach B1) — see [docs/architecture.md](docs/architecture.md).
 
-**Phase 2 lock (2026-07-24):** Thin Phase 2 = **SEC specialist → scoring service**. Portfolio and cache/memory deferred to later.
+**Phase 2 lock (2026-07-24):** Thin Phase 2 = **SEC specialist → scoring service**. Portfolio and cache/memory deferred.
 
 **Thin Phase 2 complete** = 2A + 2B (**both done 2026-07-24**).
 
-## Deferred beyond Phase 2
+**Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL next; Alpha Vantage/FMP later. No Kafka.
+
+## Phase 2C — Multi-source ingestion
+
+### Provider port + per-source cache (2C.1)
+
+**What:** DataSource registry and file-backed per-source cache (ticker × source_id) wrapping existing Yahoo, Google News, and SEC EDGAR tools.
+
+**Why:** Whole-`Phase0Result` TTL cannot refresh sources independently or track rate budgets per provider; adding Alpha Vantage/SEC XBRL later would force a redesign without this port.
+
+**Context:** Design locked in architecture Phase 2C (B1). Reuse `phase0_cache` file patterns under `.cache/foliotracker/sources/{source_id}/`. Keep pipeline behavior compatible until merge softens Yahoo-fatal. Start: settings for per-source TTL/budgets, thin registry module, adapter around existing fetch functions.
+
+**Effort:** M  
+**Priority:** P1  
+**Depends on:** Thin Phase 2 complete (done)
+
+### Yahoo fundamentals enrichment (2C.2)
+
+**What:** Expand Yahoo fetch + schemas beyond thin `FinancialMetrics` toward `FundamentalsSnapshot` (returns, earnings/revenue series, BS/CF summaries, trailing + forward P/E where yfinance allows).
+
+**Why:** Shally’s research ritual needs these fields for buy/trim/add; Yahoo-first if it can supply them.
+
+**Context:** `app/tools/finance/yahoo_finance.py` today maps `info` only. `RevenueHistory` stub exists in `app/schemas/financials.py`. Founder assignment: checklist of omitted fields from 3 watchlist tickers becomes acceptance criteria. Wire evidence + scoring to consume richer fields without inventing nulls.
+
+**Effort:** M  
+**Priority:** P1  
+**Depends on:** 2C.1 provider port (or land schemas in parallel carefully)
+
+### Soften Yahoo-fatal + SEC XBRL fundamentals (2C.3)
+
+**What:** Merge policy so Yahoo failure alone can yield `partial` when another fundamentals source filled enough fields; implement `sec_xbrl` as first secondary fundamentals provider for BS/CF/EPS truth.
+
+**Why:** Reliability and statement accuracy; SEC is the logical source for audited statements. Soften hard-fail only after merge + minimum-field rules exist.
+
+**Context:** Today Yahoo errors abort the pipeline in `phase0_pipeline`. `sec_xbrl` is stubbed. Prefer SEC over Alpha Vantage for statements. Minimum field set for “enough fundamentals” is an open PRD question.
+
+**Effort:** L  
+**Priority:** P1  
+**Depends on:** 2C.1 + 2C.2; open question on minimum field set
+
+### Alpha Vantage / FMP forward-estimate fill-gap
+
+**What:** Optional commercial provider for forward P/E / estimates when Yahoo gaps remain after SEC XBRL.
+
+**Why:** Forward metrics are part of the ritual; SEC filings do not replace analyst forward P/E.
+
+**Context:** `app/tools/finance/alpha_vantage.py` stub exists. Do **not** ship in 2C.1. Add API keys to settings/`.env.example` only when implementing. Same DataSource port and per-source TTL/quota.
+
+**Effort:** M  
+**Priority:** P2  
+**Depends on:** 2C.1; preferably after 2C.3
+
+## Deferred beyond Phase 2C
+
+### Portfolio / watchlist dashboard
+
+**What:** Personalized surface to review held + watched tickers for buy/trim/add without per-ticker Yahoo grind.
+
+**Why:** Product job-to-be-done beyond single-ticker ADK JSON; primary UX for dogfood reliability.
+
+**Context:** Depends on richer FundamentalsSnapshot + multi-source spine. Run `/plan-design-review` before UI. Keep Phase0Result (or successor) as contract.
+
+**Effort:** XL  
+**Priority:** P2  
+**Depends on:** Phase 2C core (2C.1–2C.3)
 
 ### Portfolio / correlation layer
 
@@ -14,11 +78,11 @@ Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + 
 
 **Why:** Product is FolioTracker; Phase 0 is single-ticker only.
 
-**Context:** `portfolio_agent` stub exists. Needs portfolio schemas, batch evidence, and risk services. Do not start until single-ticker spine + scoring are trusted.
+**Context:** `portfolio_agent` stub exists. Needs portfolio schemas, batch evidence, and risk services. Do not start until single-ticker spine + scoring + 2C fundamentals are trusted.
 
 **Effort:** XL  
 **Priority:** P2  
-**Depends on:** Thin Phase 2 (SEC + scoring)
+**Depends on:** Thin Phase 2 (done); preferably 2C richer fundamentals
 
 ### Cache / memory beyond Phase 0 TTL files
 
@@ -26,11 +90,11 @@ Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + 
 
 **Why:** Cost control and continuity across research sessions.
 
-**Context:** Phase 0 has local file TTL cache only. Memory stubs under `app/memory/` stay untouched until needed.
+**Context:** Phase 0 has local file TTL cache; 2C adds per-source files. Memory stubs under `app/memory/` stay untouched until needed.
 
 **Effort:** M  
 **Priority:** P3  
-**Depends on:** Phase 0 cache proven in use
+**Depends on:** Phase 0 cache proven; 2C per-source cache landed
 
 ## Phase 3 — Platform
 
@@ -44,15 +108,15 @@ Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + 
 
 **Effort:** L  
 **Priority:** P3  
-**Depends on:** Phase 0 product-complete
+**Depends on:** Phase 0 product-complete; ideally 2C
 
 ### Observability backends (metrics, traces, alerts)
 
-**What:** Export pipeline latency, cache hit rate, Yahoo/thesis error rates.
+**What:** Export pipeline latency, cache hit rate, per-source error/rate-limit rates, Yahoo/thesis error rates.
 
 **Why:** Local logs won’t scale past solo use.
 
-**Context:** Phase 0 has structured logs + `request_id` only.
+**Context:** Phase 0 has structured logs + `request_id` only. 2C should log per-source hit/miss/skip.
 
 **Effort:** M  
 **Priority:** P3  
@@ -64,13 +128,19 @@ Deferred work from CEO plan review (2026-07-21). Phase 1 evidence spine (news + 
 
 **Why:** Local-only isn’t a product.
 
-**Context:** Architecture deploy section is Phase 0 local-only by design.
+**Context:** Architecture deploy section is Phase 0 local-only by design. Redis multi-tenant rate-limit platform stays out until then.
 
 **Effort:** L  
 **Priority:** P3  
 **Depends on:** Custom API or hosted ADK decision
 
 ## Completed
+
+### Phase 2C design lock — Approach B1 (2026-07-25)
+
+- Office-hours design doc: provider port, per-source cache, Yahoo → SEC XBRL → AV
+- Architecture Phase 2C section; PRD/TODOS/implementation-status updated
+- Explicit non-goals: Kafka, Redis rate-limit platform, shipping all commercial APIs day-1
 
 ### Phase 2B — Scoring service (2026-07-24)
 
