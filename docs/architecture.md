@@ -2,7 +2,7 @@
 
 AI portfolio / stock research on [Google ADK](https://adk.dev/).
 
-**Status:** Thin Phase 2 **complete** (2A SEC + 2B scoring). **Next:** Phase 2C multi-source ingestion (provider port + per-source cache). Portfolio/memory/dashboard deferred. See [TODOS.md](../TODOS.md).
+**Status:** Thin Phase 2 **complete**. Phase **2C.1–2C.2 done** (provider port + Yahoo enrichment). **Next:** 2C.3 soften Yahoo-fatal + SEC XBRL. Portfolio/memory/dashboard deferred. See [TODOS.md](../TODOS.md).
 
 **Related:** [PRD.md](PRD.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -110,8 +110,8 @@ analyze_ticker
 | Slice | Deliver | Status |
 |-------|---------|--------|
 | Docs | This section + PRD/TODOS/implementation-status | **Done** (2026-07-25) |
-| 1 | Source registry + per-source cache; wrap existing Yahoo / news / SEC tools; behavior-compatible | Todo |
-| 2 | Enrich Yahoo (statements/trends/forward where yfinance allows); expand schemas; evidence + scoring consume richer fields | Todo |
+| 1 | Source registry + per-source cache; wrap existing Yahoo / news / SEC tools; behavior-compatible | **Done** (2026-07-25) |
+| 2 | Enrich Yahoo (statements/trends/forward where yfinance allows); expand schemas; evidence + scoring consume richer fields | **Done** (2026-07-25) |
 | 3 | Soften Yahoo-fatal once merge rules allow; `sec_xbrl` fundamentals provider | Todo |
 | Later | Alpha Vantage / FMP fill-gaps; portfolio / watchlist dashboard | Todo (see TODOS) |
 
@@ -318,7 +318,7 @@ FinancialMetrics ──▶ score_from_metrics ──▶ Scorecard | null
 | Field | Input | Direction (v1) | Clamp anchors |
 |-------|--------|----------------|---------------|
 | `growth_score` | `revenue_growth` | Higher growth → higher score | −0.50 → 0; +1.00 → 100 |
-| `value_score` | `pe_ratio` | Lower positive P/E → higher score; non-positive → `null` | P/E 5 → 100; P/E 50 → 0 |
+| `value_score` | trailing → `pe_ratio` → forward P/E | Lower positive P/E → higher score; non-positive → `null` | P/E 5 → 100; P/E 50 → 0 |
 | `profitability_score` | `operating_margin` (fallback `gross_margin`) | Higher margin → higher score | −0.20 → 0; 0.50 → 100 |
 | `risk_score` | `debt_to_equity` | Higher leverage → higher risk score | 0 → 0; 2.0 → 100 |
 | `moat_score` | `gross_margin` | Provisional proxy only (weak) | 0 → 0; 0.80 → 100 |
@@ -740,6 +740,8 @@ COVERAGE: current spine tested; 2C paths are GAPs until impl slices
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | Phase 2C.2 shipped: enriched `FinancialMetrics` / `FundamentalsSnapshot`; Yahoo profile, returns, BS/CF, forward P/E |
+| 2026-07-25 | Phase 2C.1 shipped: `source_registry` / `source_cache` / `cached_fetch`; pipeline fan-out per-source |
 | 2026-07-25 | Phase 2C design locked (B1): provider port, per-source cache, Yahoo enrich → SEC XBRL → AV/FMP; local rate budgets in scope |
 | 2026-07-24 | Phase 2B shipped: `score_from_metrics`, `Phase0Result.scorecard`, clamp anchors documented |
 | 2026-07-24 | Lock 2B scoring contract: dimensions, Scorecard on Phase0Result, service-only (no scoring_agent) |

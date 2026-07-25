@@ -26,6 +26,7 @@ def test_evidence_from_metrics_assigns_stable_id_and_yahoo_fields() -> None:
         market_cap=1.0e12,
         revenue_growth=0.18,
         pe_ratio=30.0,
+        forward_pe=28.0,
     )
     ev = evidence_from_metrics(metrics)
     assert isinstance(ev, Evidence)
@@ -34,12 +35,25 @@ def test_evidence_from_metrics_assigns_stable_id_and_yahoo_fields() -> None:
     assert ev.source == "Yahoo Finance"
     assert ev.confidence == 0.95
     assert ev.data["revenue_growth"] == 0.18
+    assert ev.data["forward_pe"] == 28.0
+    assert ev.data["source_id"] == "yahoo"
 
 
 def test_evidence_from_metrics_all_null_raises_empty_metrics() -> None:
     metrics = FinancialMetrics(ticker="NVDA")
     with pytest.raises(EmptyMetricsError):
         evidence_from_metrics(metrics)
+
+
+def test_evidence_from_metrics_accepts_returns_only() -> None:
+    from app.schemas.financials import PriceReturns
+
+    metrics = FinancialMetrics(
+        ticker="NVDA",
+        returns=PriceReturns(return_1y=0.25),
+    )
+    ev = evidence_from_metrics(metrics)
+    assert ev.data["returns"]["return_1y"] == 0.25
 
 
 def test_evidence_from_news_stable_ids() -> None:

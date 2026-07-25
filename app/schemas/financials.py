@@ -1,12 +1,59 @@
-"""Financial-domain schemas."""
+"""Financial-domain schemas (Phase 2C.2 enriched fundamentals)."""
 
 from __future__ import annotations
+
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
 
+class CompanyProfile(BaseModel):
+    """Issuer profile from a market-data source."""
+
+    name: str | None = None
+    sector: str | None = None
+    industry: str | None = None
+    summary: str | None = None
+
+
+class PriceReturns(BaseModel):
+    """Price performance fractions (0.10 = +10%)."""
+
+    return_3m: float | None = None
+    return_1y: float | None = None
+    return_ytd: float | None = None
+
+
+class PeriodMetric(BaseModel):
+    """One period in a time series (revenue, earnings, etc.)."""
+
+    period: str
+    value: float | None = None
+
+
+class StatementSummary(BaseModel):
+    """Latest available statement snapshot (period end)."""
+
+    as_of: str | None = None
+    total_revenue: float | None = None
+    net_income: float | None = None
+    total_assets: float | None = None
+    total_liabilities: float | None = None
+    total_cash: float | None = None
+    total_debt: float | None = None
+    operating_cashflow: float | None = None
+    free_cash_flow: float | None = None
+
+
 class FinancialMetrics(BaseModel):
+    """Enriched fundamentals for one ticker (Yahoo day-1; multi-source later).
+
+    ``pe_ratio`` remains the scoring input (trailing preferred). Trailing and
+    forward P/E are also stored explicitly when available.
+    """
+
     ticker: str
+    # Core Phase 0 fields
     market_cap: float | None = None
     revenue_growth: float | None = None
     gross_margin: float | None = None
@@ -14,6 +61,28 @@ class FinancialMetrics(BaseModel):
     free_cash_flow: float | None = None
     debt_to_equity: float | None = None
     pe_ratio: float | None = None
+    # 2C.2 enrichment
+    trailing_pe: float | None = None
+    forward_pe: float | None = None
+    eps_trailing: float | None = None
+    eps_forward: float | None = None
+    earnings_growth: float | None = None
+    return_on_equity: float | None = None
+    current_ratio: float | None = None
+    total_cash: float | None = None
+    total_debt: float | None = None
+    profile: CompanyProfile | None = None
+    returns: PriceReturns | None = None
+    revenue_history: list[PeriodMetric] = Field(default_factory=list)
+    earnings_history: list[PeriodMetric] = Field(default_factory=list)
+    balance_sheet: StatementSummary | None = None
+    cash_flow: StatementSummary | None = None
+    source_id: str = "yahoo"
+    as_of: datetime | None = None
+
+
+# Phase 2C name for the enriched metrics contract (same model for now).
+FundamentalsSnapshot = FinancialMetrics
 
 
 class RevenueHistory(BaseModel):

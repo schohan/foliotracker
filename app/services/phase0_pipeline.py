@@ -16,6 +16,9 @@ from app.agents.report.thesis_agent import (
     generate_thesis,
 )
 from app.configs.settings import settings
+from app.schemas.filings import SecFilingsBatch
+from app.schemas.financials import FinancialMetrics
+from app.schemas.news import NewsBatch
 from app.schemas.phase0 import (
     PHASE0_DISCLAIMER,
     Phase0ErrorCode,
@@ -34,6 +37,12 @@ from app.services.evidence import (
 from app.services.phase0_cache import cache_lookup, cache_store
 from app.services.phase0_session import new_research_session
 from app.services.scoring import score_from_metrics
+from app.services.source_fetch import SourceRateLimitedError, cached_fetch
+from app.services.source_registry import (
+    SOURCE_GOOGLE_NEWS,
+    SOURCE_SEC_EDGAR,
+    SOURCE_YAHOO,
+)
 from app.tools.finance.yahoo_finance import (
     TickerNotFoundError,
     ToolParseError as YahooParseError,
@@ -57,12 +66,18 @@ from app.tools.news.google_news import (
 
 logger = logging.getLogger(__name__)
 
-_NEWS_ERRORS = (NewsTimeoutError, NewsUpstreamError, NewsParseError)
+_NEWS_ERRORS = (
+    NewsTimeoutError,
+    NewsUpstreamError,
+    NewsParseError,
+    SourceRateLimitedError,
+)
 _SEC_ERRORS = (
     SecTimeoutError,
     SecUpstreamError,
     SecParseError,
     SecTickerNotFoundError,
+    SourceRateLimitedError,
 )
 _YAHOO_ERRORS = (
     YahooTimeoutError,
@@ -70,6 +85,7 @@ _YAHOO_ERRORS = (
     TickerNotFoundError,
     YahooParseError,
     InvalidTickerError,
+    SourceRateLimitedError,
 )
 
 
@@ -144,9 +160,10 @@ def run_phase0_research(
     skip_cache: bool = False,
     model_caller: Any | None = None,
 ) -> Phase0Result:
-    """Run research: validate → cache → yahoo+news+sec → evidence → score → thesis → cache.
+    """Run research: validate → result-cache → source-cached fan-out → evidence → score → thesis.
 
     Pure orchestration; safe to expose as an ADK tool.
+    Phase 2C.1: Yahoo / news / SEC go through per-source TTL + soft rate budgets.
     """
     request_id = str(uuid.uuid4())
     started = time.perf_counter()
@@ -187,16 +204,48 @@ def run_phase0_research(
             )
             return hit
 
-    # Fan out Yahoo + news + SEC; Yahoo failure is fatal; news/SEC failure → partial
+    # Fan out Yahoo + news + SEC via per-source cache (2C.1).
+    # Yahoo failure is still fatal; news/SEC failure → partial.
     news_failed = False
     sec_failed = False
     news_batch = None
     filings_batch = None
+
+    def _fetch_yahoo() -> FinancialMetrics:
+        result = cached_fetch(
+            SOURCE_YAHOO,
+            normalized,
+            lambda: fetch_financial_metrics(normalized),
+            FinancialMetrics,
+            app_settings=settings,
+        )
+        return result.data
+
+    def _fetch_news() -> NewsBatch:
+        result = cached_fetch(
+            SOURCE_GOOGLE_NEWS,
+            normalized,
+            lambda: fetch_google_news(normalized),
+            NewsBatch,
+            app_settings=settings,
+        )
+        return result.data
+
+    def _fetch_sec() -> SecFilingsBatch:
+        result = cached_fetch(
+            SOURCE_SEC_EDGAR,
+            normalized,
+            lambda: fetch_sec_filings(normalized),
+            SecFilingsBatch,
+            app_settings=settings,
+        )
+        return result.data
+
     try:
         with ThreadPoolExecutor(max_workers=3) as pool:
-            fut_yahoo = pool.submit(fetch_financial_metrics, normalized)
-            fut_news = pool.submit(fetch_google_news, normalized)
-            fut_sec = pool.submit(fetch_sec_filings, normalized)
+            fut_yahoo = pool.submit(_fetch_yahoo)
+            fut_news = pool.submit(_fetch_news)
+            fut_sec = pool.submit(_fetch_sec)
             try:
                 metrics = fut_yahoo.result()
             except _YAHOO_ERRORS as exc:

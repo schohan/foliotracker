@@ -1,7 +1,7 @@
 # FolioTracker Product Requirements Document (PRD)
 
 **Product:** FolioTracker — AI portfolio and stock research on [Google ADK](https://adk.dev/)  
-**Status:** Thin Phase 2 **complete** (2A SEC + 2B scoring); Phase 2C multi-source ingestion **designed** (B1) — impl slices pending  
+**Status:** Thin Phase 2 **complete**; Phase 2C.1–2C.2 **done** (provider port + Yahoo enrichment); 2C.3 pending  
 **Audience:** Executives (vision, roadmap, risk) and engineers (contracts, acceptance criteria, phase boundaries)  
 **Last updated:** 2026-07-25
 
@@ -144,7 +144,7 @@ Platform capabilities engineers build behind the user experience. Separate from 
 
 | Feature | Role | Contract / location |
 |---------|------|---------------------|
-| Yahoo Finance tool | Fetch financial metrics (no LLM) | `app/tools/finance/yahoo_finance.py` → `FinancialMetrics` |
+| Yahoo Finance tool | Fetch enriched fundamentals (no LLM) | `yahoo_finance.py` → `FinancialMetrics` / `FundamentalsSnapshot` (profile, returns, BS/CF, forward P/E) |
 | Google News RSS tool | Fetch headlines + URLs (no API key, no LLM) | `app/tools/news/google_news.py` → `NewsBatch` |
 | SEC EDGAR tool | Fetch recent filing metadata (User-Agent required; no LLM) | `app/tools/filings/sec_edgar.py` → `SecFilingsBatch` |
 | Evidence from metrics | Pure Python: metrics → `Evidence` (`type=financial`, confidence `0.95`) | `evidence_from_metrics` |
@@ -294,8 +294,8 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 | Order | Item | Effort | Status |
 |-------|------|--------|--------|
 | Docs | Architecture / PRD / TODOS contracts | S | **Done** (2026-07-25) |
-| **2C.1** | Source registry + per-source cache; wrap Yahoo/news/SEC | M | Todo |
-| **2C.2** | Yahoo fundamentals enrichment + richer schemas | M | Todo |
+| **2C.1** | Source registry + per-source cache; wrap Yahoo/news/SEC | M | **Done** (2026-07-25) |
+| **2C.2** | Yahoo fundamentals enrichment + richer schemas | M | **Done** (2026-07-25) |
 | **2C.3** | Soften Yahoo-fatal + SEC XBRL fundamentals provider | L | Todo |
 | Later | Alpha Vantage / FMP; portfolio/watchlist dashboard | L–XL | Todo |
 

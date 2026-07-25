@@ -77,6 +77,7 @@ def _patch_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
             google_api_key=None,
             phase0_cache_dir=tmp_path,
             phase0_cache_ttl_seconds=3600,
+            source_cache_dir=tmp_path / "sources",
             yahoo_timeout_seconds=15,
             news_timeout_seconds=15,
             news_max_articles=5,

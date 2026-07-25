@@ -50,6 +50,19 @@ def test_value_score_non_positive_pe_is_null() -> None:
     assert neg.value_score is None
 
 
+def test_value_score_uses_forward_pe_when_trailing_missing() -> None:
+    card = score_from_metrics(_metrics(forward_pe=10.0))
+    assert card is not None
+    assert card.value_score is not None
+
+
+def test_growth_score_falls_back_to_earnings_growth() -> None:
+    card = score_from_metrics(_metrics(earnings_growth=0.5))
+    assert card is not None
+    assert card.growth_score is not None
+    assert card.growth_score > 50.0
+
+
 def test_value_score_clamps() -> None:
     floor = score_from_metrics(_metrics(pe_ratio=100.0))
     ceil = score_from_metrics(_metrics(pe_ratio=1.0))

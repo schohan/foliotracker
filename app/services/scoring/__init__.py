@@ -25,7 +25,10 @@ _MOAT_CEIL = 0.80
 
 _SCORABLE_FIELDS = (
     "revenue_growth",
+    "earnings_growth",
     "pe_ratio",
+    "trailing_pe",
+    "forward_pe",
     "gross_margin",
     "operating_margin",
     "debt_to_equity",
@@ -48,6 +51,14 @@ def _linear_down(value: float, best: float, worst: float) -> float:
     return _clamp((worst - value) / span * 100.0)
 
 
+def _value_pe(metrics: FinancialMetrics) -> float | None:
+    """Prefer trailing P/E, then pe_ratio, then forward P/E."""
+    for candidate in (metrics.trailing_pe, metrics.pe_ratio, metrics.forward_pe):
+        if candidate is not None and candidate > 0:
+            return candidate
+    return None
+
+
 def _has_scorable_input(metrics: FinancialMetrics) -> bool:
     return any(getattr(metrics, field) is not None for field in _SCORABLE_FIELDS)
 
@@ -58,12 +69,18 @@ def score_from_metrics(metrics: FinancialMetrics) -> Scorecard | None:
         return None
 
     growth = None
-    if metrics.revenue_growth is not None:
-        growth = _linear_up(metrics.revenue_growth, _GROWTH_FLOOR, _GROWTH_CEIL)
+    growth_input = (
+        metrics.revenue_growth
+        if metrics.revenue_growth is not None
+        else metrics.earnings_growth
+    )
+    if growth_input is not None:
+        growth = _linear_up(growth_input, _GROWTH_FLOOR, _GROWTH_CEIL)
 
     value = None
-    if metrics.pe_ratio is not None and metrics.pe_ratio > 0:
-        value = _linear_down(metrics.pe_ratio, _PE_BEST, _PE_WORST)
+    pe = _value_pe(metrics)
+    if pe is not None:
+        value = _linear_down(pe, _PE_BEST, _PE_WORST)
 
     profitability = None
     margin = (

@@ -15,6 +15,10 @@ def test_settings_phase0_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
         "CACHE_TTL_SECONDS",
         "PHASE0_CACHE_DIR",
         "CACHE_DIR",
+        "SOURCE_CACHE_DIR",
+        "YAHOO_SOURCE_TTL_SECONDS",
+        "NEWS_SOURCE_TTL_SECONDS",
+        "SEC_SOURCE_TTL_SECONDS",
         "YAHOO_TIMEOUT_SECONDS",
         "NEWS_TIMEOUT_SECONDS",
         "NEWS_MAX_ARTICLES",
@@ -27,6 +31,10 @@ def test_settings_phase0_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     assert s.news_timeout_seconds == 15
     assert s.news_max_articles == 5
     assert s.phase0_cache_dir == Path(".cache/foliotracker/phase0")
+    assert s.source_cache_dir == Path(".cache/foliotracker/sources")
+    assert s.yahoo_source_ttl_seconds == 3600
+    assert s.news_source_ttl_seconds == 900
+    assert s.sec_source_ttl_seconds == 3600
 
 
 def test_settings_phase0_overrides(monkeypatch: pytest.MonkeyPatch) -> None:

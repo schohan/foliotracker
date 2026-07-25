@@ -3,7 +3,12 @@
 from app.schemas.company import CompanyProfile, ManagementSummary, MoatAssessment
 from app.schemas.competitors import CompetitorAnalysis
 from app.schemas.evidence import BundleStatus, Evidence, EvidenceBundle
-from app.schemas.financials import FinancialMetrics, RevenueHistory, RiskFactors
+from app.schemas.financials import (
+    FinancialMetrics,
+    FundamentalsSnapshot,
+    RevenueHistory,
+    RiskFactors,
+)
 from app.schemas.news import NewsSummary
 from app.schemas.phase0 import (
     PHASE0_DISCLAIMER,
@@ -28,6 +33,7 @@ __all__ = [
     "Evidence",
     "EvidenceBundle",
     "FinancialMetrics",
+    "FundamentalsSnapshot",
     "InvalidTickerError",
     "InvestmentThesis",
     "ManagementSummary",

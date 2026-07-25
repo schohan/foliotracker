@@ -10,41 +10,17 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 
 ## Phase 2C — Multi-source ingestion
 
-### Provider port + per-source cache (2C.1)
-
-**What:** DataSource registry and file-backed per-source cache (ticker × source_id) wrapping existing Yahoo, Google News, and SEC EDGAR tools.
-
-**Why:** Whole-`Phase0Result` TTL cannot refresh sources independently or track rate budgets per provider; adding Alpha Vantage/SEC XBRL later would force a redesign without this port.
-
-**Context:** Design locked in architecture Phase 2C (B1). Reuse `phase0_cache` file patterns under `.cache/foliotracker/sources/{source_id}/`. Keep pipeline behavior compatible until merge softens Yahoo-fatal. Start: settings for per-source TTL/budgets, thin registry module, adapter around existing fetch functions.
-
-**Effort:** M  
-**Priority:** P1  
-**Depends on:** Thin Phase 2 complete (done)
-
-### Yahoo fundamentals enrichment (2C.2)
-
-**What:** Expand Yahoo fetch + schemas beyond thin `FinancialMetrics` toward `FundamentalsSnapshot` (returns, earnings/revenue series, BS/CF summaries, trailing + forward P/E where yfinance allows).
-
-**Why:** Shally’s research ritual needs these fields for buy/trim/add; Yahoo-first if it can supply them.
-
-**Context:** `app/tools/finance/yahoo_finance.py` today maps `info` only. `RevenueHistory` stub exists in `app/schemas/financials.py`. Founder assignment: checklist of omitted fields from 3 watchlist tickers becomes acceptance criteria. Wire evidence + scoring to consume richer fields without inventing nulls.
-
-**Effort:** M  
-**Priority:** P1  
-**Depends on:** 2C.1 provider port (or land schemas in parallel carefully)
-
 ### Soften Yahoo-fatal + SEC XBRL fundamentals (2C.3)
 
 **What:** Merge policy so Yahoo failure alone can yield `partial` when another fundamentals source filled enough fields; implement `sec_xbrl` as first secondary fundamentals provider for BS/CF/EPS truth.
 
 **Why:** Reliability and statement accuracy; SEC is the logical source for audited statements. Soften hard-fail only after merge + minimum-field rules exist.
 
-**Context:** Today Yahoo errors abort the pipeline in `phase0_pipeline`. `sec_xbrl` is stubbed. Prefer SEC over Alpha Vantage for statements. Minimum field set for “enough fundamentals” is an open PRD question.
+**Context:** Today Yahoo errors abort the pipeline in `phase0_pipeline`. Enriched Yahoo snapshot exists (2C.2). `sec_xbrl` is stubbed. Prefer SEC over Alpha Vantage for statements. Minimum field set for “enough fundamentals” is an open PRD question. Add `merge_fundamentals` with field provenance.
 
 **Effort:** L  
 **Priority:** P1  
-**Depends on:** 2C.1 + 2C.2; open question on minimum field set
+**Depends on:** 2C.1 + 2C.2 (done); open question on minimum field set
 
 ### Alpha Vantage / FMP forward-estimate fill-gap
 
@@ -135,6 +111,21 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Custom API or hosted ADK decision
 
 ## Completed
+
+### Phase 2C.2 — Yahoo fundamentals enrichment (2026-07-25)
+
+- Expanded `FinancialMetrics` / `FundamentalsSnapshot`: profile, returns (3M/1Y/YTD), revenue/earnings history, BS/CF summaries, trailing + forward P/E, EPS, ROE
+- `yahoo_finance` fetches info + 1y history + quarterly statements (best-effort)
+- Evidence serializes enrichment; scoring uses trailing→forward P/E and earnings_growth fallback
+- Unit tests for parse/returns/statements; full unit suite green
+
+### Phase 2C.1 — Provider port + per-source cache (2026-07-25)
+
+- `DataSourceConfig` + registry (`yahoo`, `google_news`, `sec_edgar`)
+- Per-source file cache under `.cache/foliotracker/sources/{source_id}/`
+- Soft local rate budgets; stale serve when budget exhausted
+- `phase0_pipeline` fan-out via `cached_fetch` (Yahoo still fatal; news/SEC → partial)
+- Unit tests: registry, cache, fetch, settings; full unit suite green
 
 ### Phase 2C design lock — Approach B1 (2026-07-25)
 

@@ -87,32 +87,43 @@ class EmptyEvidenceError(ValueError):
     """Aggregator received no evidence items."""
 
 
+_SCALAR_METRIC_FIELDS = (
+    "market_cap",
+    "revenue_growth",
+    "gross_margin",
+    "operating_margin",
+    "free_cash_flow",
+    "debt_to_equity",
+    "pe_ratio",
+    "trailing_pe",
+    "forward_pe",
+    "eps_trailing",
+    "eps_forward",
+    "earnings_growth",
+    "return_on_equity",
+    "current_ratio",
+    "total_cash",
+    "total_debt",
+)
+
+
 def _metric_fields(metrics: FinancialMetrics) -> dict:
-    return {
-        "ticker": metrics.ticker,
-        "market_cap": metrics.market_cap,
-        "revenue_growth": metrics.revenue_growth,
-        "gross_margin": metrics.gross_margin,
-        "operating_margin": metrics.operating_margin,
-        "free_cash_flow": metrics.free_cash_flow,
-        "debt_to_equity": metrics.debt_to_equity,
-        "pe_ratio": metrics.pe_ratio,
-    }
+    """Serialize metrics for evidence.data (include 2C.2 enrichment)."""
+    return metrics.model_dump(mode="json", exclude_none=True)
 
 
 def _has_any_metric(metrics: FinancialMetrics) -> bool:
-    return any(
-        getattr(metrics, field) is not None
-        for field in (
-            "market_cap",
-            "revenue_growth",
-            "gross_margin",
-            "operating_margin",
-            "free_cash_flow",
-            "debt_to_equity",
-            "pe_ratio",
-        )
-    )
+    if any(getattr(metrics, field) is not None for field in _SCALAR_METRIC_FIELDS):
+        return True
+    if metrics.revenue_history or metrics.earnings_history:
+        return True
+    if metrics.balance_sheet is not None or metrics.cash_flow is not None:
+        return True
+    if metrics.returns is not None:
+        r = metrics.returns
+        if r.return_3m is not None or r.return_1y is not None or r.return_ytd is not None:
+            return True
+    return False
 
 
 def evidence_id_for(ticker: str, data: dict) -> str:
@@ -236,9 +247,22 @@ def _headline_tone(title: str) -> str | None:
     return None
 
 
+# Core Phase 0 scalars — nulls here mark financial evidence as partial.
+# Optional 2C.2 enrichment (forward_pe, returns, statements) may be null.
+_CORE_FINANCIAL_KEYS = (
+    "market_cap",
+    "revenue_growth",
+    "gross_margin",
+    "operating_margin",
+    "free_cash_flow",
+    "debt_to_equity",
+    "pe_ratio",
+)
+
+
 def _financial_partial(item: Evidence) -> bool:
-    values = [v for k, v in item.data.items() if k != "ticker"]
-    if not values:
+    values = [item.data.get(k) for k in _CORE_FINANCIAL_KEYS]
+    if not any(v is not None for v in values):
         return True
     return any(v is None for v in values)
 
