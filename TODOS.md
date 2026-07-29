@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped** (FastAPI + Svelte 5). Next: portfolio/correlation layer or Phase 3 polish — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Next: portfolio/correlation layer, Phase0 server single-flight, or Phase 3 deepen — see [docs/architecture.md](docs/architecture.md).
 
 **Design:** [DESIGN.md](DESIGN.md) · living UX plan [docs/design-plan.md](docs/design-plan.md) (`/plan-design-review` 2026-07-28).
 
@@ -9,88 +9,6 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Thin Phase 2 complete** = 2A + 2B (**both done 2026-07-24**).
 
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
-
-## Watchlist design polish (from `/plan-design-review` 2026-07-28)
-
-### First-run + warm empty lists
-
-**What:** Collapsed first-run when zero tickers (brand + tagline + add form only; hide Held/Watched shells). When only one list has rows, show the empty sibling with warm copy that points at Add (and list kind).
-
-**Why:** Empty spreadsheet chrome kills the first five seconds; first visit should invite the primary action.
-
-**Pros:** Highest-impact dogfood UX; small surface; locks decision 1A.
-
-**Cons:** `WatchlistPage` empty/one-sided/populated matrix needs care.
-
-**Context:** [docs/design-plan.md](docs/design-plan.md) IA + interaction states; [DESIGN.md](DESIGN.md).
-
-**Effort:** S  
-**Priority:** P1  
-**Depends on / blocked by:** None
-
-### Research wait stage line
-
-**What:** While a ticker is researching/refreshing, keep the row visible and show a muted **static** honest line describing the research job (e.g. “Researching — fundamentals, news, filings, thesis…”). Use `aria-live="polite"`. No rotating fake stages. No determinate progress bar. While that ticker is refreshing, detail panel must not call `fetchResearch` (UI single-flight — eng E4/4A).
-
-**Why:** Silent pulse during multi-source fetch feels broken; fake stage rotation would lie about pipeline position.
-
-**Pros:** Locks design 3A + eng E1/1A + E4/4A; small UI change; big trust/cost win.
-
-**Cons:** Copy is approximate about *what* the system does, not *where* it is.
-
-**Context:** [docs/design-plan.md](docs/design-plan.md) journey + eng decisions; decision 3A / E1 / E4.
-
-**Effort:** S  
-**Priority:** P1  
-**Depends on / blocked by:** None for client-only copy; streaming API explicitly out of polish scope
-
-### Conflicts list chrome (no left border)
-
-**What:** Restyle `ConflictsList` — remove copper left border; topic strong type, severity small uppercase meta, summary soft ink.
-
-**Why:** Colored left-border cards read as generic SaaS; conflicts should feel like structured disagreement.
-
-**Pros:** Tiny change; removes the hard AI-slop hit; locks decision 4A.
-
-**Cons:** Negligible.
-
-**Context:** `web/src/lib/components/ConflictsList.svelte`; [DESIGN.md](DESIGN.md); decision 4A.
-
-**Effort:** XS  
-**Priority:** P2  
-**Depends on / blocked by:** None
-
-### Mobile layout + keyboard/a11y
-
-**What:** Below 640px use block list rows (not a card mosaic) and a full-viewport detail sheet. Escape closes detail and returns focus to the opening row; focus trap on the mobile sheet; 44×44px minimum tap targets; wrap page in `main` landmark.
-
-**Why:** Horizontal-scroll tables are hostile one-handed; keyboard users can tab into the list behind an open panel.
-
-**Pros:** Locks decision 6A + focus rules; real phone dogfood.
-
-**Cons:** Largest polish item; careful CSS for table↔block switch.
-
-**Context:** [docs/design-plan.md](docs/design-plan.md) Pass 6; [DESIGN.md](DESIGN.md).
-
-**Effort:** M  
-**Priority:** P1  
-**Depends on / blocked by:** None (fine after first-run polish)
-
-### Interaction-state copy pass
-
-**What:** Replace bare empties (“No thesis.”, “No scorecard.”) with warm gap copy from the design-plan states table; conflict-empty as calm success; page error banner with Retry; “Adding…” / “Refreshing…” labels on busy controls.
-
-**Why:** Sparse failure copy makes partial/error runs feel broken instead of honest.
-
-**Pros:** Cheap; finishes Pass 2 in the product; pairs with first-run TODO.
-
-**Cons:** Easy to overwrite — stay utility tone per DESIGN.md.
-
-**Context:** [docs/design-plan.md](docs/design-plan.md) interaction states; [DESIGN.md](DESIGN.md).
-
-**Effort:** S  
-**Priority:** P2  
-**Depends on / blocked by:** None
 
 ## Deferred beyond Phase 2C
 
@@ -130,7 +48,7 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 
 **Cons:** Cancel/timeout semantics need care; not needed for the polish PR.
 
-**Context:** Deferred from `/plan-eng-review` performance 4B (2026-07-28). UI single-flight (4A) ships in watchlist polish. Start at `phase0_pipeline` / `watchlist_service`.
+**Context:** Deferred from `/plan-eng-review` performance 4B (2026-07-28). UI single-flight (4A) **shipped** in watchlist polish. Start at `phase0_pipeline` / `watchlist_service`.
 
 **Effort:** M  
 **Priority:** P3  
@@ -177,6 +95,17 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Custom API or hosted ADK decision
 
 ## Completed
+
+### Watchlist design polish (2026-07-28)
+
+- First-run collapsed IA (1A): brand + warm tagline + add form; hide empty Held/Watched shells
+- Warm one-sided sibling empties + prefill list kind cue
+- Static research wait line + `aria-live="polite"`; UI single-flight (no `fetchResearch` while refreshing; refresh-all flags all tickers)
+- Membership-first Add (form unlocks after POST); “Adding…” / “Refreshing…” busy labels
+- Error banner Retry; warm detail gap copy; conflict-empty calm success
+- ConflictsList: no left border; topic / severity meta / soft summary (4A)
+- Mobile &lt;640px block rows + full-viewport detail sheet; Escape + focus return; focus trap; 44px targets; `main` landmark
+- Vitest helpers: `listVisibility`, `researchWaitCopy`, Escape/`rowFocusId`
 
 ### Watchlist dashboard v1 (2026-07-25)
 

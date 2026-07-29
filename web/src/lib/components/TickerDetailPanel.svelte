@@ -1,27 +1,110 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import type { Phase0Result } from "../types";
+  import { shouldCloseOnEscape } from "../focusHelpers";
   import ConflictsList from "./ConflictsList.svelte";
 
   interface Props {
     result: Phase0Result | null;
     loading?: boolean;
     error?: string | null;
+    refreshing?: boolean;
+    ticker?: string | null;
     onclose: () => void;
   }
-  let { result, loading = false, error = null, onclose }: Props = $props();
+  let {
+    result,
+    loading = false,
+    error = null,
+    refreshing = false,
+    ticker = null,
+    onclose,
+  }: Props = $props();
+
+  let panelEl: HTMLElement | undefined = $state();
+  let closeBtn: HTMLButtonElement | undefined = $state();
 
   function scoreLabel(n: number | null | undefined): string {
     return n == null ? "—" : Math.round(n).toString();
   }
+
+  function scorecardGap(r: Phase0Result): string {
+    if (r.error_message) {
+      return `Scores unavailable for this run. ${r.error_message}`;
+    }
+    return "Scores unavailable for this run.";
+  }
+
+  function thesisGap(r: Phase0Result): string {
+    if (r.status === "error" || r.status === "partial") {
+      return "No cited thesis for this run. Status shows honest gaps or conflicts above.";
+    }
+    return "No cited thesis for this run.";
+  }
+
+  function getFocusable(root: HTMLElement): HTMLElement[] {
+    const nodes = root.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    return Array.from(nodes).filter(
+      (el) => !el.hasAttribute("disabled") && el.tabIndex !== -1,
+    );
+  }
+
+  function onKeydown(e: KeyboardEvent) {
+    if (shouldCloseOnEscape(e.key)) {
+      e.preventDefault();
+      onclose();
+      return;
+    }
+    if (e.key !== "Tab" || !panelEl) return;
+    const focusable = getFocusable(panelEl);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  onMount(() => {
+    closeBtn?.focus();
+    window.addEventListener("keydown", onKeydown);
+    return () => window.removeEventListener("keydown", onKeydown);
+  });
+
+  const heading = $derived(result?.ticker ?? ticker ?? "Detail");
 </script>
 
-<aside class="panel" aria-label="Ticker detail">
+<div
+  class="panel"
+  bind:this={panelEl}
+  aria-label="Ticker detail"
+  aria-modal="true"
+  role="dialog"
+>
   <header>
-    <h2>{result?.ticker ?? "Detail"}</h2>
-    <button type="button" onclick={onclose} aria-label="Close">Close</button>
+    <h2 tabindex="-1">{heading}</h2>
+    <button
+      type="button"
+      class="close"
+      bind:this={closeBtn}
+      onclick={onclose}
+      aria-label="Close"
+    >
+      Close
+    </button>
   </header>
 
-  {#if loading}
+  {#if refreshing && !result}
+    <p class="muted" aria-live="polite">
+      Researching — fundamentals, news, filings, thesis…
+    </p>
+  {:else if loading}
     <p class="muted">Loading research…</p>
   {:else if error}
     <p class="err">{error}</p>
@@ -43,7 +126,7 @@
           <div><dt>Execution</dt><dd>{scoreLabel(result.scorecard.execution_score)}</dd></div>
         </dl>
       {:else}
-        <p class="muted">No scorecard.</p>
+        <p class="muted">{scorecardGap(result)}</p>
       {/if}
     </section>
 
@@ -60,7 +143,7 @@
           {/each}
         </ul>
       {:else}
-        <p class="muted">No thesis.</p>
+        <p class="muted">{thesisGap(result)}</p>
       {/if}
     </section>
 
@@ -79,7 +162,7 @@
           <div><dt>Source</dt><dd>{result.fundamentals.source_id ?? "—"}</dd></div>
         </dl>
       {:else}
-        <p class="muted">No fundamentals.</p>
+        <p class="muted">No fundamentals in this result.</p>
       {/if}
     </section>
 
@@ -90,7 +173,7 @@
 
     <p class="meta">request_id {result.request_id} · cache_hit {String(result.cache_hit)}</p>
   {/if}
-</aside>
+</div>
 
 <style>
   .panel {
@@ -126,10 +209,12 @@
     letter-spacing: 0.06em;
     color: var(--ink-soft);
   }
-  header button {
+  .close {
     border: 1px solid var(--line);
     background: white;
-    padding: 0.4rem 0.7rem;
+    padding: 0.45rem 0.75rem;
+    min-height: 44px;
+    min-width: 44px;
     border-radius: 2px;
   }
   .badge {
@@ -192,6 +277,15 @@
     padding: 0.75rem;
     max-height: 16rem;
   }
+
+  @media (max-width: 639px) {
+    .panel {
+      inset: 0;
+      width: 100%;
+      border-left: none;
+    }
+  }
+
   @keyframes slide {
     from {
       transform: translateX(16px);

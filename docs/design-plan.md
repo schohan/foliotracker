@@ -501,27 +501,27 @@ Sequential implementation, no parallelization opportunity — all polish touches
 
 Synthesized from this eng review. Checkbox as you ship.
 
-- [ ] **T1 (P1, human: ~2h / CC: ~30min)** — Extract `TickerListSection` + `listVisibility` + first-run / warm empties
+- [x] **T1 (P1, human: ~2h / CC: ~30min)** — Extract `TickerListSection` + `listVisibility` + first-run / warm empties
   - Surfaced by: Code quality 2A + design 1A
   - Files: `web/src/lib/components/WatchlistPage.svelte`, `TickerListSection.svelte`, `web/src/lib/listVisibility.ts`
   - Verify: `npm test` listVisibility cases; manual first-run
-- [ ] **T2 (P1, human: ~1.5h / CC: ~30min)** — Static wait copy + UI single-flight (per-row + refresh-all) + membership-first Add (background refresh)
+- [x] **T2 (P1, human: ~1.5h / CC: ~30min)** — Static wait copy + UI single-flight (per-row + refresh-all) + membership-first Add (background refresh)
   - Surfaced by: E1/1A + E4/4A + outside voice refresh-all + add-busy
   - Files: `WatchlistPage.svelte`, `TickerRow.svelte`, `web/src/lib/researchWaitCopy.ts`
   - Verify: Vitest wait-copy; add second ticker while first researches; open detail during refresh-all does not double-fetch
-- [ ] **T2b (P1, human: ~30min / CC: ~10min)** — Error banner **Retry** control (calls `load()` / reload watchlist)
+- [x] **T2b (P1, human: ~30min / CC: ~10min)** — Error banner **Retry** control (calls `load()` / reload watchlist)
   - Surfaced by: Design states table + outside voice (Retry buried in P2)
   - Files: `WatchlistPage.svelte`
   - Verify: Manual — kill API, see banner + Retry recovers
-- [ ] **T3 (P1, human: ~1d / CC: ~1h)** — Mobile block rows + Escape/focus trap + 44px targets
+- [x] **T3 (P1, human: ~1d / CC: ~1h)** — Mobile block rows + Escape/focus trap + 44px targets
   - Surfaced by: Design 6A + eng a11y
   - Files: `TickerListSection.svelte`, `TickerDetailPanel.svelte`, `app.css`
   - Verify: Manual checklist &lt;640px + Escape
-- [ ] **T4 (P2, human: ~45min / CC: ~15min)** — ConflictsList chrome + interaction-state copy
+- [x] **T4 (P2, human: ~45min / CC: ~15min)** — ConflictsList chrome + interaction-state copy
   - Surfaced by: Design 4A + copy TODO
   - Files: `ConflictsList.svelte`, `TickerDetailPanel.svelte`, `AddTickerForm.svelte`
   - Verify: Visual + copy spot-check
-- [ ] **T5 (P1, human: ~1h / CC: ~20min)** — Add Vitest harness + helper tests + PR manual QA checklist
+- [x] **T5 (P1, human: ~1h / CC: ~20min)** — Add Vitest harness + helper tests + PR manual QA checklist
   - Surfaced by: Tests 3A
   - Files: `web/package.json`, `web/vitest.config.ts`, `web/src/lib/*.test.ts`
   - Verify: `cd web && npm test`

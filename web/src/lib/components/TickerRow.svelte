@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { WatchlistTickerSummary } from "../types";
+  import { researchWaitCopy } from "../researchWaitCopy";
+  import { rowFocusId } from "../focusHelpers";
   import ScoreStrip from "./ScoreStrip.svelte";
 
   interface Props {
@@ -20,31 +22,50 @@
     onrefresh,
     onremove,
   }: Props = $props();
+
+  const waitLine = $derived(researchWaitCopy(refreshing));
+  const focusId = $derived(rowFocusId(row.ticker));
+
+  function onKey(e: KeyboardEvent) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onselect(row.ticker);
+    }
+  }
 </script>
 
 <tr
+  id={focusId}
   class:selected
   class:refreshing
   style={`--i: ${index}`}
   onclick={() => onselect(row.ticker)}
-  onkeydown={(e) => e.key === "Enter" && onselect(row.ticker)}
+  onkeydown={onKey}
   tabindex="0"
+  aria-selected={selected}
 >
-  <td class="ticker">{row.ticker}</td>
-  <td>
+  <td class="ticker" data-label="Ticker">{row.ticker}</td>
+  <td data-label="Status">
     <span class={`status ${row.status ?? "none"}`}>{row.status ?? "—"}</span>
+    {#if waitLine}
+      <span class="wait" aria-live="polite">{waitLine}</span>
+    {/if}
   </td>
-  <td>
+  <td data-label="G / V / R">
     <ScoreStrip
       growth={row.growth_score}
       value={row.value_score}
       risk={row.risk_score}
     />
   </td>
-  <td class="num">{row.forward_pe == null ? "—" : row.forward_pe.toFixed(1)}</td>
-  <td class="num">{row.conflict_count}</td>
-  <td class="thesis">{row.thesis_one_liner ?? row.error_message ?? "—"}</td>
-  <td class="meta">
+  <td class="num" data-label="Fwd P/E">
+    {row.forward_pe == null ? "—" : row.forward_pe.toFixed(1)}
+  </td>
+  <td class="num" data-label="Conflicts">{row.conflict_count}</td>
+  <td class="thesis" data-label="Thesis">
+    {row.thesis_one_liner ?? row.error_message ?? "—"}
+  </td>
+  <td class="meta" data-label="Meta">
     {#if row.cache_hit}
       <span title="Served from cache">cache</span>
     {/if}
@@ -53,10 +74,21 @@
     {/if}
   </td>
   <td class="actions" onclick={(e) => e.stopPropagation()}>
-    <button type="button" disabled={refreshing} onclick={() => onrefresh(row.ticker)}>
+    <button
+      type="button"
+      class="action"
+      disabled={refreshing}
+      onclick={() => onrefresh(row.ticker)}
+    >
       {refreshing ? "…" : "Refresh"}
     </button>
-    <button type="button" class="ghost" onclick={() => onremove(row.ticker)}>Remove</button>
+    <button
+      type="button"
+      class="action ghost"
+      onclick={() => onremove(row.ticker)}
+    >
+      Remove
+    </button>
   </td>
 </tr>
 
@@ -104,6 +136,17 @@
   .status.none {
     color: var(--ink-soft);
   }
+  .wait {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ink-soft);
+    line-height: 1.35;
+    max-width: 14rem;
+  }
   .num {
     font-variant-numeric: tabular-nums;
   }
@@ -127,16 +170,43 @@
     gap: 0.35rem;
     white-space: nowrap;
   }
-  .actions button {
+  .action {
     border: 1px solid var(--line);
     background: white;
-    padding: 0.35rem 0.55rem;
+    padding: 0.45rem 0.7rem;
+    min-height: 44px;
+    min-width: 44px;
     border-radius: 2px;
     font-size: 0.8rem;
   }
-  .actions .ghost {
+  .action.ghost {
     background: transparent;
   }
+
+  @media (max-width: 639px) {
+    td {
+      padding: 0.2rem 0;
+    }
+    .ticker {
+      display: inline-block;
+      margin-right: 0.65rem;
+    }
+    td[data-label="Status"] {
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .wait {
+      max-width: none;
+    }
+    .thesis {
+      max-width: none;
+      margin-top: 0.35rem;
+    }
+    .actions {
+      flex-wrap: wrap;
+    }
+  }
+
   @keyframes rise {
     from {
       opacity: 0;

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import {
     addTicker,
     fetchResearch,
@@ -8,31 +8,48 @@
     refreshTicker,
     removeTicker,
   } from "../api";
+  import { rowFocusId } from "../focusHelpers";
+  import {
+    listVisibility,
+    showListSections,
+  } from "../listVisibility";
   import type {
     ListKind,
     Phase0Result,
     WatchlistState,
-    WatchlistTickerSummary,
   } from "../types";
   import AddTickerForm from "./AddTickerForm.svelte";
   import DisclaimerBar from "./DisclaimerBar.svelte";
   import TickerDetailPanel from "./TickerDetailPanel.svelte";
-  import TickerRow from "./TickerRow.svelte";
+  import TickerListSection from "./TickerListSection.svelte";
 
   let state = $state<WatchlistState | null>(null);
   let loadError = $state<string | null>(null);
-  let busy = $state(false);
+  let adding = $state(false);
+  let refreshAllBusy = $state(false);
   let refreshing = $state<Record<string, boolean>>({});
   let selected = $state<string | null>(null);
   let detail = $state<Phase0Result | null>(null);
   let detailLoading = $state(false);
   let detailError = $state<string | null>(null);
+  let formListKind = $state<ListKind>("watched");
 
   const held = $derived(
     (state?.summaries ?? []).filter((r) => r.list_kind === "held"),
   );
   const watched = $derived(
     (state?.summaries ?? []).filter((r) => r.list_kind === "watched"),
+  );
+  const visibility = $derived(listVisibility(held.length, watched.length));
+  const firstRun = $derived(visibility === "first-run");
+  const showSections = $derived(showListSections(visibility));
+  const tagline = $derived(
+    firstRun
+      ? "Add a ticker to start grounded research."
+      : "Held and watched names — evidence, scores, and thesis at a glance.",
+  );
+  const selectedRefreshing = $derived(
+    selected ? !!refreshing[selected] : false,
   );
 
   async function load() {
@@ -48,48 +65,75 @@
     void load();
   });
 
+  function setRefreshing(ticker: string, value: boolean) {
+    refreshing = { ...refreshing, [ticker]: value };
+  }
+
+  function setRefreshingMany(tickers: string[], value: boolean) {
+    const next = { ...refreshing };
+    for (const t of tickers) next[t] = value;
+    refreshing = next;
+  }
+
+  /** Membership-first: form unlocks after POST; research continues in background. */
   async function onAdd(ticker: string, listKind: ListKind) {
-    busy = true;
+    adding = true;
     loadError = null;
     try {
       state = await addTicker(ticker, listKind);
-      refreshing = { ...refreshing, [ticker]: true };
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
+      adding = false;
+      return;
+    }
+    adding = false;
+    setRefreshing(ticker, true);
+    try {
       await refreshTicker(ticker);
       state = await fetchWatchlist();
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
-      refreshing = { ...refreshing, [ticker]: false };
-      busy = false;
+      setRefreshing(ticker, false);
+      if (selected === ticker) {
+        await loadDetailIfIdle(ticker);
+      }
     }
   }
 
   async function onRefresh(ticker: string) {
-    refreshing = { ...refreshing, [ticker]: true };
+    setRefreshing(ticker, true);
     loadError = null;
     try {
       await refreshTicker(ticker);
       state = await fetchWatchlist();
-      if (selected === ticker) {
-        await openDetail(ticker);
-      }
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
-      refreshing = { ...refreshing, [ticker]: false };
+      setRefreshing(ticker, false);
+      if (selected === ticker) {
+        await loadDetailIfIdle(ticker);
+      }
     }
   }
 
   async function onRefreshAll() {
-    busy = true;
+    const tickers = (state?.summaries ?? []).map((s) => s.ticker);
+    if (tickers.length === 0) return;
+    refreshAllBusy = true;
     loadError = null;
+    setRefreshingMany(tickers, true);
     try {
       await refreshAll();
       state = await fetchWatchlist();
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
-      busy = false;
+      setRefreshingMany(tickers, false);
+      refreshAllBusy = false;
+      if (selected && !refreshing[selected]) {
+        await loadDetailIfIdle(selected);
+      }
     }
   }
 
@@ -100,140 +144,135 @@
       if (selected === ticker) {
         selected = null;
         detail = null;
+        detailError = null;
       }
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     }
   }
 
-  async function openDetail(ticker: string) {
-    selected = ticker;
+  /** UI single-flight: never fetchResearch while that ticker is refreshing. */
+  async function loadDetailIfIdle(ticker: string) {
+    if (refreshing[ticker]) {
+      detailLoading = false;
+      return;
+    }
     detailLoading = true;
     detailError = null;
     try {
       const res = await fetchResearch(ticker);
-      detail = res.result;
+      if (selected === ticker && !refreshing[ticker]) {
+        detail = res.result;
+      }
     } catch (e) {
-      detailError = e instanceof Error ? e.message : String(e);
-      detail = null;
+      if (selected === ticker) {
+        detailError = e instanceof Error ? e.message : String(e);
+        detail = null;
+      }
     } finally {
       detailLoading = false;
     }
   }
 
-  function sectionRows(rows: WatchlistTickerSummary[]) {
-    return rows;
+  async function openDetail(ticker: string) {
+    selected = ticker;
+    detailError = null;
+    if (refreshing[ticker]) {
+      detailLoading = false;
+      return;
+    }
+    await loadDetailIfIdle(ticker);
   }
+
+  async function closeDetail() {
+    const was = selected;
+    selected = null;
+    detail = null;
+    detailError = null;
+    detailLoading = false;
+    await tick();
+    if (was) {
+      document.getElementById(rowFocusId(was))?.focus();
+    }
+  }
+
+  function prefillKind(kind: ListKind) {
+    formListKind = kind;
+  }
+
+  const defaultDisclaimer =
+    "FolioTracker output is for informational and educational purposes only. It is not investment, legal, or tax advice. Do your own research.";
 </script>
 
-<div class="page">
+<main class="page">
   <header class="hero">
     <p class="brand">FolioTracker</p>
-    <p class="tag">Held and watched names — evidence, scores, and thesis at a glance.</p>
+    <p class="tag">{tagline}</p>
   </header>
 
   <div class="toolbar">
-    <AddTickerForm {busy} onadd={onAdd} />
-    <button type="button" class="refresh-all" disabled={busy} onclick={onRefreshAll}>
-      Refresh all
-    </button>
+    <AddTickerForm
+      busy={adding}
+      bind:listKind={formListKind}
+      onadd={onAdd}
+    />
+    {#if !firstRun}
+      <button
+        type="button"
+        class="refresh-all"
+        disabled={refreshAllBusy || adding}
+        onclick={onRefreshAll}
+      >
+        {refreshAllBusy ? "Refreshing…" : "Refresh all"}
+      </button>
+    {/if}
   </div>
 
   {#if loadError}
-    <p class="banner" role="alert">{loadError}</p>
+    <div class="banner" role="alert">
+      <p>{loadError}</p>
+      <button type="button" class="retry" onclick={() => void load()}>
+        Retry
+      </button>
+    </div>
   {/if}
 
   {#if !state}
     <p class="muted">Loading watchlist…</p>
-  {:else}
-    <section class="list-block">
-      <h2>Held</h2>
-      {#if held.length === 0}
-        <p class="muted">No held tickers yet.</p>
-      {:else}
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Ticker</th>
-                <th>Status</th>
-                <th>G / V / R</th>
-                <th>Fwd P/E</th>
-                <th>Conflicts</th>
-                <th>Thesis</th>
-                <th>Meta</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each sectionRows(held) as row, i (row.ticker)}
-                <TickerRow
-                  {row}
-                  index={i}
-                  refreshing={!!refreshing[row.ticker]}
-                  selected={selected === row.ticker}
-                  onselect={openDetail}
-                  onrefresh={onRefresh}
-                  onremove={onRemove}
-                />
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {/if}
-    </section>
-
-    <section class="list-block">
-      <h2>Watched</h2>
-      {#if watched.length === 0}
-        <p class="muted">No watched tickers yet.</p>
-      {:else}
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Ticker</th>
-                <th>Status</th>
-                <th>G / V / R</th>
-                <th>Fwd P/E</th>
-                <th>Conflicts</th>
-                <th>Thesis</th>
-                <th>Meta</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each sectionRows(watched) as row, i (row.ticker)}
-                <TickerRow
-                  {row}
-                  index={i}
-                  refreshing={!!refreshing[row.ticker]}
-                  selected={selected === row.ticker}
-                  onselect={openDetail}
-                  onrefresh={onRefresh}
-                  onremove={onRemove}
-                />
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {/if}
-    </section>
+  {:else if showSections}
+    <TickerListSection
+      kind="held"
+      rows={held}
+      {refreshing}
+      {selected}
+      onselect={openDetail}
+      onrefresh={onRefresh}
+      onremove={onRemove}
+      onprefillKind={prefillKind}
+    />
+    <TickerListSection
+      kind="watched"
+      rows={watched}
+      {refreshing}
+      {selected}
+      onselect={openDetail}
+      onrefresh={onRefresh}
+      onremove={onRemove}
+      onprefillKind={prefillKind}
+    />
   {/if}
 
-  <DisclaimerBar text={state?.disclaimer ?? "FolioTracker output is for informational and educational purposes only. It is not investment, legal, or tax advice. Do your own research."} />
-</div>
+  <DisclaimerBar text={state?.disclaimer ?? defaultDisclaimer} />
+</main>
 
 {#if selected}
   <TickerDetailPanel
     result={detail}
     loading={detailLoading}
     error={detailError}
-    onclose={() => {
-      selected = null;
-      detail = null;
-      detailError = null;
-    }}
+    refreshing={selectedRefreshing}
+    ticker={selected}
+    onclose={closeDetail}
   />
 {/if}
 
@@ -278,48 +317,39 @@
     background: transparent;
     color: var(--ink);
     padding: 0.55rem 0.9rem;
+    min-height: 44px;
     border-radius: 2px;
     font-weight: 500;
   }
   .refresh-all:disabled {
     opacity: 0.5;
   }
-  .list-block {
-    margin-bottom: 2rem;
-  }
-  h2 {
-    margin: 0 0 0.75rem;
-    font-family: var(--font-display);
-    font-size: 1.35rem;
-    font-weight: 600;
-  }
-  .table-wrap {
-    overflow-x: auto;
-    border-top: 1px solid var(--line);
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 720px;
-  }
-  th {
-    text-align: left;
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--ink-soft);
-    font-weight: 500;
-    padding: 0.5rem 0.65rem;
-    border-bottom: 1px solid var(--line);
-  }
   .muted {
     color: var(--ink-soft);
   }
   .banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
     background: rgba(163, 32, 32, 0.08);
     color: var(--error);
     padding: 0.65rem 0.85rem;
     margin: 0 0 1rem;
+  }
+  .banner p {
+    margin: 0;
+    flex: 1 1 12rem;
+  }
+  .retry {
+    border: 1px solid var(--error);
+    background: transparent;
+    color: var(--error);
+    padding: 0.45rem 0.75rem;
+    min-height: 44px;
+    min-width: 44px;
+    border-radius: 2px;
+    font-weight: 500;
   }
   :global(.page > :last-child) {
     margin-top: auto;

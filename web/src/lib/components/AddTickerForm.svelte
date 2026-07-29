@@ -3,12 +3,16 @@
 
   interface Props {
     busy?: boolean;
+    listKind?: ListKind;
     onadd: (ticker: string, listKind: ListKind) => void;
   }
-  let { busy = false, onadd }: Props = $props();
+  let {
+    busy = false,
+    listKind = $bindable("watched" as ListKind),
+    onadd,
+  }: Props = $props();
 
   let ticker = $state("");
-  let listKind = $state<ListKind>("watched");
 
   function submit(e: Event) {
     e.preventDefault();
@@ -35,7 +39,9 @@
     <option value="watched">Watched</option>
     <option value="held">Held</option>
   </select>
-  <button type="submit" disabled={busy || !ticker.trim()}>Add</button>
+  <button type="submit" disabled={busy || !ticker.trim()}>
+    {busy ? "Adding…" : "Add"}
+  </button>
 </form>
 
 <style>
@@ -56,6 +62,7 @@
     color: var(--ink);
     border-radius: 2px;
     padding: 0.55rem 0.75rem;
+    min-height: 44px;
   }
   input {
     min-width: 9rem;
@@ -66,6 +73,7 @@
     color: var(--paper);
     border-color: var(--ink);
     font-weight: 500;
+    min-width: 44px;
   }
   button:disabled {
     opacity: 0.5;
