@@ -35,7 +35,7 @@ Today the product ships locally via `adk web` / `adk run app`. The user asks to 
 
 **What exists now (Phase 0–2C):** single-ticker research from enriched Yahoo Finance fundamentals (profile, returns, BS/CF, trailing/forward P/E), Google News RSS headlines, SEC EDGAR filing metadata + XBRL companyfacts, and optional Alpha Vantage OVERVIEW fill-gaps for forward/market fields when keyed. Evidence aggregator surfaces `evidence.conflicts`; `scorecard` + `fundamentals` on `Phase0Result`. Dual cache: whole-result TTL plus per-source TTL/quota. Yahoo failure softens to `partial` when merged fundamentals pass the min field checklist.
 
-**What comes next:** correlation-aware risk; Phase 3 evidence deepen. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
+**What comes next:** Phase 3 evidence deepen (claim↔evidence in detail panel). See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
 
 How the system is built lives in [architecture.md](architecture.md). What is implemented vs stub lives in [implementation-status.md](implementation-status.md). Deferred work lives in [TODOS.md](../TODOS.md).
 
@@ -88,7 +88,7 @@ Users will prefer a labeled, citable, sometimes-partial result over a fluent but
 |---------|-------------|-----------------|
 | Individual investor / power user | “Give me a grounded take on this ticker I can verify” | `adk web` chat → JSON result |
 | Research analyst (dogfood) | Stress citation quality, conflicts, and partial paths | Chat + unit tests + on-demand evals |
-| Portfolio manager (future) | Multi-ticker concentration and correlation-aware risk | Deferred past thin Phase 2 |
+| Portfolio manager (future) | Multi-ticker concentration and correlation-aware risk | Risk v2 shipped (local); position weights still deferred |
 | Platform engineer (future) | Host API/UI, observe latency and error rates | Planned Phase 3 |
 
 **Primary job-to-be-done (now):** Given one ticker, return evidence + cited thesis I can trust enough to continue my own research.
@@ -127,7 +127,7 @@ Capabilities the human experiences. Separate from [system features](#6-system-fe
 | Feature | What the user gets | Phase | Status |
 |---------|--------------------|-------|--------|
 | Portfolio / watchlist dashboard | Fast buy/trim/add read across held + watched names | — | **Shipped v1** (local UI + API) |
-| Portfolio risk view | Multi-ticker concentration and correlation-aware risk | — | **Risk v1 shipped** (Held equal-weight concentration); correlation next |
+| Portfolio risk view | Multi-ticker concentration and correlation-aware risk | — | **Risk v2 shipped** (equal-weight concentration + top pairwise correlations) |
 | Session continuity | Richer memory across research sessions | — | Deferred past thin Phase 2 (P3) |
 | First-party research UI / API | Use FolioTracker without living in ADK chat | 3 | Planned |
 | Hosted product | Deployed service with runbooks and smoke checks | 3 | Planned |
@@ -189,7 +189,7 @@ Platform capabilities engineers build behind the user experience. Separate from 
 
 | Feature | Role | Phase | Status |
 |---------|------|-------|--------|
-| Portfolio schemas + risk services | Batch evidence, concentration, correlation | — | **v1 concentration done**; correlation queued |
+| Portfolio schemas + risk services | Batch evidence, concentration, correlation | — | **v2 done** (concentration + pairwise correlation from Yahoo history cache) |
 | Memory beyond TTL files | Ticker / company / session / portfolio memory | — | Deferred past thin Phase 2 (P3) |
 | Observability backends | Metrics, traces, alerts beyond local logs | 3 | Planned |
 | Production deploy + runbooks | Hosted ADK/API, env, smoke, rollback | 3 | Planned |
@@ -298,7 +298,7 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 | **2C.3** | Soften Yahoo-fatal + SEC XBRL fundamentals provider | L | **Done** (2026-07-25) |
 | Later | Alpha Vantage OVERVIEW fill-gaps | M | **Done** (2026-07-25) |
 
-**Deferred past Risk v1:** correlation slice, position weights, cache / memory (P3), Kafka ingestion, Redis rate-limit platform. Watchlist + Risk concentration shipped.
+**Deferred past Risk v2:** position weights, cache / memory (P3), Kafka ingestion, Redis rate-limit platform. Watchlist + Risk concentration + correlation shipped.
 
 ### Phase 3 backlog (planned)
 

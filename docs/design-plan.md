@@ -333,7 +333,7 @@ Do not hide Held/Watched labels on mobile. Do not switch to a card mosaic with i
 |------|-----------|
 | Dark mode | Dogfood light paper system only; no second palette |
 | Marketing landing page | Product is app UI; no public marketing surface yet |
-| Portfolio correlation visuals (charts) | Needs portfolio schemas first (TODOS XL) |
+| Portfolio correlation visuals (charts) | Risk v2 ships text tables only; charts stay deferred |
 | Multi-brand / theming | Single product identity |
 | Illustration / icon system | Utility app; no icon circles |
 | Undo toast for remove | **2C** chose instant remove; revisit only if dogfood regrets pile up |
@@ -368,7 +368,7 @@ All design choices from this review are locked (1–8 + focus management). Imple
 
 **Overall design score:** 5/10 → 9/10 (plan complete; implementation still in TODOS)
 
-Risk nav scaffold shipped with Risk v1 (2026-07-30). Further TODOS: correlation, Phase 3 deepen, server single-flight.
+Risk nav scaffold + correlation table shipped (Risk v2, 2026-07-31). Further TODOS: Phase 3 evidence deepen, server single-flight.
 
 ### Eng review scope (2026-07-28) — **A locked**
 

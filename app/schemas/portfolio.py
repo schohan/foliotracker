@@ -1,4 +1,4 @@
-"""Portfolio / Risk concentration contracts (Held-only v1)."""
+"""Portfolio / Risk concentration + correlation contracts (Held-only)."""
 
 from __future__ import annotations
 
@@ -26,12 +26,23 @@ class SectorBucket(BaseModel):
     tickers: list[str] = Field(default_factory=list)
 
 
+class PairCorrelation(BaseModel):
+    """Pairwise daily-return correlation for two Held names (~1y window)."""
+
+    ticker_a: str
+    ticker_b: str
+    correlation: float = Field(ge=-1.0, le=1.0)
+    overlap_days: int = Field(ge=0)
+    window: str = "~1y daily returns"
+
+
 class PortfolioRiskSnapshot(BaseModel):
-    """Concentration risk for Held membership — no position sizes, no advice.
+    """Concentration + co-movement risk for Held membership — no advice.
 
     Equal-weight: each Held ticker contributes ``1 / held_count``.
     ``partial`` when any sector or risk_score is missing (or research status
-    is error/absent). Empty Held is ``ok`` with empty lists.
+    is error/absent), or when Held ≥ 2 and price history / overlap gaps.
+    Empty Held is ``ok`` with empty lists.
     """
 
     status: Phase0Status
@@ -39,6 +50,8 @@ class PortfolioRiskSnapshot(BaseModel):
     equal_weight: bool = True
     positions: list[HeldPositionRisk] = Field(default_factory=list)
     sector_buckets: list[SectorBucket] = Field(default_factory=list)
+    top_correlations: list[PairCorrelation] = Field(default_factory=list)
+    correlation_pairs_known: int = 0
     top_name_weight: float | None = None
     avg_risk_score: float | None = None
     risk_scores_known: int = 0

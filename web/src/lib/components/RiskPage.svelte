@@ -1,7 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { fetchRisk } from "../api";
-  import { formatRiskScore, formatWeightPercent } from "../riskFormat";
+  import {
+    formatCorrelation,
+    formatRiskScore,
+    formatWeightPercent,
+  } from "../riskFormat";
   import type { AppView, PortfolioRiskSnapshot } from "../types";
   import DisclaimerBar from "./DisclaimerBar.svelte";
   import PrimaryNav from "./PrimaryNav.svelte";
@@ -18,6 +22,10 @@
   let loading = $state(true);
 
   const emptyHeld = $derived(snap != null && snap.held_count === 0);
+  const corrPairs = $derived(snap?.top_correlations ?? []);
+  const showCorrEmpty = $derived(
+    snap != null && snap.held_count >= 2 && corrPairs.length === 0,
+  );
 
   async function load() {
     loading = true;
@@ -44,7 +52,8 @@
     <p class="brand">FolioTracker</p>
     <PrimaryNav {view} {onnavigate} />
     <p class="tag">
-      Held concentration — equal-weight sector mix and risk scores. Not advice.
+      Held concentration and co-movement — equal-weight sector mix, risk scores,
+      and top pairwise correlations (~1y). Not advice.
     </p>
   </header>
 
@@ -61,7 +70,8 @@
     <p class="muted">Loading risk…</p>
   {:else if emptyHeld}
     <p class="empty">
-      Nothing held yet. Add a ticker as Held on Watchlist to see concentration.
+      Nothing held yet. Add a ticker as Held on Watchlist to see concentration
+      and co-movement.
     </p>
     <button
       type="button"
@@ -82,6 +92,9 @@
           <span class="muted">
             ({snap.risk_scores_known}/{snap.held_count} scores)
           </span>
+        {/if}
+        {#if snap.held_count >= 2}
+          · {snap.correlation_pairs_known} corr pairs
         {/if}
       </p>
     </div>
@@ -139,6 +152,40 @@
         </tbody>
       </table>
     </section>
+
+    {#if snap.held_count >= 2}
+      <section class="block" aria-labelledby="corr-heading">
+        <h2 id="corr-heading">Top correlations</h2>
+        {#if showCorrEmpty}
+          <p class="empty">
+            No pairwise correlations yet. Refresh Held research so Yahoo price
+            history lands in the source cache (need overlapping ~1y daily
+            returns).
+          </p>
+        {:else}
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Pair</th>
+                <th scope="col">Corr</th>
+                <th scope="col">Overlap</th>
+                <th scope="col">Window</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each corrPairs as pair (`${pair.ticker_a}-${pair.ticker_b}`)}
+                <tr>
+                  <td class="ticker">{pair.ticker_a} · {pair.ticker_b}</td>
+                  <td>{formatCorrelation(pair.correlation)}</td>
+                  <td class="muted">{pair.overlap_days}d</td>
+                  <td class="names">{pair.window}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {/if}
+      </section>
+    {/if}
   {/if}
 
   <DisclaimerBar text={snap?.disclaimer ?? defaultDisclaimer} />

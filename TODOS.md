@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Next: correlation slice, Phase 3 evidence deepen, or Phase0 server single-flight — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). Next: Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
 
 **Design:** [DESIGN.md](DESIGN.md) · living UX plan [docs/design-plan.md](docs/design-plan.md) (`/plan-design-review` 2026-07-28).
 
@@ -12,18 +12,6 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 
 ## Next milestones (queued)
 
-### Correlation slice (portfolio Risk v2)
-
-**What:** Pairwise returns correlation (or top pairwise risks) on the Risk view from Yahoo history already on enriched fundamentals / cache.
-
-**Why:** Concentration alone does not show co-movement; product job is correlation-aware risk.
-
-**Context:** Risk v1 schemas/API/UI landed (`PortfolioRiskSnapshot`, `GET /api/risk`, `RiskPage`). Extend snapshot + Risk tables — still no charts required for first correlation cut. Design lock **7A** shell already in place.
-
-**Effort:** L  
-**Priority:** P2  
-**Depends on:** Risk v1 (done)
-
 ### Phase 3 — deepen evidence browser (detail panel)
 
 **What:** Claim↔evidence links and richer evidence browser in `TickerDetailPanel`; optional full-page ticker mode later.
@@ -33,7 +21,7 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Context:** Keep `Phase0Result` as the contract. Nav shell now shared with Risk — deepen without inventing a second UI language.
 
 **Effort:** L  
-**Priority:** P3  
+**Priority:** P2  
 **Depends on:** Phase 0 product-complete; ideally 2C (done); Risk nav shell (done)
 
 ### Phase0 in-flight single-flight (dedupe)
@@ -52,7 +40,7 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Priority:** P3  
 **Depends on / blocked by:** None
 
-## Deferred beyond Risk v1
+## Deferred beyond Risk v2
 
 ### Cache / memory beyond Phase 0 TTL files
 
@@ -98,9 +86,18 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 
 **Effort:** L  
 **Priority:** P3  
-**Depends on:** Risk v1 dogfood; product call on local store shape
+**Depends on:** Risk v2 dogfood; product call on local store shape
 
 ## Completed
+
+### Correlation slice — portfolio Risk v2 (2026-07-31)
+
+- Schemas: `PairCorrelation` on `PortfolioRiskSnapshot` (`top_correlations`, `correlation_pairs_known`)
+- Service: Pearson pairwise daily returns from Yahoo source-cache `history_closes` (stale OK; no live refetch)
+- Top N by |correlation|; skip pairs with &lt; 60 overlapping return days; window `~1y daily returns`
+- UI: `RiskPage` **Top correlations** table; `formatCorrelation` helper
+- Gaps/`partial` when Held ≥ 2 and history/overlap missing
+- Unit tests: empty / one / high corr / missing history / insufficient overlap / sort by abs
 
 ### Portfolio Risk v1 — Held concentration (2026-07-30)
 

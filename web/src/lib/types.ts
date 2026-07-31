@@ -111,12 +111,22 @@ export interface SectorBucket {
   tickers: string[];
 }
 
+export interface PairCorrelation {
+  ticker_a: string;
+  ticker_b: string;
+  correlation: number;
+  overlap_days: number;
+  window: string;
+}
+
 export interface PortfolioRiskSnapshot {
   status: Phase0Status;
   held_count: number;
   equal_weight: boolean;
   positions: HeldPositionRisk[];
   sector_buckets: SectorBucket[];
+  top_correlations: PairCorrelation[];
+  correlation_pairs_known: number;
   top_name_weight: number | null;
   avg_risk_score: number | null;
   risk_scores_known: number;

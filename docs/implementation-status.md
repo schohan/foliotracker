@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 + **2C done**. Watchlist dashboard **v1 shipped**. Portfolio Risk v1 **shipped**. **Next:** correlation slice, Phase 3 evidence deepen, or server single-flight. See [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 + **2C done**. Watchlist dashboard **v1 shipped**. Portfolio Risk v1 + correlation slice (v2) **shipped**. **Next:** Phase 3 evidence deepen, or server single-flight if cost bites. See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -37,8 +37,8 @@ Update this file whenever a module moves from stub → working.
 | Watchlist HTTP API (`app/api`) | Done | FastAPI: membership, refresh, research GET, `GET /api/risk` |
 | Watchlist store / service | Done | Local JSON + `Phase0Result` → summary |
 | Watchlist UI (`web/`) | Done | Svelte 5 dashboard (held/watched, detail panel) |
-| Portfolio risk service | Done (v1) | Held equal-weight concentration from cache/summaries |
-| Risk UI (`RiskPage` + `PrimaryNav`) | Done (v1) | Design 7A `Watchlist \| Risk`; sector + names tables |
+| Portfolio risk service | Done (v2) | Held equal-weight concentration + pairwise corr from Yahoo source-cache history |
+| Risk UI (`RiskPage` + `PrimaryNav`) | Done (v2) | Design 7A `Watchlist \| Risk`; sector + names + top correlations tables |
 
 ---
 
@@ -104,7 +104,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `phase0_session` | Done (clears `scorecard`) |
 | `phase0_pipeline` | Done — Yahoo/news/SEC/XBRL/AV fan-out, merge, soften Yahoo-fatal, score, thesis |
 | `scoring` | Done (2B) — `score_from_metrics` (consumes merged snapshot) |
-| `portfolio_risk_service` | Done (v1) — Held equal-weight concentration |
+| `portfolio_risk_service` | Done (v2) — Held concentration + top pairwise correlations |
 | `source_registry` / `source_cache` / `source_fetch` | Done (2C.1; registry includes `sec_xbrl`, `alpha_vantage`) |
 | `merge_fundamentals` | Done (2C.3) |
 | `valuation` / `financial_math` / `ranking` / `normalization` | Todo |
@@ -124,7 +124,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `financials` / others | Done (2C.2) | Enriched `FinancialMetrics` (= `FundamentalsSnapshot`); series + statement summaries |
 | `fundamentals_minimum` | Done | Editable min field paths for soften Yahoo-fatal (2C.3 gate) |
 | `watchlist` | Done | Membership + ticker summaries for dashboard |
-| `portfolio` | Done (v1) | `PortfolioRiskSnapshot` concentration contracts |
+| `portfolio` | Done (v2) | `PortfolioRiskSnapshot` + `PairCorrelation` |
 
 ---
 
@@ -138,9 +138,9 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 ## Suggested next milestones
 
-1. Dogfood Risk v1: Held names with fresh Phase0 cache → sector buckets on Risk view
-2. Correlation slice on Risk view (pairwise returns from cached history)
-3. Phase 3 evidence deepen in detail panel, or Phase0 server single-flight if cost bites
+1. Dogfood Risk v2: Held names with Yahoo source-cache history → sector + top correlations
+2. Phase 3 evidence deepen in detail panel (claim↔evidence; design 8A)
+3. Phase0 server single-flight if concurrent refresh still burns cost
 
 ---
 
@@ -148,6 +148,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 | Date | Change |
 |------|--------|
+| 2026-07-31 | Correlation slice (Risk v2): `PairCorrelation`, Yahoo `history_closes` Pearson pairs, RiskPage table |
 | 2026-07-30 | Portfolio Risk v1: schemas, `GET /api/risk`, `RiskPage` + `PrimaryNav` |
 | 2026-07-25 | Watchlist dashboard v1: FastAPI + Svelte 5 UI over Phase0Result |
 | 2026-07-25 | Alpha Vantage fill-gaps: OVERVIEW → forward/market fields; optional key; soft-fail |

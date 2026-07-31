@@ -128,6 +128,8 @@ def test_get_risk_empty_held(tmp_path: Path) -> None:
     assert body["status"] == "ok"
     assert body["held_count"] == 0
     assert body["positions"] == []
+    assert body["top_correlations"] == []
+    assert body["correlation_pairs_known"] == 0
     assert "disclaimer" in body
 
 
@@ -141,3 +143,5 @@ def test_get_risk_held_partial_without_cache(tmp_path: Path) -> None:
     assert body["top_name_weight"] == 1.0
     assert body["status"] == "partial"
     assert body["equal_weight"] is True
+    assert body["top_correlations"] == []
+    assert body["correlation_pairs_known"] == 0

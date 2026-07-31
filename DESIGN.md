@@ -66,7 +66,7 @@ Reuse before inventing:
 |-----------|-----|
 | `WatchlistPage` | Page shell, lists, first-run |
 | `PrimaryNav` | Text nav `Watchlist \| Risk` (design 7A) |
-| `RiskPage` | Held equal-weight concentration (sectors + risk scores) |
+| `RiskPage` | Held equal-weight concentration + top pairwise correlations (tables; no charts) |
 | `AddTickerForm` | Primary add action |
 | `TickerRow` | Glanceable summary row |
 | `ScoreStrip` | G / V / R glance |
