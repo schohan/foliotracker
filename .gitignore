@@ -32,3 +32,4 @@ app/cache/*
 !app/cache/.gitkeep
 *.db
 *.sqlite3
+.gstack/
