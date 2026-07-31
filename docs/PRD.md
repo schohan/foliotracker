@@ -1,9 +1,9 @@
 # FolioTracker Product Requirements Document (PRD)
 
 **Product:** FolioTracker — AI portfolio and stock research on [Google ADK](https://adk.dev/)  
-**Status:** Thin Phase 2 + **2C done**; watchlist dashboard **v1 shipped** (FastAPI + Svelte 5)  
+**Status:** Thin Phase 2 + **2C done**; watchlist + Risk v2 shipped; **Daily Decision Brief** designed (Slice 1 queued)  
 **Audience:** Executives (vision, roadmap, risk) and engineers (contracts, acceptance criteria, phase boundaries)  
-**Last updated:** 2026-07-25
+**Last updated:** 2026-07-31
 
 **Related:** [architecture.md](architecture.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -15,7 +15,7 @@
 2. [Problem and opportunity](#2-problem-and-opportunity)
 3. [Goals and non-goals](#3-goals-and-non-goals)
 4. [Personas and primary jobs](#4-personas-and-primary-jobs)
-5. [User features](#5-user-features)
+5. [User features](#5-user-features) (incl. Daily Decision Brief)
 6. [System features](#6-system-features)
 7. [Core user journey](#7-core-user-journey)
 8. [Success metrics](#8-success-metrics)
@@ -35,7 +35,7 @@ Today the product ships locally via `adk web` / `adk run app`. The user asks to 
 
 **What exists now (Phase 0–2C):** single-ticker research from enriched Yahoo Finance fundamentals (profile, returns, BS/CF, trailing/forward P/E), Google News RSS headlines, SEC EDGAR filing metadata + XBRL companyfacts, and optional Alpha Vantage OVERVIEW fill-gaps for forward/market fields when keyed. Evidence aggregator surfaces `evidence.conflicts`; `scorecard` + `fundamentals` on `Phase0Result`. Dual cache: whole-result TTL plus per-source TTL/quota. Yahoo failure softens to `partial` when merged fundamentals pass the min field checklist.
 
-**What comes next:** Phase 3 evidence deepen (claim↔evidence in detail panel). See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
+**What comes next:** **Daily Decision Brief** Slice 1 (portfolio-scoped material-event triage for Held + Watched; ≤30m ritual), then Phase 3 evidence deepen. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
 
 How the system is built lives in [architecture.md](architecture.md). What is implemented vs stub lives in [implementation-status.md](implementation-status.md). Deferred work lives in [TODOS.md](../TODOS.md).
 
@@ -79,6 +79,8 @@ Users will prefer a labeled, citable, sometimes-partial result over a fluent but
 | Production multi-tenant SaaS | Local process + file cache only until Phase 3 |
 | Web scraping of article bodies | Phase 1 news is RSS headlines + URLs only |
 | Pretending stubs are live | Scaffold agents/tools stay marked Todo until implemented |
+| Brief dissemination build (this milestone) | Email, messaging, audio, MCP recorded for completeness; **not built** until website Brief is trusted |
+| Social signals in scores | Reddit/X (when added) are display-only; must not feed scorecard, risk, or Brief ranking math |
 
 ---
 
@@ -97,7 +99,9 @@ Users will prefer a labeled, citable, sometimes-partial result over a fluent but
 
 **Secondary job-to-be-done (near-term):** See when financial metrics and headlines disagree without reading raw tool dumps.
 
-**Future job-to-be-done:** Personalized dashboard across portfolio + watchlist; score and compare names; portfolio-level risk from the same evidence spine.
+**Near-term job-to-be-done (Brief):** Across ~40 Held + Watched names, get a ranked daily triage of material price-moving events (with optional source URLs + metrics context) so the ritual fits in **≤30 minutes** (today ~4 hours of Yahoo + broker tabs) and informs trim / add / promote-to-watch — without auto trade advice.
+
+**Future job-to-be-done:** Disseminate the same Brief object via messaging, audio, MCP, and email once the website Brief is trusted; optional social/earnings-call sections as display-only context.
 
 ---
 
@@ -122,14 +126,35 @@ Capabilities the human experiences. Separate from [system features](#6-system-fe
 | Always-on disclaimer | Non-advice copy on every response including errors | Fixed string; not optional |
 | Honest status labels | `ok` / `partial` / `error` | Partial on gaps/conflicts; error when research cannot ship; thesis-stage failures use stable `error_code` |
 
-### 5.2 Planned (deferred / Phase 3)
+### 5.2 Planned — Daily Decision Brief (Approach B, office-hours 2026-07-31)
+
+| Feature | What the user gets | Phase | Status |
+|---------|--------------------|-------|--------|
+| Daily Decision Brief (Slice 1) | Ranked material-event bullets for Held ∪ Watched (dedupe; Held wins), optional source URLs, metrics strip, Generate today, calm whole-Brief empty | Brief | **Queued** — see [TODOS.md](../TODOS.md) |
+| Brief informs decisions | Surfaces catalysts that inform trim / add / promote-to-watch | Brief | No auto buy/trim actions in v1 |
+| Brief history (minimal) | Last N=14 Brief snapshots persisted for miss review | Brief | Store in Slice 1; browse UI in Slice 2 |
+| Brief dissemination channels | Same Brief object via messaging apps, audio soundbite, MCP, email | Brief+ | **Recorded only** — build after website Brief trusted |
+| Social signals section | Reddit/X (etc.) in a **separate** report section | Brief+ | **Phase-next**; never feeds scores/ranking/risk |
+| Earnings-call summaries | Call digests as citeable bullets when available | Brief+ | **Phase-next** |
+
+**Brief v1 acceptance (Slice 1):**
+- Universe: Held ∪ Watched snapshot at Generate time; one row per ticker if both.
+- Gate: \|daily return\| ≥ 5% **OR** classified material event in rolling 24h (news-only events bypass move gate). Daily return = prior regular-session close → latest available regular-session close (blocking spike: confirm Yahoo history path; else news/SEC-only gate).
+- Rank: `max(move_score, event_severity)`; hard cap **15** tickers; ≤**5** bullets/ticker (severity then recency).
+- Trust: every displayed bullet has `source_url` and/or `evidence_id`; uncited LLM bullets discarded; reuse evidence IDs + per-source cache (no second pipeline).
+- UX: `PrimaryNav` includes **Brief**; list/table rows (not cards); Generate cache-first (&lt;60s target); `generation_status` complete/stale/partial; per-ticker `ok`/`partial`/`unavailable`; disclaimer on; dogfood miss log.
+- Success bar: ritual **≤30 minutes** (vs ~4h); founder-logged material misses tracked for 1-week dogfood.
+
+Design: `~/.gstack/projects/schohan-foliotracker/shailenderchohan-main-design-20260731-024904.md` (APPROVED).
+
+### 5.3 Planned (deferred / Phase 3)
 
 | Feature | What the user gets | Phase | Status |
 |---------|--------------------|-------|--------|
 | Portfolio / watchlist dashboard | Fast buy/trim/add read across held + watched names | — | **Shipped v1** (local UI + API) |
 | Portfolio risk view | Multi-ticker concentration and correlation-aware risk | — | **Risk v2 shipped** (equal-weight concentration + top pairwise correlations) |
 | Session continuity | Richer memory across research sessions | — | Deferred past thin Phase 2 (P3) |
-| First-party research UI / API | Use FolioTracker without living in ADK chat | 3 | Planned |
+| First-party research UI / API | Use FolioTracker without living in ADK chat | 3 | Planned (watchlist/Brief/Risk already local UI) |
 | Hosted product | Deployed service with runbooks and smoke checks | 3 | Planned |
 
 Planned items are sequenced in [TODOS.md](../TODOS.md); 2C contracts are locked in [architecture.md](architecture.md).
@@ -185,7 +210,17 @@ Platform capabilities engineers build behind the user experience. Separate from 
 | Google News RSS | `0.7` | Headlines + URLs only |
 | Alpha Vantage | `0.85` | Optional OVERVIEW fill-gaps for forward/market fields (key required) |
 
-### 6.2 Planned (deferred / Phase 3)
+### 6.2 Planned — Daily Decision Brief
+
+| Feature | Role | Phase | Status |
+|---------|------|-------|--------|
+| `DailyBrief` / `BriefTicker` / `BriefBullet` schemas | Contract for ranked triage; bullets cite `evidence_ids` and/or `source_url`; `generation_status` + per-ticker status | Brief | Queued |
+| Brief generator service | Cache-first gate/rank over Held∪Watched; keyword event categories; optional LLM phrasing fail-closed | Brief | Queued |
+| Brief HTTP API + thin Svelte page | `Generate today`; list rows; miss log | Brief | Queued (Slice 1) |
+| Dissemination adapters | Email / messaging / audio / MCP over same Brief JSON | Brief+ | Recorded only — not built this milestone |
+| Social ingest (display-only) | Separate section; excluded from scores and Brief ranking | Brief+ | Phase-next |
+
+### 6.3 Planned (deferred / Phase 3)
 
 | Feature | Role | Phase | Status |
 |---------|------|-------|--------|
@@ -279,7 +314,8 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 | **1** | Evidence spine expansion | News context + visible source conflicts | News tool, merge aggregator, conflicts on result | **Shipped** (2026-07-24) |
 | **2** | Product depth (thin) | Filings context + scorecards | SEC specialist → scoring service | **Complete** (2A+2B) |
 | **2C** | Multi-source ingestion | Richer, resilient fundamentals | Provider port, per-source cache, Yahoo → SEC XBRL → AV | **Done** |
-| **3** | Platform | First-party UI/API, hosted product | Observability, deploy/rollback runbooks | **Planned** |
+| **Brief** | Daily decision triage | ≤30m material-event Brief for Held+Watched | Brief schemas, generator, thin UI; dissemination recorded | **Designed** (Slice 1 queued) |
+| **3** | Platform | First-party deepen / hosted product | Evidence browser deepen, observability, deploy | **Planned** |
 
 ### Phase 2 sequence (locked 2026-07-24)
 
@@ -300,13 +336,23 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 
 **Deferred past Risk v2:** position weights, cache / memory (P3), Kafka ingestion, Redis rate-limit platform. Watchlist + Risk concentration + correlation shipped.
 
+### Daily Decision Brief sequence (locked 2026-07-31 — Approach B)
+
+| Order | Item | Effort | Status |
+|-------|------|--------|--------|
+| Docs | PRD / DESIGN / TODOS + office-hours design APPROVED | S | **Done** (2026-07-31) |
+| Spike | Confirm daily % from Yahoo history/returns; cold-cache ~40-ticker Generate budget | S | Queued (blocking) |
+| **Brief.1** | Schemas + generator + API + thin Brief page + miss log | M | Queued |
+| **Brief.2** | Polish, schedule, history browse — after ≤30m Assignment validates | M | Queued |
+| Later | Social display-only section; earnings-call digests; dissemination adapters | L | Recorded / Phase-next |
+
 ### Phase 3 backlog (planned)
 
-- Custom HTTP API and/or minimal research UI (design review before UI)
+- Deepen evidence browser in detail panel (claim↔evidence)
 - Observability backends (metrics, traces, alerts)
 - Production deploy + rollback runbooks
 
-North-star (12-month ideal): full evidence graph, portfolio risk, scoring, and memory — composed on the same spine. FolioTracker does not pretend that cathedral is built today.
+North-star (12-month ideal): full evidence graph, portfolio risk, scoring, Brief dissemination, and memory — composed on the same spine. FolioTracker does not pretend that cathedral is built today.
 
 ---
 
@@ -354,9 +400,14 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, and m
 | `balance_sheet.total_cash` | Nested (also required top-level) |
 | `balance_sheet.total_debt` | Nested (also required top-level) |
 
+### Resolved (2026-07-31)
+
+6. **Daily Decision Brief** → Approach B product contract: hybrid website Brief on evidence spine; v1 = material events + metrics; social/earnings-call/dissemination recorded; social never in scores. Defaults: rolling 24h, 5% OR event, cap 15, cache-first. See office-hours design APPROVED and [TODOS.md](../TODOS.md).
+
 ### Still open
 
-_(none — portfolio timing resolved: UI-first dashboard after 2C trusted, 2026-07-25)_
+1. Multi-account tags on Brief rows? *(default: single Held/Watched book)*  
+2. Watchlist category labels (Biotech/AI/…) on Brief rows in v1? *(default: no)*
 
 ---
 
@@ -367,6 +418,8 @@ _(none — portfolio timing resolved: UI-first dashboard after 2C trusted, 2026-
 | [architecture.md](architecture.md) | How the system is designed (flows, schemas, failures, ADK mapping) |
 | [implementation-status.md](implementation-status.md) | What is Done / Partial / Todo vs architecture |
 | [TODOS.md](../TODOS.md) | Deferred Phase 2+ work items |
+| [DESIGN.md](../DESIGN.md) | Design system (incl. Brief nav) |
+| [design-plan.md](design-plan.md) | Living UX plan |
 | [evaluations/phase0/README.md](../evaluations/phase0/README.md) | How to run on-demand LLM evals |
 | [README.md](../README.md) | Setup, run, and design principles |
 
@@ -376,6 +429,7 @@ _(none — portfolio timing resolved: UI-first dashboard after 2C trusted, 2026-
 
 | Date | Change |
 |------|--------|
+| 2026-07-31 | Add Daily Decision Brief (Approach B): user/system features, non-goals, roadmap; social never-in-scores; dissemination recorded not built |
 | 2026-07-25 | Watchlist dashboard v1 shipped; resolve portfolio timing open Q |
 | 2026-07-25 | Alpha Vantage fill-gaps shipped; Phase 2C complete |
 | 2026-07-25 | Phase 2C.3 shipped: merge + SEC XBRL + soften Yahoo-fatal |

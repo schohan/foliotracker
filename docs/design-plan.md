@@ -116,6 +116,8 @@ What the user **sees** (not backend behavior).
 | Conflicts (detail) | — | Calm success copy: “No source conflicts detected.” (agreement is good, not an empty failure) | — | List by topic + severity + summary | — |
 | Fundamentals (detail) | — | “No fundamentals in this result.” | — | Key metrics grid | Sparse metrics + “—” |
 | Remove ticker | — | — | Banner if remove fails; ticker stays | Row gone; if it was selected, panel closes | — |
+| **Brief page** | Soft line: “Generating today’s brief…”; prior Brief stays visible if any | **No universe:** “Add tickers on Watchlist to generate a Brief.” **No material events:** calm “Nothing material in the last 24h.” | Banner + Retry Generate; keep last Brief if present | Ranked ticker **rows** (cap 15); bullets with optional source links; metrics strip; miss-log control | `generation_status` stale/partial banner; per-row `partial`/`unavailable` honest |
+| Brief Generate | Button “Generating…”; disabled until done | — | Banner; do not invent bullets | New Brief replaces prior; date/meta updates | Some tickers unavailable — omit quiet; show unavailable only when move unknown and no bullets |
 
 ### Empty-state copy principles
 
@@ -368,7 +370,19 @@ All design choices from this review are locked (1–8 + focus management). Imple
 
 **Overall design score:** 5/10 → 9/10 (plan complete; implementation still in TODOS)
 
-Risk nav scaffold + correlation table shipped (Risk v2, 2026-07-31). Further TODOS: Phase 3 evidence deepen, server single-flight.
+Risk nav scaffold + correlation table shipped (Risk v2, 2026-07-31). **Daily Decision Brief** designed APPROVED (2026-07-31) — nav becomes `Watchlist | Risk | Brief`; Slice 1 queued in TODOS. Further TODOS: Brief Slice 1, Phase 3 evidence deepen, server single-flight.
+
+### Brief surface (office-hours 2026-07-31 — Approach B)
+
+Constraint worship — if the user can only notice **3 things** on Brief:
+
+1. **Brand + date** — FolioTracker + which Brief day / how many tickers surfaced  
+2. **Generate today** — primary action (cache-first)  
+3. **Ranked material rows** — move + precise bullets + optional source links  
+
+Secondary: metrics strip, miss log, disclaimer, Phase-next social placeholder (not in Slice 1 UI).
+
+Wireframe: `~/.gstack/projects/schohan-foliotracker/brief-wireframe-20260731.html`
 
 ### Eng review scope (2026-07-28) — **A locked**
 

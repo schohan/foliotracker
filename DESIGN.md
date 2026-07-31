@@ -49,12 +49,12 @@ Do not use Inter, Roboto, Arial, or system-ui as the primary stack. Two typeface
 
 ## Layout & chrome
 
-- **Primary workspace:** Held / Watched tables (Held first). Text nav `Watchlist | Risk` switches to Held concentration (Risk v1).
-- **Secondary context:** Right detail panel on row select (Watchlist only).
-- **First-run (0 tickers):** Collapsed composition — brand, one line, add form only. No empty section shells.
-- **Cards:** Default none. Tables and the detail panel are the interaction surfaces. No dashboard card mosaic.
+- **Primary workspace:** Held / Watched tables (Held first). Text nav `Watchlist | Risk | Brief` (Brief = daily material-event triage).
+- **Secondary context:** Right detail panel on row select (Watchlist only). Brief has no detail panel in Slice 1 — ranked rows only.
+- **First-run (0 tickers):** Collapsed composition — brand, one line, add form only. No empty section shells. Brief with empty universe: calm “Add tickers on Watchlist to generate a Brief.”
+- **Cards:** Default none. Tables, list rows, and the detail panel are the interaction surfaces. No dashboard card mosaic. Brief uses **ranked ticker rows**, not cards.
 - **Radius:** `2px` — tool-like, not bubbly.
-- **Motion (intentional):** row enter stagger, detail panel slide, refresh pulse. No ornamental motion.
+- **Motion (intentional):** row enter stagger, detail panel slide, refresh pulse. Brief: Generate pulse only. No ornamental motion.
 
 ---
 
@@ -65,16 +65,19 @@ Reuse before inventing:
 | Component | Job |
 |-----------|-----|
 | `WatchlistPage` | Page shell, lists, first-run |
-| `PrimaryNav` | Text nav `Watchlist \| Risk` (design 7A) |
+| `PrimaryNav` | Text nav `Watchlist \| Risk \| Brief` |
 | `RiskPage` | Held equal-weight concentration + top pairwise correlations (tables; no charts) |
+| `BriefPage` | Daily Decision Brief — Generate, ranked material rows, miss log (Slice 1) |
 | `AddTickerForm` | Primary add action |
 | `TickerRow` | Glanceable summary row |
-| `ScoreStrip` | G / V / R glance |
+| `ScoreStrip` | G / V / R glance (Brief metrics strip may reuse Growth/Value/Risk only) |
 | `TickerDetailPanel` | Deep read of `Phase0Result` |
 | `ConflictsList` | Source disagreements (no left-border accent stripe) |
 | `DisclaimerBar` | Non-advice, always on |
 
-Portfolio / Phase 3 UI must extend this vocabulary and these tokens.
+Portfolio / Brief / Phase 3 UI must extend this vocabulary and these tokens.
+
+**Brief trust rules (UI):** optional source links on bullets; never auto buy/trim; Phase-next social section (if shown) must be visually separate and labeled display-only / not used in scores.
 
 ---
 
@@ -86,6 +89,7 @@ Full state table: [docs/design-plan.md](docs/design-plan.md#interaction-states).
 - Research wait: keep row; muted honest stage line (no fake progress bar).
 - Remove: instant (no confirm) for Held and Watched.
 - Detail hierarchy: status → scorecard → thesis → conflicts → fundamentals → raw JSON.
+- Brief: whole-Brief empty when no ticker passes the material gate; quiet names omitted (not listed empty); stale/partial Generate uses banner via `generation_status`.
 
 ---
 

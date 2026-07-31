@@ -1,8 +1,8 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). Next: Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief** designed APPROVED (2026-07-31) — Slice 1 queued next. Then Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
 
-**Design:** [DESIGN.md](DESIGN.md) · living UX plan [docs/design-plan.md](docs/design-plan.md) (`/plan-design-review` 2026-07-28).
+**Design:** [DESIGN.md](DESIGN.md) · living UX plan [docs/design-plan.md](docs/design-plan.md) (`/plan-design-review` 2026-07-28). Brief design: `~/.gstack/projects/schohan-foliotracker/shailenderchohan-main-design-20260731-024904.md`.
 
 **Phase 2 lock (2026-07-24):** Thin Phase 2 = **SEC specialist → scoring service**. Portfolio and cache/memory deferred.
 
@@ -11,6 +11,45 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
 
 ## Next milestones (queued)
+
+### Daily Decision Brief — Slice 1 (2026-07-31)
+
+**What:** Portfolio-scoped daily triage for Held ∪ Watched: material-event bullets with optional source URLs + metrics strip; thin Brief page in nav; Generate today (cache-first); miss log; persist last 14 Briefs.
+
+**Why:** Founder dogfood ritual is ~4h/day of Yahoo + broker tabs across ~40 names; target ≤30 minutes while keeping a full-time job. Win by ruthless omission + ranking, not more news. Cite-first on the existing evidence spine.
+
+**Defaults (tunable after dogfood):** rolling 24h window; gate = \|daily return\| ≥ 5% OR material event; rank `max(move_score, event_severity)`; cap 15 tickers / 5 bullets; keyword categories first; LLM phrasing fail-closed if uncited.
+
+**Blocking pre-work:** Confirm daily % from Yahoo history/returns cache (Risk v2 path); smoke-test cold-cache ~40-ticker Generate vs rate limits. If no daily %, ship news/SEC-only gate.
+
+**Out of Slice 1 build:** dissemination (email, messaging, audio, MCP — **recorded** in PRD only); social (Reddit/X); full earnings-call digests; scheduled generation; Brief history browse UI.
+
+**Invariant:** Social signals (when added later) render in a separate section and **must not** feed scorecard, risk, or Brief ranking.
+
+**Effort:** M  
+**Priority:** P1  
+**Depends on:** Watchlist Held/Watched (done); 2C news/cache (done); daily-% spike  
+**Design:** office-hours APPROVED 2026-07-31 (Approach B)
+
+### Daily Decision Brief — Slice 2 (after Assignment)
+
+**What:** Polish, scheduled generation, Brief history browse.
+
+**Why:** Only after timed Assignment comparison supports ≤30m bar.
+
+**Effort:** M  
+**Priority:** P2  
+**Depends on:** Brief Slice 1 dogfood + Assignment validation
+
+### Brief — Phase-next (recorded)
+
+**What:** Social display-only section; earnings-call summary bullets; dissemination adapters (messaging, audio soundbite, MCP, email) over the same `DailyBrief` object.
+
+**Why:** Completeness of the product vision; do not build until website Brief is trusted.
+
+**Effort:** L  
+**Priority:** P3  
+**Depends on:** Brief Slice 1 trusted in dogfood
 
 ### Phase 3 — deepen evidence browser (detail panel)
 
