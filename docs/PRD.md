@@ -141,8 +141,8 @@ Capabilities the human experiences. Separate from [system features](#6-system-fe
 - Universe: Held ∪ Watched snapshot at Generate time; one row per ticker if both.
 - Gate: \|daily return\| ≥ 5% **OR** classified material event in rolling 24h (news-only events bypass move gate). Daily return = prior regular-session close → latest available regular-session close (blocking spike: confirm Yahoo history path; else news/SEC-only gate).
 - Rank: `max(move_score, event_severity)`; hard cap **15** tickers; ≤**5** bullets/ticker (severity then recency).
-- Trust: every displayed bullet has `source_url` and/or `evidence_id`; uncited LLM bullets discarded; reuse evidence IDs + per-source cache (no second pipeline).
-- UX: `PrimaryNav` includes **Brief**; list/table rows (not cards); Generate cache-first (&lt;60s target); `generation_status` complete/stale/partial; per-ticker `ok`/`partial`/`unavailable`; disclaimer on; dogfood miss log.
+- Trust: every displayed bullet has `source_url` and/or `evidence_id`; Slice 1 bullets are evidence titles (no LLM phrasing — optional LLM is Slice 1b, default off); reuse evidence IDs + per-source cache via `cached_fetch` / `evidence_from_*` (not full `run_phase0_research`).
+- UX: `PrimaryNav` includes **Brief**; list/table rows (not cards); sync Generate cache-first (~60s wall budget, bounded pool); `generation_status` complete/stale/partial; per-ticker `ok`/`partial`/`unavailable`; disclaimer on; dogfood miss log.
 - Success bar: ritual **≤30 minutes** (vs ~4h); founder-logged material misses tracked for 1-week dogfood.
 
 Design: `~/.gstack/projects/schohan-foliotracker/shailenderchohan-main-design-20260731-024904.md` (APPROVED).

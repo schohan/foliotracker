@@ -18,11 +18,19 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 
 **Why:** Founder dogfood ritual is ~4h/day of Yahoo + broker tabs across ~40 names; target ≤30 minutes while keeping a full-time job. Win by ruthless omission + ranking, not more news. Cite-first on the existing evidence spine.
 
-**Defaults (tunable after dogfood):** rolling 24h window; gate = \|daily return\| ≥ 5% OR material event; rank `max(move_score, event_severity)`; cap 15 tickers / 5 bullets; keyword categories first; LLM phrasing fail-closed if uncited.
+**Defaults (tunable after dogfood):** rolling 24h window; gate = \|daily return\| ≥ 5% OR material event; rank `max(move_score, event_severity)`; cap 15 tickers / 5 bullets; keyword categories first; **bullets = evidence titles (no LLM in Slice 1)**.
 
-**Blocking pre-work:** Confirm daily % from Yahoo history/returns cache (Risk v2 path); smoke-test cold-cache ~40-ticker Generate vs rate limits. If no daily %, ship news/SEC-only gate.
+**Eng locks (`/plan-eng-review` 2026-07-31):**
+- Sync `POST` Generate + ~60s wall budget → `generation_status` complete/stale/partial (no Celery)
+- Shared `yahoo_history` helper (extract from Risk); blocking daily-% spike; news/SEC-only gate fallback
+- Data plane: source caches + `evidence_from_*` (not `run_phase0_research`); Phase0 cache optional for metrics strip
+- `brief_classify` module + tests; `brief_store` (ring 14 + miss log JSONL); bounded thread pool (4–8)
+- Slice 1 PR **must** update `docs/architecture.md` + `docs/implementation-status.md`
+- Tests: complete pytest for classify/history/gate/rank/store/API; Risk correlation regression mandatory; E2E optional
 
-**Out of Slice 1 build:** dissemination (email, messaging, audio, MCP — **recorded** in PRD only); social (Reddit/X); full earnings-call digests; scheduled generation; Brief history browse UI.
+**Blocking pre-work:** Confirm daily % via shared history helper from Yahoo `history_closes`; smoke-test cold-cache ~40-ticker Generate vs rate limits. If no daily %, ship news/SEC-only gate.
+
+**Out of Slice 1 build:** dissemination (email, messaging, audio, MCP — **recorded** in PRD only); social (Reddit/X); full earnings-call digests; scheduled generation; Brief history browse UI; LLM bullet phrasing (see Slice 1b).
 
 **Invariant:** Social signals (when added later) render in a separate section and **must not** feed scorecard, risk, or Brief ranking.
 
@@ -30,6 +38,18 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Priority:** P1  
 **Depends on:** Watchlist Held/Watched (done); 2C news/cache (done); daily-% spike  
 **Design:** office-hours APPROVED 2026-07-31 (Approach B)
+
+### Daily Decision Brief — Slice 1b — LLM phrasing (default off)
+
+**What:** Optional LLM bullet phrasing behind settings flag (default **off**); fail-closed discard if uncited; unit tests.
+
+**Why:** PRD allowed optional LLM; Slice 1 correctly ships headline bullets to protect sync budget and sole-LLM=thesis invariant.
+
+**Context:** Reuse thesis-style citation checks; do not enable by default until Generate budget is proven in dogfood. Start at `brief_service` + settings.
+
+**Effort:** M  
+**Priority:** P2  
+**Depends on:** Brief Slice 1 shipped + Assignment timing OK
 
 ### Daily Decision Brief — Slice 2 (after Assignment)
 
@@ -50,6 +70,30 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Effort:** L  
 **Priority:** P3  
 **Depends on:** Brief Slice 1 trusted in dogfood
+
+### Brief — E2E Generate smoke
+
+**What:** One browser/E2E smoke: Brief nav → Generate → empty-or-rows; assert Generate disables while in flight (double-submit).
+
+**Why:** Thin `BriefPage` wiring bugs slip past API unit tests.
+
+**Context:** Units+API are the Slice 1 bar; add E2E after harness is reliable (Playwright/browse). Prior learning: watchlist Refresh-all must set per-ticker refreshing — same class of bug for Generate.
+
+**Effort:** S  
+**Priority:** P3  
+**Depends on:** Brief Slice 1 API + page; working browser test harness
+
+### Brief — near-miss log for keyword tuning
+
+**What:** Append-only near-miss log (e.g. news present + 3–5% move, or unclassified headlines on movers) for keyword tuning — **not** shown in Brief UI v1.
+
+**Why:** Known Slice 1 recall limit when keywords miss flat-price material events; founder miss log alone is sparse.
+
+**Context:** Design residual-risk note; keep out of scores/ranking. Store beside `brief_store` miss log.
+
+**Effort:** S  
+**Priority:** P3  
+**Depends on:** Brief Slice 1 generator + `brief_store`
 
 ### Phase 3 — deepen evidence browser (detail panel)
 
