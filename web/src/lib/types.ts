@@ -1,5 +1,6 @@
 export type Phase0Status = "ok" | "partial" | "error";
 export type ListKind = "held" | "watched";
+export type AppView = "watchlist" | "risk";
 
 export interface WatchlistMembership {
   held: string[];
@@ -93,4 +94,32 @@ export interface Phase0Result {
 export interface ResearchResponse {
   result: Phase0Result;
   list_kind: ListKind | null;
+}
+
+export interface HeldPositionRisk {
+  ticker: string;
+  weight: number;
+  sector: string | null;
+  risk_score: number | null;
+  status: Phase0Status | null;
+}
+
+export interface SectorBucket {
+  sector: string;
+  weight: number;
+  count: number;
+  tickers: string[];
+}
+
+export interface PortfolioRiskSnapshot {
+  status: Phase0Status;
+  held_count: number;
+  equal_weight: boolean;
+  positions: HeldPositionRisk[];
+  sector_buckets: SectorBucket[];
+  top_name_weight: number | null;
+  avg_risk_score: number | null;
+  risk_scores_known: number;
+  gaps: string[];
+  disclaimer: string;
 }

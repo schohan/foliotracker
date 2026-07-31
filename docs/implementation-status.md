@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 + **2C done**. Watchlist dashboard **v1 shipped** (API + Svelte UI). **Next:** portfolio/correlation or Phase 3. See [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 + **2C done**. Watchlist dashboard **v1 shipped**. Portfolio Risk v1 **shipped**. **Next:** correlation slice, Phase 3 evidence deepen, or server single-flight. See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -34,9 +34,11 @@ Update this file whenever a module moves from stub → working.
 | Min fundamentals checklist (`fundamentals_minimum`) | Done | Editable `MINIMUM_FUNDAMENTALS_FIELD_PATHS`; gate for soften Yahoo-fatal |
 | Evaluations framework | Done | Cases + rubric + `python -m evaluations.phase0.run` |
 | Prompts library | Todo | Thesis prompt inline in thesis_agent |
-| Watchlist HTTP API (`app/api`) | Done | FastAPI: membership, refresh, research GET |
+| Watchlist HTTP API (`app/api`) | Done | FastAPI: membership, refresh, research GET, `GET /api/risk` |
 | Watchlist store / service | Done | Local JSON + `Phase0Result` → summary |
 | Watchlist UI (`web/`) | Done | Svelte 5 dashboard (held/watched, detail panel) |
+| Portfolio risk service | Done (v1) | Held equal-weight concentration from cache/summaries |
+| Risk UI (`RiskPage` + `PrimaryNav`) | Done (v1) | Design 7A `Watchlist \| Risk`; sector + names tables |
 
 ---
 
@@ -47,7 +49,7 @@ Update this file whenever a module moves from stub → working.
 | `stock_research_agent` | Todo |
 | `earnings_agent` | Todo |
 | `screening_agent` | Todo |
-| `portfolio_agent` | Todo (dashboard uses API/service; ADK agent still stub) |
+| `portfolio_agent` | Todo (Risk v1 uses API/service; ADK agent still stub) |
 | `valuation_agent` | Todo |
 | `app/agent.py` (Portfolio Research root) | Done |
 
@@ -102,6 +104,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `phase0_session` | Done (clears `scorecard`) |
 | `phase0_pipeline` | Done — Yahoo/news/SEC/XBRL/AV fan-out, merge, soften Yahoo-fatal, score, thesis |
 | `scoring` | Done (2B) — `score_from_metrics` (consumes merged snapshot) |
+| `portfolio_risk_service` | Done (v1) — Held equal-weight concentration |
 | `source_registry` / `source_cache` / `source_fetch` | Done (2C.1; registry includes `sec_xbrl`, `alpha_vantage`) |
 | `merge_fundamentals` | Done (2C.3) |
 | `valuation` / `financial_math` / `ranking` / `normalization` | Todo |
@@ -121,6 +124,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `financials` / others | Done (2C.2) | Enriched `FinancialMetrics` (= `FundamentalsSnapshot`); series + statement summaries |
 | `fundamentals_minimum` | Done | Editable min field paths for soften Yahoo-fatal (2C.3 gate) |
 | `watchlist` | Done | Membership + ticker summaries for dashboard |
+| `portfolio` | Done (v1) | `PortfolioRiskSnapshot` concentration contracts |
 
 ---
 
@@ -134,9 +138,9 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 ## Suggested next milestones
 
-1. Dogfood dashboard: `uvicorn app.api.main:app` + `cd web && npm run dev`; held + watched refresh
-2. Set `ALPHA_VANTAGE_API_KEY` + real `SEC_USER_AGENT` for live fill-gaps
-3. Portfolio/correlation layer (multi-ticker risk) when dashboard dogfood is trusted
+1. Dogfood Risk v1: Held names with fresh Phase0 cache → sector buckets on Risk view
+2. Correlation slice on Risk view (pairwise returns from cached history)
+3. Phase 3 evidence deepen in detail panel, or Phase0 server single-flight if cost bites
 
 ---
 
@@ -144,6 +148,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 | Date | Change |
 |------|--------|
+| 2026-07-30 | Portfolio Risk v1: schemas, `GET /api/risk`, `RiskPage` + `PrimaryNav` |
 | 2026-07-25 | Watchlist dashboard v1: FastAPI + Svelte 5 UI over Phase0Result |
 | 2026-07-25 | Alpha Vantage fill-gaps: OVERVIEW → forward/market fields; optional key; soft-fail |
 | 2026-07-25 | Phase 2C.3 done: `sec_xbrl`, `merge_fundamentals`, soften Yahoo-fatal |

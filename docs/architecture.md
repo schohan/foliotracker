@@ -2,7 +2,7 @@
 
 AI portfolio / stock research on [Google ADK](https://adk.dev/).
 
-**Status:** Thin Phase 2 + **2C done**. Watchlist dashboard **v1 shipped** (FastAPI + Svelte 5). **Next:** portfolio/correlation or Phase 3. See [TODOS.md](../TODOS.md).
+**Status:** Thin Phase 2 + **2C done**. Watchlist dashboard **v1 shipped**. Portfolio Risk v1 (Held concentration) **shipped**. **Next:** correlation slice, Phase 3 evidence deepen, or Phase0 server single-flight. See [TODOS.md](../TODOS.md).
 
 **Related:** [PRD.md](PRD.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -140,8 +140,8 @@ analyze_ticker
 - ADK `ParallelAgent` rewrite (fan-out stays in the Python pipeline)
 - Full evidence graph edges / confidence calibration
 - Memory layers, Mongo, vector store (local TTL file cache **is** in Phase 0 — see below)
-- Portfolio / correlation / multi-ticker risk / personalized dashboard UI (product next; separate design)
-- Custom HTTP API / UI beyond `adk web`
+- Correlation / position weights / ADK `portfolio_agent` (Risk v1 concentration shipped; see TODOS)
+- Custom HTTP API / UI beyond watchlist + Risk dashboard (Phase 3 deepen still open)
 - Production deploy, Redis multi-tenant rate-limit platform, Kafka/Celery ingestion
 - Shipping Alpha Vantage / Finnhub / Polygon in slice 1
 - Web scraping of article bodies or full filing HTML (RSS headlines + EDGAR metadata only until XBRL slice)
@@ -739,7 +739,7 @@ COVERAGE: 2C.1–2C.2 unit-covered; 2C.3 + cache-interaction paths remain GAPs
 
 **NOT in scope / What already exists:** See Phase 2C section above and TODOS.md.
 
-**Parallelization:** Phase 2C + dashboard v1 done. Next: portfolio/correlation risk or Phase 3 platform.
+**Parallelization:** Phase 2C + dashboard + Risk v1 done. Next: correlation slice or Phase 3 evidence deepen.
 
 ---
 
@@ -747,6 +747,7 @@ COVERAGE: 2C.1–2C.2 unit-covered; 2C.3 + cache-interaction paths remain GAPs
 
 | Date | Change |
 |------|--------|
+| 2026-07-30 | Portfolio Risk v1: Held equal-weight concentration (`GET /api/risk`, `RiskPage`, design 7A nav) |
 | 2026-07-25 | Watchlist dashboard v1: FastAPI + Svelte 5 over Phase0Result (local JSON membership) |
 | 2026-07-25 | Alpha Vantage fill-gaps shipped: OVERVIEW → `forward_pe`/market fields; optional key; soft-fail |
 | 2026-07-25 | Phase 2C.3 shipped: `sec_xbrl`, `merge_fundamentals`, soften Yahoo-fatal via min field checklist |

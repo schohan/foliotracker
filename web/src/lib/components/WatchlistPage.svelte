@@ -14,14 +14,23 @@
     showListSections,
   } from "../listVisibility";
   import type {
+    AppView,
     ListKind,
     Phase0Result,
     WatchlistState,
   } from "../types";
   import AddTickerForm from "./AddTickerForm.svelte";
   import DisclaimerBar from "./DisclaimerBar.svelte";
+  import PrimaryNav from "./PrimaryNav.svelte";
   import TickerDetailPanel from "./TickerDetailPanel.svelte";
   import TickerListSection from "./TickerListSection.svelte";
+
+  interface Props {
+    view: AppView;
+    onnavigate: (view: AppView) => void;
+  }
+
+  let { view, onnavigate }: Props = $props();
 
   let state = $state<WatchlistState | null>(null);
   let loadError = $state<string | null>(null);
@@ -207,6 +216,7 @@
 <main class="page">
   <header class="hero">
     <p class="brand">FolioTracker</p>
+    <PrimaryNav {view} {onnavigate} />
     <p class="tag">{tagline}</p>
   </header>
 

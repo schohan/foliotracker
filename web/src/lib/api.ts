@@ -1,5 +1,6 @@
 import type {
   ListKind,
+  PortfolioRiskSnapshot,
   ResearchResponse,
   WatchlistState,
   WatchlistTickerSummary,
@@ -55,4 +56,8 @@ export function refreshAll(): Promise<{ summaries: WatchlistTickerSummary[] }> {
 
 export function fetchResearch(ticker: string): Promise<ResearchResponse> {
   return request(`/api/research/${encodeURIComponent(ticker)}`);
+}
+
+export function fetchRisk(): Promise<PortfolioRiskSnapshot> {
+  return request("/api/risk");
 }

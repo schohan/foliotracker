@@ -368,7 +368,7 @@ All design choices from this review are locked (1–8 + focus management). Imple
 
 **Overall design score:** 5/10 → 9/10 (plan complete; implementation still in TODOS)
 
-No further TODO proposals from this review (Risk nav scaffold waits on portfolio schemas).
+Risk nav scaffold shipped with Risk v1 (2026-07-30). Further TODOS: correlation, Phase 3 deepen, server single-flight.
 
 ### Eng review scope (2026-07-28) — **A locked**
 
@@ -376,7 +376,7 @@ Implement the 5 watchlist polish TODOs in one UI-focused PR:
 
 - Client-timed research stage copy (no SSE / stage API)
 - Add Vitest for critical UI logic (stage helper, empty-state matrix helpers)
-- **NOT in scope:** streaming stages, Risk nav scaffold, portfolio schemas, Phase 3 evidence browser deepen
+- **NOT in scope (polish PR):** streaming stages, Risk nav scaffold, portfolio schemas, Phase 3 evidence browser deepen (Risk v1 landed later)
 
 ```
 POLISH DATA FLOW (scope A)
@@ -480,8 +480,8 @@ API (existing — do not expand in polish PR)
 | SSE / streaming research stages | Scope A; honesty via static copy (E1) |
 | Server Phase0 single-flight | 4B deferred; UI guard enough for dogfood |
 | Playwright E2E | 3B deferred |
-| Watchlist \| Risk nav scaffold | Waits on portfolio schemas |
-| Phase 3 evidence browser deepen | Separate Phase 3 lock (design 8A) |
+| Watchlist \| Risk nav scaffold | **Done** Risk v1 (2026-07-30) |
+| Phase 3 evidence browser deepen | Separate Phase 3 lock (design 8A); queued in TODOS |
 
 ### What already exists (reuse)
 

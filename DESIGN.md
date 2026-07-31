@@ -49,8 +49,8 @@ Do not use Inter, Roboto, Arial, or system-ui as the primary stack. Two typeface
 
 ## Layout & chrome
 
-- **Primary workspace:** Held / Watched tables (Held first).
-- **Secondary context:** Right detail panel on row select.
+- **Primary workspace:** Held / Watched tables (Held first). Text nav `Watchlist | Risk` switches to Held concentration (Risk v1).
+- **Secondary context:** Right detail panel on row select (Watchlist only).
 - **First-run (0 tickers):** Collapsed composition — brand, one line, add form only. No empty section shells.
 - **Cards:** Default none. Tables and the detail panel are the interaction surfaces. No dashboard card mosaic.
 - **Radius:** `2px` — tool-like, not bubbly.
@@ -65,6 +65,8 @@ Reuse before inventing:
 | Component | Job |
 |-----------|-----|
 | `WatchlistPage` | Page shell, lists, first-run |
+| `PrimaryNav` | Text nav `Watchlist \| Risk` (design 7A) |
+| `RiskPage` | Held equal-weight concentration (sectors + risk scores) |
 | `AddTickerForm` | Primary add action |
 | `TickerRow` | Glanceable summary row |
 | `ScoreStrip` | G / V / R glance |

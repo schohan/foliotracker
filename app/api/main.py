@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.configs.settings import Settings, settings as default_settings
 from app.schemas.phase0 import Phase0Result
 from app.schemas.ticker import InvalidTickerError, normalize_ticker
+from app.schemas.portfolio import PortfolioRiskSnapshot
 from app.schemas.watchlist import (
     BatchRefreshRequest,
     BatchRefreshResponse,
@@ -21,6 +22,7 @@ from app.schemas.watchlist import (
 )
 from app.services import watchlist_store as store
 from app.services.phase0_pipeline import run_phase0_research
+from app.services.portfolio_risk_service import build_portfolio_risk
 from app.services.watchlist_service import (
     get_watchlist_state,
     refresh_batch,
@@ -54,6 +56,11 @@ def create_app(
     @app.get("/api/watchlist", response_model=WatchlistState)
     def get_watchlist() -> WatchlistState:
         return get_watchlist_state(s)
+
+    @app.get("/api/risk", response_model=PortfolioRiskSnapshot)
+    def get_risk() -> PortfolioRiskSnapshot:
+        """Held-only equal-weight concentration (no research re-run)."""
+        return build_portfolio_risk(app_settings=s)
 
     @app.put("/api/watchlist", response_model=WatchlistState)
     def put_watchlist(body: WatchlistPutRequest) -> WatchlistState:

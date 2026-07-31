@@ -117,3 +117,27 @@ def test_delete_ticker(tmp_path: Path) -> None:
     r = client.delete("/api/watchlist/tickers/AAPL")
     assert r.status_code == 200
     assert r.json()["membership"]["watched"] == []
+
+
+def test_get_risk_empty_held(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    client.put("/api/watchlist", json={"held": [], "watched": ["AAPL"]})
+    r = client.get("/api/risk")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "ok"
+    assert body["held_count"] == 0
+    assert body["positions"] == []
+    assert "disclaimer" in body
+
+
+def test_get_risk_held_partial_without_cache(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    client.put("/api/watchlist", json={"held": ["NVDA"], "watched": []})
+    r = client.get("/api/risk")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["held_count"] == 1
+    assert body["top_name_weight"] == 1.0
+    assert body["status"] == "partial"
+    assert body["equal_weight"] is True

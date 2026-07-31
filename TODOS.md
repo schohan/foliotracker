@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Next: portfolio/correlation layer, Phase0 server single-flight, or Phase 3 deepen — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Next: correlation slice, Phase 3 evidence deepen, or Phase0 server single-flight — see [docs/architecture.md](docs/architecture.md).
 
 **Design:** [DESIGN.md](DESIGN.md) · living UX plan [docs/design-plan.md](docs/design-plan.md) (`/plan-design-review` 2026-07-28).
 
@@ -10,21 +10,49 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
 
-## Deferred beyond Phase 2C
+## Next milestones (queued)
 
-### Portfolio / correlation layer
+### Correlation slice (portfolio Risk v2)
 
-**What:** Multi-ticker orchestration, concentration, and correlation-aware risk.
+**What:** Pairwise returns correlation (or top pairwise risks) on the Risk view from Yahoo history already on enriched fundamentals / cache.
 
-**Why:** Product is FolioTracker; Phase 0 is single-ticker only.
+**Why:** Concentration alone does not show co-movement; product job is correlation-aware risk.
 
-**Context:** `portfolio_agent` stub exists. Needs portfolio schemas, batch evidence, and risk services. Do not start until single-ticker spine + scoring + 2C fundamentals are trusted.
+**Context:** Risk v1 schemas/API/UI landed (`PortfolioRiskSnapshot`, `GET /api/risk`, `RiskPage`). Extend snapshot + Risk tables — still no charts required for first correlation cut. Design lock **7A** shell already in place.
 
-**Design lock (2026-07-28):** Same app shell as watchlist; simple text nav `Watchlist | Risk`; shared [DESIGN.md](DESIGN.md) tokens — not a second visual language ([docs/design-plan.md](docs/design-plan.md) decision 7A).
-
-**Effort:** XL  
+**Effort:** L  
 **Priority:** P2  
-**Depends on:** Thin Phase 2 (done); preferably 2C richer fundamentals
+**Depends on:** Risk v1 (done)
+
+### Phase 3 — deepen evidence browser (detail panel)
+
+**What:** Claim↔evidence links and richer evidence browser in `TickerDetailPanel`; optional full-page ticker mode later.
+
+**Why:** Detail panel *is* the Phase 3 research surface (design **8A**); ADK chat stays optional for engineers.
+
+**Context:** Keep `Phase0Result` as the contract. Nav shell now shared with Risk — deepen without inventing a second UI language.
+
+**Effort:** L  
+**Priority:** P3  
+**Depends on:** Phase 0 product-complete; ideally 2C (done); Risk nav shell (done)
+
+### Phase0 in-flight single-flight (dedupe)
+
+**What:** Server-side single-flight / in-flight dedupe so concurrent `run_phase0_research` calls for the same ticker share one run and one result.
+
+**Why:** UI polish guards the common double-fetch; ADK chat, refresh-all races, or two tabs can still burn duplicate LLM/API cost.
+
+**Pros:** Correct under concurrency; saves money as dogfood grows.
+
+**Cons:** Cancel/timeout semantics need care.
+
+**Context:** Deferred from `/plan-eng-review` performance 4B (2026-07-28). UI single-flight (4A) **shipped** in watchlist polish. Start at `phase0_pipeline` / `watchlist_service`. Opportunistic if dogfood still double-fires.
+
+**Effort:** M  
+**Priority:** P3  
+**Depends on / blocked by:** None
+
+## Deferred beyond Risk v1
 
 ### Cache / memory beyond Phase 0 TTL files
 
@@ -37,38 +65,6 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Effort:** M  
 **Priority:** P3  
 **Depends on:** Phase 0 cache proven; 2C per-source cache landed
-
-### Phase0 in-flight single-flight (dedupe)
-
-**What:** Server-side single-flight / in-flight dedupe so concurrent `run_phase0_research` calls for the same ticker share one run and one result.
-
-**Why:** UI polish guards the common double-fetch; ADK chat, refresh-all races, or two tabs can still burn duplicate LLM/API cost.
-
-**Pros:** Correct under concurrency; saves money as dogfood grows.
-
-**Cons:** Cancel/timeout semantics need care; not needed for the polish PR.
-
-**Context:** Deferred from `/plan-eng-review` performance 4B (2026-07-28). UI single-flight (4A) **shipped** in watchlist polish. Start at `phase0_pipeline` / `watchlist_service`.
-
-**Effort:** M  
-**Priority:** P3  
-**Depends on / blocked by:** None; fine after watchlist polish lands
-
-## Phase 3 — Platform
-
-### Custom API / UI beyond `adk web`
-
-**What:** First-party HTTP API and/or minimal research UI.
-
-**Why:** Real users won’t live in ADK’s default chat forever.
-
-**Context:** Watchlist API/UI shipped. Design review done 2026-07-28. Keep Phase0Result as the contract.
-
-**Design lock (2026-07-28):** Detail panel *is* the Phase 3 research surface — deepen evidence browser + claim↔evidence links; optional full-page ticker mode; ADK chat remains optional for engineers ([docs/design-plan.md](docs/design-plan.md) decision 8A; [DESIGN.md](DESIGN.md)).
-
-**Effort:** L  
-**Priority:** P3  
-**Depends on:** Phase 0 product-complete; ideally 2C
 
 ### Observability backends (metrics, traces, alerts)
 
@@ -94,7 +90,26 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Priority:** P3  
 **Depends on:** Custom API or hosted ADK decision
 
+### Position weights / shares (portfolio)
+
+**What:** User-entered shares or % weights instead of equal-weight assumption.
+
+**Why:** Real concentration needs size; v1 deliberately equal-weight.
+
+**Effort:** L  
+**Priority:** P3  
+**Depends on:** Risk v1 dogfood; product call on local store shape
+
 ## Completed
+
+### Portfolio Risk v1 — Held concentration (2026-07-30)
+
+- Schemas: `PortfolioRiskSnapshot`, `HeldPositionRisk`, `SectorBucket` (`app/schemas/portfolio.py`)
+- Service: equal-weight concentration from Held + Phase0 cache / summaries (`portfolio_risk_service`)
+- FastAPI `GET /api/risk`; no research re-run
+- UI: text nav `Watchlist | Risk` (design 7A); `RiskPage` sector + names tables; empty Held warm CTA
+- Status `partial` when sector/risk gaps; disclaimer always present
+- Unit tests: empty / one / multi-sector / missing sector / cache miss; Vitest format helpers
 
 ### Watchlist design polish (2026-07-28)
 
