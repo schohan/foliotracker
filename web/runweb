@@ -1,4 +1,5 @@
 #!/bin/bash
 
 # run uvicorn
-adk web
+#adk web
+npm run dev
