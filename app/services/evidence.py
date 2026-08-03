@@ -108,8 +108,15 @@ _SCALAR_METRIC_FIELDS = (
 
 
 def _metric_fields(metrics: FinancialMetrics) -> dict:
-    """Serialize metrics for evidence.data (include 2C.2 enrichment)."""
-    return metrics.model_dump(mode="json", exclude_none=True)
+    """Serialize metrics for evidence.data (include 2C.2 enrichment).
+
+    Exclude ``history_closes`` — daily series would bloat evidence and churn IDs.
+    """
+    return metrics.model_dump(
+        mode="json",
+        exclude_none=True,
+        exclude={"history_closes"},
+    )
 
 
 def _has_any_metric(metrics: FinancialMetrics) -> bool:

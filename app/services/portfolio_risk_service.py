@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import math
 from collections import defaultdict
-from typing import Any, Callable
+from typing import Callable
 
 from app.configs.settings import Settings, settings as default_settings
 from app.schemas.phase0 import PHASE0_DISCLAIMER, Phase0Result, Phase0Status
@@ -21,8 +21,7 @@ from app.schemas.portfolio import (
 )
 from app.services import watchlist_store as store
 from app.services.phase0_cache import cache_lookup
-from app.services.source_cache import source_cache_lookup
-from app.services.source_registry import SOURCE_YAHOO, get_source
+from app.services.yahoo_history import daily_returns, lookup_history_closes
 
 logger = logging.getLogger(__name__)
 
@@ -57,72 +56,6 @@ def _risk_score(
     if result is not None and result.scorecard is not None:
         return result.scorecard.risk_score
     return None
-
-
-def _parse_history_closes(payload: dict[str, Any] | None) -> list[tuple[str, float]] | None:
-    """Extract ``history_closes`` from a Yahoo source-cache payload."""
-    if not payload or not isinstance(payload, dict):
-        return None
-    raw = payload.get("history_closes")
-    if not isinstance(raw, list) or not raw:
-        return None
-    out: list[tuple[str, float]] = []
-    for item in raw:
-        if isinstance(item, (list, tuple)) and len(item) >= 2:
-            date_s, px = item[0], item[1]
-        elif isinstance(item, dict):
-            date_s, px = item.get("date"), item.get("close")
-        else:
-            continue
-        if date_s is None or px is None:
-            continue
-        try:
-            price = float(px)
-        except (TypeError, ValueError):
-            continue
-        if not math.isfinite(price) or price <= 0:
-            continue
-        out.append((str(date_s)[:10], price))
-    return out or None
-
-
-def _default_history_lookup(
-    ticker: str,
-    *,
-    app_settings: Settings,
-) -> list[tuple[str, float]] | None:
-    """Read Yahoo per-source cache (stale OK). No live refetch."""
-    try:
-        cfg = get_source(SOURCE_YAHOO, app_settings)
-        ttl = cfg.ttl_seconds
-    except Exception:  # noqa: BLE001 — registry miss should not break Risk
-        ttl = app_settings.yahoo_source_ttl_seconds
-    envelope = source_cache_lookup(
-        SOURCE_YAHOO,
-        ticker,
-        ttl_seconds=ttl,
-        cache_root=app_settings.source_cache_dir,
-        allow_stale=True,
-        app_settings=app_settings,
-    )
-    if envelope is None:
-        return None
-    return _parse_history_closes(envelope.payload)
-
-
-def _daily_returns(closes: list[tuple[str, float]]) -> dict[str, float]:
-    """Map date → simple return vs prior close (keyed by later date)."""
-    ordered = sorted(closes, key=lambda row: row[0])
-    returns: dict[str, float] = {}
-    for i in range(1, len(ordered)):
-        prev_d, prev_px = ordered[i - 1]
-        cur_d, cur_px = ordered[i]
-        if prev_px <= 0:
-            continue
-        ret = (cur_px - prev_px) / prev_px
-        if math.isfinite(ret):
-            returns[cur_d] = ret
-    return returns
 
 
 def _pearson(xs: list[float], ys: list[float]) -> float | None:
@@ -181,7 +114,7 @@ def compute_top_correlations(
         if closes is None:
             gaps.append(f"{ticker}: price history missing (Yahoo source cache)")
             continue
-        returns_map[ticker] = _daily_returns(closes)
+        returns_map[ticker] = daily_returns(closes)
 
     pairs: list[PairCorrelation] = []
     for i, a in enumerate(held):
@@ -314,7 +247,7 @@ def build_portfolio_risk(
     if hist_lookup is None:
 
         def hist_lookup(ticker: str) -> list[tuple[str, float]] | None:
-            return _default_history_lookup(ticker, app_settings=s)
+            return lookup_history_closes(ticker, app_settings=s)
 
     history_by_ticker: dict[str, list[tuple[str, float]] | None] = {
         t: hist_lookup(t) for t in held

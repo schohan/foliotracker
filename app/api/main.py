@@ -8,6 +8,11 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.configs.settings import Settings, settings as default_settings
+from app.schemas.brief import (
+    BriefGenerateRequest,
+    BriefMissLogRequest,
+    DailyBrief,
+)
 from app.schemas.phase0 import Phase0Result
 from app.schemas.ticker import InvalidTickerError, normalize_ticker
 from app.schemas.portfolio import PortfolioRiskSnapshot
@@ -20,7 +25,8 @@ from app.schemas.watchlist import (
     WatchlistState,
     WatchlistTickerSummary,
 )
-from app.services import watchlist_store as store
+from app.services import brief_store, watchlist_store as store
+from app.services.brief_service import generate_daily_brief, get_latest_brief
 from app.services.phase0_pipeline import run_phase0_research
 from app.services.portfolio_risk_service import build_portfolio_risk
 from app.services.watchlist_service import (
@@ -34,10 +40,12 @@ def create_app(
     *,
     app_settings: Settings | None = None,
     research_fn: Callable[..., Phase0Result] | None = None,
+    brief_generate_fn: Callable[..., DailyBrief] | None = None,
 ) -> FastAPI:
     """Build the API app (injectable settings + research for tests)."""
     s = app_settings if app_settings is not None else default_settings
     fn = research_fn or run_phase0_research
+    brief_fn = brief_generate_fn or generate_daily_brief
 
     app = FastAPI(title="FolioTracker", version="0.1.0")
     origins = [o.strip() for o in s.watchlist_cors_origins.split(",") if o.strip()]
@@ -61,6 +69,24 @@ def create_app(
     def get_risk() -> PortfolioRiskSnapshot:
         """Held-only equal-weight concentration (no research re-run)."""
         return build_portfolio_risk(app_settings=s)
+
+    @app.get("/api/brief", response_model=DailyBrief | None)
+    def get_brief() -> DailyBrief | None:
+        """Latest persisted DailyBrief (null when none generated yet)."""
+        return get_latest_brief(app_settings=s)
+
+    @app.post("/api/brief/generate", response_model=DailyBrief)
+    def post_brief_generate(
+        body: BriefGenerateRequest | None = None,
+    ) -> DailyBrief:
+        """Sync Generate today (cache-first; ~60s wall budget)."""
+        req = body or BriefGenerateRequest()
+        return brief_fn(app_settings=s, force_refresh=req.force_refresh)
+
+    @app.post("/api/brief/miss")
+    def post_brief_miss(body: BriefMissLogRequest) -> dict[str, str]:
+        """Append dogfood material-miss note."""
+        return brief_store.append_miss_note(body.note, app_settings=s)
 
     @app.put("/api/watchlist", response_model=WatchlistState)
     def put_watchlist(body: WatchlistPutRequest) -> WatchlistState:

@@ -85,6 +85,8 @@ class FinancialMetrics(BaseModel):
     earnings_history: list[PeriodMetric] = Field(default_factory=list)
     balance_sheet: StatementSummary | None = None
     cash_flow: StatementSummary | None = None
+    # Daily closes for Risk/Brief (Yahoo source-cache); not used in evidence IDs.
+    history_closes: list[tuple[str, float]] = Field(default_factory=list)
     source_id: str = "yahoo"
     as_of: datetime | None = None
     field_provenance: dict[str, FieldProvenance] = Field(default_factory=dict)

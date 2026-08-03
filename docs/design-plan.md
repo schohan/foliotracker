@@ -370,7 +370,7 @@ All design choices from this review are locked (1–8 + focus management). Imple
 
 **Overall design score:** 5/10 → 9/10 (plan complete; implementation still in TODOS)
 
-Risk nav scaffold + correlation table shipped (Risk v2, 2026-07-31). **Daily Decision Brief** designed APPROVED (2026-07-31) — nav becomes `Watchlist | Risk | Brief`; Slice 1 queued in TODOS. Further TODOS: Brief Slice 1, Phase 3 evidence deepen, server single-flight.
+Risk nav scaffold + correlation table shipped (Risk v2, 2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03) — nav is `Watchlist | Risk | Brief`. Further TODOS: flexible ticker intake, Brief dogfood → Slice 1b/2, Phase 3 evidence deepen, server single-flight.
 
 ### Brief surface (office-hours 2026-07-31 — Approach B)
 

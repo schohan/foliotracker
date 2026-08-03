@@ -38,11 +38,14 @@ def cached_fetch(
     model_cls: type[T],
     *,
     app_settings: Settings | None = None,
+    force_refresh: bool = False,
 ) -> SourceFetchResult:
     """Return domain model from fresh cache, stale (if rate-limited), or live fetch.
 
     ASCII flow::
 
+        force_refresh?
+          yes → (skip fresh) rate budget → fetch_fn() → store
         lookup fresh?
           yes → return (cache_hit)
           no  → rate budget ok?
@@ -56,20 +59,21 @@ def cached_fetch(
         raise SourceDisabledError(f"source {source_id} is disabled")
 
     root = s.source_cache_dir
-    fresh = source_cache_lookup(
-        source_id,
-        ticker,
-        ttl_seconds=cfg.ttl_seconds,
-        cache_root=root,
-        allow_stale=False,
-        app_settings=s,
-    )
-    if fresh is not None and fresh.status == "ok":
-        data = model_cls.model_validate(fresh.payload)
-        return SourceFetchResult(
-            data=data,
-            meta=SourceFetchMeta(source_id=source_id, cache_hit=True),
+    if not force_refresh:
+        fresh = source_cache_lookup(
+            source_id,
+            ticker,
+            ttl_seconds=cfg.ttl_seconds,
+            cache_root=root,
+            allow_stale=False,
+            app_settings=s,
         )
+        if fresh is not None and fresh.status == "ok":
+            data = model_cls.model_validate(fresh.payload)
+            return SourceFetchResult(
+                data=data,
+                meta=SourceFetchMeta(source_id=source_id, cache_hit=True),
+            )
 
     if not rate_budget_available(cfg, cache_root=root, app_settings=s):
         stale = source_cache_lookup(

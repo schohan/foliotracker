@@ -2,7 +2,7 @@
 
 AI portfolio / stock research on [Google ADK](https://adk.dev/).
 
-**Status:** Thin Phase 2 + **2C done**. Watchlist dashboard **v1 shipped**. Portfolio Risk v1 + correlation slice (v2) **shipped**. **Next:** Phase 3 evidence deepen, or Phase0 server single-flight if cost bites. See [TODOS.md](../TODOS.md).
+**Status:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 shipped**. **Next:** Brief dogfood Assignment, or flexible ticker intake / Phase 3 evidence deepen. See [TODOS.md](../TODOS.md).
 
 **Related:** [PRD.md](PRD.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -141,7 +141,7 @@ analyze_ticker
 - Full evidence graph edges / confidence calibration
 - Memory layers, Mongo, vector store (local TTL file cache **is** in Phase 0 — see below)
 - Position weights / ADK `portfolio_agent` (Risk v2 concentration + correlation shipped; see TODOS)
-- Custom HTTP API / UI beyond watchlist + Risk dashboard (Phase 3 deepen still open)
+- Custom HTTP API / UI beyond watchlist + Risk + Brief (Phase 3 evidence deepen still open)
 - Production deploy, Redis multi-tenant rate-limit platform, Kafka/Celery ingestion
 - Shipping Alpha Vantage / Finnhub / Polygon in slice 1
 - Web scraping of article bodies or full filing HTML (RSS headlines + EDGAR metadata only until XBRL slice)
@@ -739,7 +739,48 @@ COVERAGE: 2C.1–2C.2 unit-covered; 2C.3 + cache-interaction paths remain GAPs
 
 **NOT in scope / What already exists:** See Phase 2C section above and TODOS.md.
 
-**Parallelization:** Phase 2C + dashboard + Risk v2 (concentration + correlation) done. Next: Phase 3 evidence deepen.
+**Parallelization:** Phase 2C + dashboard + Risk v2 + Brief Slice 1 done. Next: Brief dogfood / intake / Phase 3 deepen.
+
+---
+
+## Daily Decision Brief (Slice 1 — shipped 2026-08-03)
+
+Portfolio-scoped material-event triage over **Held ∪ Watched** (Held wins duplicates).
+
+### Data flow
+
+```
+membership snapshot
+  → bounded pool (4–8) per ticker:
+        cached_fetch yahoo → history_closes → last-session daily %
+        cached_fetch news + SEC → evidence_from_* → brief_classify
+  → gate: |daily return| ≥ 5% OR classified event (24h window)
+  → rank max(move_score, event_severity); cap 15 tickers / 5 bullets
+  → brief_store ring-14 + DailyBrief JSON
+  → GET/POST /api/brief* + BriefPage (PrimaryNav)
+```
+
+**Does not** call `run_phase0_research`. Phase0 cache is optional for the metrics strip (P/E, 1Y, G/V/R).
+
+### Contracts
+
+| Piece | Role |
+|-------|------|
+| `DailyBrief` / `BriefTicker` / `BriefBullet` | `app/schemas/brief.py` |
+| `yahoo_history` | Shared parse + last-session daily % + `move_score` (Risk + Brief) |
+| `brief_classify` | Keyword + SEC form heuristics → category/severity |
+| `brief_service.generate_daily_brief` | Sync Generate; ~60s wall → `generation_status` complete/stale/partial |
+| `brief_store` | Ring-14 JSON + miss-log JSONL |
+| API | `GET /api/brief`, `POST /api/brief/generate`, `POST /api/brief/miss` |
+| UI | `BriefPage` — Generate, ranked rows, miss log; no detail panel |
+
+### Yahoo `history_closes`
+
+`FinancialMetrics.history_closes` is populated by Yahoo `metrics_from_bundle` and persisted in the Yahoo source cache so Risk correlations and Brief daily % share one series. Excluded from evidence serialization (ID stability).
+
+### Out of Slice 1
+
+LLM bullet phrasing (1b), schedule/history browse (Slice 2), social, dissemination adapters.
 
 ---
 
@@ -747,6 +788,7 @@ COVERAGE: 2C.1–2C.2 unit-covered; 2C.3 + cache-interaction paths remain GAPs
 
 | Date | Change |
 |------|--------|
+| 2026-08-03 | Daily Decision Brief Slice 1: schemas, classify, yahoo_history, generator, API, BriefPage; `history_closes` on Yahoo cache |
 | 2026-07-31 | Correlation slice (Risk v2): pairwise ~1y returns from Yahoo source-cache `history_closes`; `PairCorrelation` on `GET /api/risk` |
 | 2026-07-30 | Portfolio Risk v1: Held equal-weight concentration (`GET /api/risk`, `RiskPage`, design 7A nav) |
 | 2026-07-25 | Watchlist dashboard v1: FastAPI + Svelte 5 over Phase0Result (local JSON membership) |

@@ -1,6 +1,8 @@
 export type Phase0Status = "ok" | "partial" | "error";
 export type ListKind = "held" | "watched";
-export type AppView = "watchlist" | "risk";
+export type AppView = "watchlist" | "risk" | "brief";
+export type BriefGenerationStatus = "complete" | "stale" | "partial";
+export type BriefTickerStatus = "ok" | "partial" | "unavailable";
 
 export interface WatchlistMembership {
   held: string[];
@@ -131,5 +133,42 @@ export interface PortfolioRiskSnapshot {
   avg_risk_score: number | null;
   risk_scores_known: number;
   gaps: string[];
+  disclaimer: string;
+}
+
+export interface BriefBullet {
+  text: string;
+  category: string;
+  severity: number;
+  evidence_ids: string[];
+  source_url: string | null;
+  status: "ok";
+}
+
+export interface BriefTicker {
+  ticker: string;
+  list_kind: ListKind;
+  status: BriefTickerStatus;
+  daily_return: number | null;
+  move_score: number | null;
+  event_severity: number | null;
+  rank_score: number;
+  bullets: BriefBullet[];
+  trailing_pe: number | null;
+  return_1y: number | null;
+  growth_score: number | null;
+  value_score: number | null;
+  risk_score: number | null;
+}
+
+export interface DailyBrief {
+  generated_at: string;
+  window_hours: number;
+  generation_status: BriefGenerationStatus;
+  universe_count: number;
+  tickers_considered: number;
+  tickers: BriefTicker[];
+  gaps: string[];
+  empty_message: string | null;
   disclaimer: string;
 }

@@ -45,6 +45,15 @@ class Settings:
     # Watchlist dashboard (local JSON)
     watchlist_path: Path = Path(".cache/foliotracker/watchlist.json")
     watchlist_cors_origins: str = "http://localhost:5173"
+    # Daily Decision Brief (Slice 1)
+    brief_store_path: Path = Path(".cache/foliotracker/briefs.json")
+    brief_miss_log_path: Path = Path(".cache/foliotracker/brief_misses.jsonl")
+    brief_ring_size: int = 14
+    brief_window_hours: int = 24
+    brief_max_tickers: int = 15
+    brief_max_bullets_per_ticker: int = 5
+    brief_generate_budget_seconds: int = 60
+    brief_max_workers: int = 6
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -125,6 +134,28 @@ class Settings:
                 "WATCHLIST_CORS_ORIGINS",
                 "http://localhost:5173",
             ),
+            brief_store_path=Path(
+                os.getenv(
+                    "BRIEF_STORE_PATH",
+                    ".cache/foliotracker/briefs.json",
+                )
+            ),
+            brief_miss_log_path=Path(
+                os.getenv(
+                    "BRIEF_MISS_LOG_PATH",
+                    ".cache/foliotracker/brief_misses.jsonl",
+                )
+            ),
+            brief_ring_size=int(os.getenv("BRIEF_RING_SIZE", "14")),
+            brief_window_hours=int(os.getenv("BRIEF_WINDOW_HOURS", "24")),
+            brief_max_tickers=int(os.getenv("BRIEF_MAX_TICKERS", "15")),
+            brief_max_bullets_per_ticker=int(
+                os.getenv("BRIEF_MAX_BULLETS_PER_TICKER", "5")
+            ),
+            brief_generate_budget_seconds=int(
+                os.getenv("BRIEF_GENERATE_BUDGET_SECONDS", "60")
+            ),
+            brief_max_workers=int(os.getenv("BRIEF_MAX_WORKERS", "6")),
         )
 
 

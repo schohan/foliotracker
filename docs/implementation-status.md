@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 + **2C done**. Watchlist dashboard **v1 shipped**. Portfolio Risk v1 + correlation slice (v2) **shipped**. **Next:** Phase 3 evidence deepen, or server single-flight if cost bites. See [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 shipped**. **Next:** Brief dogfood Assignment, flexible ticker intake, or Phase 3 evidence deepen. See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -34,11 +34,13 @@ Update this file whenever a module moves from stub → working.
 | Min fundamentals checklist (`fundamentals_minimum`) | Done | Editable `MINIMUM_FUNDAMENTALS_FIELD_PATHS`; gate for soften Yahoo-fatal |
 | Evaluations framework | Done | Cases + rubric + `python -m evaluations.phase0.run` |
 | Prompts library | Todo | Thesis prompt inline in thesis_agent |
-| Watchlist HTTP API (`app/api`) | Done | FastAPI: membership, refresh, research GET, `GET /api/risk` |
+| Watchlist HTTP API (`app/api`) | Done | FastAPI: membership, refresh, research GET, risk, brief |
 | Watchlist store / service | Done | Local JSON + `Phase0Result` → summary |
 | Watchlist UI (`web/`) | Done | Svelte 5 dashboard (held/watched, detail panel) |
 | Portfolio risk service | Done (v2) | Held equal-weight concentration + pairwise corr from Yahoo source-cache history |
-| Risk UI (`RiskPage` + `PrimaryNav`) | Done (v2) | Design 7A `Watchlist \| Risk`; sector + names + top correlations tables |
+| Risk UI (`RiskPage` + `PrimaryNav`) | Done (v2) | `Watchlist \| Risk \| Brief`; sector + names + top correlations tables |
+| Brief service / store / classify | Done (Slice 1) | Gate/rank Generate; ring-14 + miss log; no Phase0 research |
+| Brief UI (`BriefPage`) | Done (Slice 1) | Generate today, ranked rows, miss log |
 
 ---
 
@@ -105,7 +107,9 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `phase0_pipeline` | Done — Yahoo/news/SEC/XBRL/AV fan-out, merge, soften Yahoo-fatal, score, thesis |
 | `scoring` | Done (2B) — `score_from_metrics` (consumes merged snapshot) |
 | `portfolio_risk_service` | Done (v2) — Held concentration + top pairwise correlations |
-| `source_registry` / `source_cache` / `source_fetch` | Done (2C.1; registry includes `sec_xbrl`, `alpha_vantage`) |
+| `yahoo_history` | Done — shared history parse + last-session daily % + move_score |
+| `brief_classify` / `brief_store` / `brief_service` | Done (Slice 1) |
+| `source_registry` / `source_cache` / `source_fetch` | Done (2C.1; registry includes `sec_xbrl`, `alpha_vantage`; `force_refresh`) |
 | `merge_fundamentals` | Done (2C.3) |
 | `valuation` / `financial_math` / `ranking` / `normalization` | Todo |
 
@@ -125,6 +129,8 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `fundamentals_minimum` | Done | Editable min field paths for soften Yahoo-fatal (2C.3 gate) |
 | `watchlist` | Done | Membership + ticker summaries for dashboard |
 | `portfolio` | Done (v2) | `PortfolioRiskSnapshot` + `PairCorrelation` |
+| `brief` | Done (Slice 1) | `DailyBrief` / `BriefTicker` / `BriefBullet` |
+| `financials.history_closes` | Done | Yahoo daily closes on source-cache payload (Risk + Brief) |
 
 ---
 
@@ -138,9 +144,10 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 ## Suggested next milestones
 
-1. Dogfood Risk v2: Held names with Yahoo source-cache history → sector + top correlations
-2. Phase 3 evidence deepen in detail panel (claim↔evidence; design 8A)
-3. Phase0 server single-flight if concurrent refresh still burns cost
+1. Dogfood Brief Slice 1 (Assignment timing ≤30m) + founder miss log
+2. Flexible ticker intake (CSV / paste / screenshot / speech)
+3. Phase 3 evidence deepen in detail panel (claim↔evidence; design 8A)
+4. Phase0 server single-flight if concurrent refresh still burns cost
 
 ---
 
@@ -148,6 +155,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 | Date | Change |
 |------|--------|
+| 2026-08-03 | Daily Decision Brief Slice 1: generator, API, BriefPage, yahoo_history, history_closes on Yahoo metrics |
 | 2026-07-31 | Correlation slice (Risk v2): `PairCorrelation`, Yahoo `history_closes` Pearson pairs, RiskPage table |
 | 2026-07-30 | Portfolio Risk v1: schemas, `GET /api/risk`, `RiskPage` + `PrimaryNav` |
 | 2026-07-25 | Watchlist dashboard v1: FastAPI + Svelte 5 UI over Phase0Result |

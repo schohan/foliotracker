@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief** designed APPROVED (2026-07-31) — Slice 1 queued next. Then Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Flexible ticker intake** queued next. Then Brief dogfood Assignment → Slice 1b/2, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
 
 **Design:** [DESIGN.md](DESIGN.md) · living UX plan [docs/design-plan.md](docs/design-plan.md) (`/plan-design-review` 2026-07-28). Brief design: `~/.gstack/projects/schohan-foliotracker/shailenderchohan-main-design-20260731-024904.md`.
 
@@ -12,32 +12,30 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 
 ## Next milestones (queued)
 
-### Daily Decision Brief — Slice 1 (2026-07-31)
+### Flexible ticker intake (CSV / screenshot / speech / paste) (2026-08-03) — **next**
 
-**What:** Portfolio-scoped daily triage for Held ∪ Watched: material-event bullets with optional source URLs + metrics strip; thin Brief page in nav; Generate today (cache-first); miss log; persist last 14 Briefs.
+**What:** Multi-channel watchlist intake so users can load Held/Watched without typing one ticker at a time: CSV upload, paste (free text / broker export), screenshot→OCR, and speech. Shared extract → validate → bulk-add path. **Dedupe:** if a ticker is already on Held ∪ Watched, ignore it (no error, no list move, no research re-run). Return counts: `added` / `skipped_duplicate` / `rejected_invalid`.
 
-**Why:** Founder dogfood ritual is ~4h/day of Yahoo + broker tabs across ~40 names; target ≤30 minutes while keeping a full-time job. Win by ruthless omission + ranking, not more news. Cite-first on the existing evidence spine.
+**Why:** Dogfood universe is ~40 names; one-by-one `AddTickerForm` is the friction that blocks Brief/Risk setup. Intake should meet the user wherever their list already lives (spreadsheet, screenshot of broker UI, voice).
 
-**Defaults (tunable after dogfood):** rolling 24h window; gate = \|daily return\| ≥ 5% OR material event; rank `max(move_score, event_severity)`; cap 15 tickers / 5 bullets; keyword categories first; **bullets = evidence titles (no LLM in Slice 1)**.
+**Defaults:**
+- Day-1 channels: CSV file + paste textarea (same parser)
+- Same milestone or immediate follow-on: screenshot (image → text → parser) and speech (transcript → parser)
+- Target list = user-selected Held or Watched at import time (unless CSV has an explicit list column later)
+- Membership-first: bulk add does **not** auto-run Phase0 research
+- Duplicates within the upload itself collapsed before membership check
+- Invalid / unparseable tokens rejected with stable reporting; empty extract → clear failure, never invent tickers
 
-**Eng locks (`/plan-eng-review` 2026-07-31):**
-- Sync `POST` Generate + ~60s wall budget → `generation_status` complete/stale/partial (no Celery)
-- Shared `yahoo_history` helper (extract from Risk); blocking daily-% spike; news/SEC-only gate fallback
-- Data plane: source caches + `evidence_from_*` (not `run_phase0_research`); Phase0 cache optional for metrics strip
-- `brief_classify` module + tests; `brief_store` (ring 14 + miss log JSONL); bounded thread pool (4–8)
-- Slice 1 PR **must** update `docs/architecture.md` + `docs/implementation-status.md`
-- Tests: complete pytest for classify/history/gate/rank/store/API; Risk correlation regression mandatory; E2E optional
-
-**Blocking pre-work:** Confirm daily % via shared history helper from Yahoo `history_closes`; smoke-test cold-cache ~40-ticker Generate vs rate limits. If no daily %, ship news/SEC-only gate.
-
-**Out of Slice 1 build:** dissemination (email, messaging, audio, MCP — **recorded** in PRD only); social (Reddit/X); full earnings-call digests; scheduled generation; Brief history browse UI; LLM bullet phrasing (see Slice 1b).
-
-**Invariant:** Social signals (when added later) render in a separate section and **must not** feed scorecard, risk, or Brief ranking.
+**Eng sketch:**
+- `ticker_intake` service: text/CSV/OCR-text/transcript → candidates → `normalize_ticker` → dedupe set → diff vs membership
+- `POST /api/watchlist/tickers/batch` (or `/intake`) with response summary counts + optional rejected samples
+- UI: intake affordance near Add form (file picker + paste); mic/screenshot as capture into the same path
+- Unit tests: CSV rows, comma/whitespace paste, dupes in file, already-held skip, invalid reject, cross-list ignore (do not move Held→Watched on re-import)
 
 **Effort:** M  
-**Priority:** P1  
-**Depends on:** Watchlist Held/Watched (done); 2C news/cache (done); daily-% spike  
-**Design:** office-hours APPROVED 2026-07-31 (Approach B)
+**Priority:** P2  
+**Depends on:** Watchlist membership API (done)  
+**Product:** [docs/PRD.md](docs/PRD.md) §5.3 / §6.3
 
 ### Daily Decision Brief — Slice 1b — LLM phrasing (default off)
 
@@ -123,6 +121,30 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Priority:** P3  
 **Depends on / blocked by:** None
 
+## Open product decisions (from PRD — not yet sequenced)
+
+### Brief — multi-account tags
+
+**What:** Optional multi-account tags on Brief rows (e.g. taxable vs IRA).
+
+**Why:** PRD open Q; default today is a single Held/Watched book.
+
+**Effort:** S–M  
+**Priority:** P3 (decide before Brief Slice 2 if dogfood needs it)  
+**Depends on:** Brief Slice 1 dogfood signal  
+**Default if undecided:** single book, no tags
+
+### Brief / watchlist — category labels
+
+**What:** Optional category labels (Biotech/AI/…) on watchlist and/or Brief rows.
+
+**Why:** PRD open Q; default for Brief v1 is **no** category labels.
+
+**Effort:** M  
+**Priority:** P3  
+**Depends on:** Product call after Brief Slice 1  
+**Default if undecided:** no categories in v1
+
 ## Deferred beyond Risk v2
 
 ### Cache / memory beyond Phase 0 TTL files
@@ -172,6 +194,19 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Risk v2 dogfood; product call on local store shape
 
 ## Completed
+
+### Daily Decision Brief — Slice 1 (2026-08-03)
+
+- Schemas: `DailyBrief` / `BriefTicker` / `BriefBullet` (`app/schemas/brief.py`)
+- `yahoo_history`: shared parse + last-session daily % + `move_score`; Risk refactored to use it
+- Yahoo `FinancialMetrics.history_closes` persisted in source cache (excluded from evidence IDs)
+- `brief_classify`: keyword + SEC form heuristics; severity table unit-tested
+- `brief_service.generate_daily_brief`: cache-first fan-out (not `run_phase0_research`); ~60s wall; pool 4–8; gate/rank/cap 15/5
+- `brief_store`: ring-14 + miss-log JSONL
+- API: `GET /api/brief`, `POST /api/brief/generate`, `POST /api/brief/miss`
+- UI: `BriefPage` + `PrimaryNav` Brief; Generate / force-refresh / ranked rows / miss log
+- Docs: architecture + implementation-status updated
+- Tests: classify/history/store/service/API + Risk regression green
 
 ### Correlation slice — portfolio Risk v2 (2026-07-31)
 

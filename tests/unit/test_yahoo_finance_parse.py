@@ -126,6 +126,8 @@ def test_metrics_from_bundle_returns_and_statements() -> None:
     assert metrics.cash_flow.free_cash_flow == 2.5e10
     assert metrics.forward_pe == 25.0
     assert metrics.source_id == "yahoo"
+    assert len(metrics.history_closes) >= 2
+    assert metrics.history_closes[-1][1] == 220.0
 
 
 def test_yahoo_timeout_raises_tool_timeout_error(monkeypatch: pytest.MonkeyPatch) -> None:

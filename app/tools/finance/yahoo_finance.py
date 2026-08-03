@@ -247,9 +247,9 @@ def metrics_from_bundle(ticker: str, bundle: dict[str, Any]) -> FinancialMetrics
         )
 
     closes = bundle.get("history_closes") or []
+    typed: list[tuple[str, float]] = []
     returns = None
     if isinstance(closes, list) and closes:
-        typed: list[tuple[str, float]] = []
         for item in closes:
             if (
                 isinstance(item, (list, tuple))
@@ -310,6 +310,7 @@ def metrics_from_bundle(ticker: str, bundle: dict[str, Any]) -> FinancialMetrics
         earnings_history=earnings_history,
         balance_sheet=balance_sheet,
         cash_flow=cash_flow,
+        history_closes=typed,
         source_id="yahoo",
         as_of=datetime.now(timezone.utc),
     )

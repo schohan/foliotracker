@@ -1,4 +1,5 @@
 import type {
+  DailyBrief,
   ListKind,
   PortfolioRiskSnapshot,
   ResearchResponse,
@@ -60,4 +61,22 @@ export function fetchResearch(ticker: string): Promise<ResearchResponse> {
 
 export function fetchRisk(): Promise<PortfolioRiskSnapshot> {
   return request("/api/risk");
+}
+
+export function fetchBrief(): Promise<DailyBrief | null> {
+  return request("/api/brief");
+}
+
+export function generateBrief(force_refresh = false): Promise<DailyBrief> {
+  return request("/api/brief/generate", {
+    method: "POST",
+    body: JSON.stringify({ force_refresh }),
+  });
+}
+
+export function logBriefMiss(note: string): Promise<{ ts: string; note: string }> {
+  return request("/api/brief/miss", {
+    method: "POST",
+    body: JSON.stringify({ note }),
+  });
 }

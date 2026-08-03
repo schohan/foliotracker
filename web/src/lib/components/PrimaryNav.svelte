@@ -29,6 +29,16 @@
   >
     Risk
   </button>
+  <span class="sep" aria-hidden="true">|</span>
+  <button
+    type="button"
+    class="link"
+    class:active={view === "brief"}
+    aria-current={view === "brief" ? "page" : undefined}
+    onclick={() => onnavigate("brief")}
+  >
+    Brief
+  </button>
 </nav>
 
 <style>
