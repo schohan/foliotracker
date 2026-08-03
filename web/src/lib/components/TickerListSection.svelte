@@ -8,7 +8,10 @@
     rows: WatchlistTickerSummary[];
     refreshing: Record<string, boolean>;
     selected: string | null;
+    checkedTickers: Set<string>;
     onselect: (ticker: string) => void;
+    ontoggle: (ticker: string, checked: boolean) => void;
+    ontoggleSection: (kind: ListKind, checked: boolean) => void;
     onrefresh: (ticker: string) => void;
     onremove: (ticker: string) => void;
     onprefillKind?: (kind: ListKind) => void;
@@ -19,7 +22,10 @@
     rows,
     refreshing,
     selected,
+    checkedTickers,
     onselect,
+    ontoggle,
+    ontoggleSection,
     onrefresh,
     onremove,
     onprefillKind,
@@ -27,6 +33,25 @@
 
   const title = $derived(kind === "held" ? "Held" : "Watched");
   const emptyCopy = $derived(emptySiblingCopy(kind));
+  let sectionCheckEl: HTMLInputElement | undefined = $state();
+
+  const allChecked = $derived(
+    rows.length > 0 && rows.every((r) => checkedTickers.has(r.ticker)),
+  );
+  const someChecked = $derived(
+    rows.some((r) => checkedTickers.has(r.ticker)) && !allChecked,
+  );
+
+  $effect(() => {
+    if (sectionCheckEl) {
+      sectionCheckEl.indeterminate = someChecked;
+    }
+  });
+
+  function onSectionCheck(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    ontoggleSection(kind, input.checked);
+  }
 </script>
 
 <section class="list-block" data-kind={kind}>
@@ -49,6 +74,15 @@
       <table>
         <thead>
           <tr>
+            <th class="check">
+              <input
+                bind:this={sectionCheckEl}
+                type="checkbox"
+                checked={allChecked}
+                aria-label={`Select all ${title}`}
+                onchange={onSectionCheck}
+              />
+            </th>
             <th>Ticker</th>
             <th>Status</th>
             <th>G / V / R</th>
@@ -66,7 +100,9 @@
               index={i}
               refreshing={!!refreshing[row.ticker]}
               selected={selected === row.ticker}
+              checked={checkedTickers.has(row.ticker)}
               {onselect}
+              {ontoggle}
               {onrefresh}
               {onremove}
             />
@@ -112,7 +148,7 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 720px;
+    min-width: 760px;
   }
   th {
     text-align: left;
@@ -123,6 +159,16 @@
     font-weight: 500;
     padding: 0.5rem 0.65rem;
     border-bottom: 1px solid var(--line);
+  }
+  th.check {
+    width: 2.5rem;
+    padding-right: 0.25rem;
+  }
+  th.check input {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: var(--accent);
+    cursor: pointer;
   }
 
   @media (max-width: 639px) {
@@ -150,6 +196,10 @@
     table :global(td) {
       padding: 0.15rem 0;
       border: none;
+    }
+    table :global(td.check) {
+      display: inline-block;
+      width: auto;
     }
     table :global(td.ticker) {
       font-size: 1.15rem;

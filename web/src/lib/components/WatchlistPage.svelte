@@ -2,6 +2,7 @@
   import { onMount, tick } from "svelte";
   import {
     addTicker,
+    bulkWatchlistTickers,
     fetchResearch,
     fetchWatchlist,
     intakeTickers,
@@ -16,10 +17,12 @@
   } from "../listVisibility";
   import type {
     AppView,
+    BulkAction,
     ListKind,
     Phase0Result,
     WatchlistIntakeResponse,
     WatchlistState,
+    WatchlistTickerSummary,
   } from "../types";
   import AddTickerForm from "./AddTickerForm.svelte";
   import DisclaimerBar from "./DisclaimerBar.svelte";
@@ -46,6 +49,9 @@
   let detailLoading = $state(false);
   let detailError = $state<string | null>(null);
   let formListKind = $state<ListKind>("watched");
+  let checkedTickers: string[] = $state([]);
+  let bulkBusy = $state(false);
+  let bulkStatus: string | null = $state(null);
 
   const held = $derived(
     (state?.summaries ?? []).filter((r) => r.list_kind === "held"),
@@ -63,6 +69,11 @@
   );
   const selectedRefreshing = $derived(
     selected ? !!refreshing[selected] : false,
+  );
+  const checkedCount = $derived(checkedTickers.length);
+  const checkedSet: Set<string> = $derived(new Set(checkedTickers));
+  const pageBusy = $derived(
+    adding || intakeBusy || refreshAllBusy || bulkBusy,
   );
 
   async function load() {
@@ -173,6 +184,7 @@
     loadError = null;
     try {
       state = await removeTicker(ticker);
+      checkedTickers = checkedTickers.filter((t) => t !== ticker);
       if (selected === ticker) {
         selected = null;
         detail = null;
@@ -180,6 +192,73 @@
       }
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  function toggleChecked(ticker: string, checked: boolean) {
+    if (checked) {
+      if (!checkedTickers.includes(ticker)) {
+        checkedTickers = [...checkedTickers, ticker];
+      }
+    } else {
+      checkedTickers = checkedTickers.filter((t) => t !== ticker);
+    }
+  }
+
+  function toggleSection(kind: ListKind, checked: boolean) {
+    const rows: WatchlistTickerSummary[] = kind === "held" ? held : watched;
+    const sectionTickers = rows.map((r) => r.ticker);
+    if (checked) {
+      const next = new Set(checkedTickers);
+      for (const t of sectionTickers) next.add(t);
+      checkedTickers = Array.from(next);
+    } else {
+      const drop = new Set(sectionTickers);
+      checkedTickers = checkedTickers.filter((t) => !drop.has(t));
+    }
+  }
+
+  function clearChecked() {
+    checkedTickers = [];
+    bulkStatus = null;
+  }
+
+  async function onBulk(action: BulkAction) {
+    const tickers = [...checkedTickers];
+    if (tickers.length === 0 || bulkBusy) return;
+    bulkBusy = true;
+    loadError = null;
+    bulkStatus = null;
+    try {
+      const res = await bulkWatchlistTickers(tickers, action);
+      state = res.state;
+      const parts = [
+        `${res.affected_count} ${action === "remove" ? "removed" : "moved"}`,
+      ];
+      if (res.skipped_noop_count) {
+        parts.push(`${res.skipped_noop_count} already there`);
+      }
+      if (res.skipped_not_found_count) {
+        parts.push(`${res.skipped_not_found_count} not found`);
+      }
+      bulkStatus = parts.join(" · ");
+      const affected = new Set(res.affected);
+      const membership = new Set([
+        ...res.state.membership.held,
+        ...res.state.membership.watched,
+      ]);
+      checkedTickers = checkedTickers.filter(
+        (t) => !affected.has(t) && membership.has(t),
+      );
+      if (selected && !membership.has(selected)) {
+        selected = null;
+        detail = null;
+        detailError = null;
+      }
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
+    } finally {
+      bulkBusy = false;
     }
   }
 
@@ -245,7 +324,7 @@
 
   <div class="toolbar">
     <AddTickerForm
-      busy={adding || intakeBusy}
+      busy={pageBusy}
       bind:listKind={formListKind}
       onadd={onAdd}
     />
@@ -253,7 +332,7 @@
       <button
         type="button"
         class="refresh-all"
-        disabled={refreshAllBusy || adding || intakeBusy}
+        disabled={pageBusy}
         onclick={onRefreshAll}
       >
         {refreshAllBusy ? "Refreshing…" : "Refresh all"}
@@ -262,10 +341,51 @@
   </div>
 
   <TickerIntakePanel
-    busy={adding || intakeBusy}
+    busy={pageBusy}
     bind:listKind={formListKind}
     onintake={onIntake}
   />
+
+  {#if checkedCount > 0}
+    <div class="bulk-bar" role="region" aria-label="Bulk ticker actions">
+      <span class="bulk-count">{checkedCount} selected</span>
+      <button
+        type="button"
+        class="bulk-btn"
+        disabled={bulkBusy}
+        onclick={() => void onBulk("move_to_held")}
+      >
+        Move to Held
+      </button>
+      <button
+        type="button"
+        class="bulk-btn"
+        disabled={bulkBusy}
+        onclick={() => void onBulk("move_to_watched")}
+      >
+        Move to Watched
+      </button>
+      <button
+        type="button"
+        class="bulk-btn danger"
+        disabled={bulkBusy}
+        onclick={() => void onBulk("remove")}
+      >
+        {bulkBusy ? "Working…" : "Remove"}
+      </button>
+      <button
+        type="button"
+        class="bulk-btn ghost"
+        disabled={bulkBusy}
+        onclick={clearChecked}
+      >
+        Clear
+      </button>
+    </div>
+  {/if}
+  {#if bulkStatus}
+    <p class="bulk-status" aria-live="polite">{bulkStatus}</p>
+  {/if}
 
   {#if loadError}
     <div class="banner" role="alert">
@@ -284,7 +404,10 @@
       rows={held}
       {refreshing}
       {selected}
+      checkedTickers={checkedSet}
       onselect={openDetail}
+      ontoggle={toggleChecked}
+      ontoggleSection={toggleSection}
       onrefresh={onRefresh}
       onremove={onRemove}
       onprefillKind={prefillKind}
@@ -294,7 +417,10 @@
       rows={watched}
       {refreshing}
       {selected}
+      checkedTickers={checkedSet}
       onselect={openDetail}
+      ontoggle={toggleChecked}
+      ontoggleSection={toggleSection}
       onrefresh={onRefresh}
       onremove={onRemove}
       onprefillKind={prefillKind}
@@ -389,6 +515,51 @@
     min-width: 44px;
     border-radius: 2px;
     font-weight: 500;
+  }
+  .bulk-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 0.75rem;
+    padding: 0.65rem 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--paper);
+  }
+  .bulk-count {
+    font-weight: 600;
+    color: var(--ink);
+    margin-right: 0.35rem;
+    min-width: 5.5rem;
+  }
+  .bulk-btn {
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink);
+    border-radius: 2px;
+    padding: 0.5rem 0.75rem;
+    min-height: 44px;
+    font-size: 0.9rem;
+  }
+  .bulk-btn.danger {
+    border-color: var(--error);
+    color: var(--error);
+  }
+  .bulk-btn.ghost {
+    background: transparent;
+  }
+  .bulk-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .bulk-status {
+    margin: 0 0 0.85rem;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
   }
   :global(.page > :last-child) {
     margin-top: auto;

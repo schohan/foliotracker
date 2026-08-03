@@ -9,7 +9,9 @@
     index: number;
     refreshing?: boolean;
     selected?: boolean;
+    checked?: boolean;
     onselect: (ticker: string) => void;
+    ontoggle: (ticker: string, checked: boolean) => void;
     onrefresh: (ticker: string) => void;
     onremove: (ticker: string) => void;
   }
@@ -18,7 +20,9 @@
     index,
     refreshing = false,
     selected = false,
+    checked = false,
     onselect,
+    ontoggle,
     onrefresh,
     onremove,
   }: Props = $props();
@@ -37,6 +41,7 @@
 <tr
   id={focusId}
   class:selected
+  class:checked
   class:refreshing
   style={`--i: ${index}`}
   onclick={() => onselect(row.ticker)}
@@ -44,6 +49,15 @@
   tabindex="0"
   aria-selected={selected}
 >
+  <td class="check" data-label="" onclick={(e) => e.stopPropagation()}>
+    <input
+      type="checkbox"
+      checked={checked}
+      aria-label={`Select ${row.ticker}`}
+      onchange={(e) =>
+        ontoggle(row.ticker, (e.currentTarget as HTMLInputElement).checked)}
+    />
+  </td>
   <td class="ticker" data-label="Ticker">{row.ticker}</td>
   <td data-label="Status">
     <span class={`status ${row.status ?? "none"}`}>{row.status ?? "—"}</span>
@@ -103,6 +117,9 @@
   tr.selected {
     background: var(--accent-soft);
   }
+  tr.checked:not(.selected) {
+    background: rgba(196, 92, 38, 0.06);
+  }
   tr.refreshing .status {
     animation: pulse 0.9s ease infinite;
   }
@@ -110,6 +127,17 @@
     padding: 0.85rem 0.65rem;
     vertical-align: top;
     font-size: 0.92rem;
+  }
+  .check {
+    width: 2.5rem;
+    padding-right: 0.25rem;
+    vertical-align: middle;
+  }
+  .check input {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: var(--accent);
+    cursor: pointer;
   }
   .ticker {
     font-family: var(--font-display);
@@ -186,6 +214,12 @@
   @media (max-width: 639px) {
     td {
       padding: 0.2rem 0;
+    }
+    .check {
+      display: inline-block;
+      width: auto;
+      margin-right: 0.5rem;
+      vertical-align: middle;
     }
     .ticker {
       display: inline-block;

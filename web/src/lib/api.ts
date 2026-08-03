@@ -1,8 +1,10 @@
 import type {
+  BulkAction,
   DailyBrief,
   ListKind,
   PortfolioRiskSnapshot,
   ResearchResponse,
+  WatchlistBulkResponse,
   WatchlistIntakeResponse,
   WatchlistState,
   WatchlistTickerSummary,
@@ -50,6 +52,16 @@ export function intakeTickers(
 export function removeTicker(ticker: string): Promise<WatchlistState> {
   return request(`/api/watchlist/tickers/${encodeURIComponent(ticker)}`, {
     method: "DELETE",
+  });
+}
+
+export function bulkWatchlistTickers(
+  tickers: string[],
+  action: BulkAction,
+): Promise<WatchlistBulkResponse> {
+  return request("/api/watchlist/bulk", {
+    method: "POST",
+    body: JSON.stringify({ tickers, action }),
   });
 }
 

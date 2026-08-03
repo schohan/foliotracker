@@ -19,8 +19,12 @@ from app.schemas.portfolio import PortfolioRiskSnapshot
 from app.schemas.watchlist import (
     BatchRefreshRequest,
     BatchRefreshResponse,
+    BulkAction,
+    ListKind,
     ResearchResponse,
     WatchlistAddRequest,
+    WatchlistBulkRequest,
+    WatchlistBulkResponse,
     WatchlistIntakeRequest,
     WatchlistIntakeResponse,
     WatchlistPutRequest,
@@ -127,6 +131,29 @@ def create_app(
             rejected_invalid_count=len(result.rejected_invalid),
             state=state,
             error_message=result.error_message,
+        )
+
+    @app.post("/api/watchlist/bulk", response_model=WatchlistBulkResponse)
+    def bulk_watchlist_tickers(body: WatchlistBulkRequest) -> WatchlistBulkResponse:
+        """Multi-select remove or move Held↔Watched. Membership-only; no research."""
+        try:
+            if body.action == BulkAction.REMOVE:
+                result = store.bulk_remove(body.tickers, s)
+            elif body.action == BulkAction.MOVE_TO_HELD:
+                result = store.bulk_move(body.tickers, ListKind.HELD, s)
+            else:
+                result = store.bulk_move(body.tickers, ListKind.WATCHED, s)
+        except InvalidTickerError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        state = get_watchlist_state(s)
+        return WatchlistBulkResponse(
+            affected=result.affected,
+            skipped_not_found=result.skipped_not_found,
+            skipped_noop=result.skipped_noop,
+            affected_count=len(result.affected),
+            skipped_not_found_count=len(result.skipped_not_found),
+            skipped_noop_count=len(result.skipped_noop),
+            state=state,
         )
 
     @app.delete("/api/watchlist/tickers/{ticker}", response_model=WatchlistState)

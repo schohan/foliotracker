@@ -1,5 +1,6 @@
 export type Phase0Status = "ok" | "partial" | "error";
 export type ListKind = "held" | "watched";
+export type BulkAction = "remove" | "move_to_held" | "move_to_watched";
 export type AppView = "watchlist" | "risk" | "brief";
 export type BriefGenerationStatus = "complete" | "stale" | "partial";
 export type BriefTickerStatus = "ok" | "partial" | "unavailable";
@@ -182,5 +183,16 @@ export interface WatchlistIntakeResponse {
   rejected_invalid_count: number;
   state: WatchlistState;
   error_message: string | null;
+  disclaimer: string;
+}
+
+export interface WatchlistBulkResponse {
+  affected: string[];
+  skipped_not_found: string[];
+  skipped_noop: string[];
+  affected_count: number;
+  skipped_not_found_count: number;
+  skipped_noop_count: number;
+  state: WatchlistState;
   disclaimer: string;
 }

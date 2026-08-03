@@ -149,6 +149,53 @@ def test_intake_empty_400(tmp_path: Path) -> None:
     assert r.status_code == 400
 
 
+def test_bulk_move_and_remove(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    client.put(
+        "/api/watchlist",
+        json={"held": ["NVDA"], "watched": ["AAPL", "MSFT"]},
+    )
+    r = client.post(
+        "/api/watchlist/bulk",
+        json={"tickers": ["AAPL", "NVDA"], "action": "move_to_held"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["affected"] == ["AAPL"]
+    assert body["skipped_noop"] == ["NVDA"]
+    assert set(body["state"]["membership"]["held"]) == {"NVDA", "AAPL"}
+    assert body["state"]["membership"]["watched"] == ["MSFT"]
+
+    r = client.post(
+        "/api/watchlist/bulk",
+        json={"tickers": ["AAPL", "GONE"], "action": "remove"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["affected"] == ["AAPL"]
+    assert body["skipped_not_found"] == ["GONE"]
+    assert body["state"]["membership"]["held"] == ["NVDA"]
+    assert body["state"]["membership"]["watched"] == ["MSFT"]
+
+
+def test_bulk_empty_tickers_400(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    r = client.post(
+        "/api/watchlist/bulk",
+        json={"tickers": [], "action": "remove"},
+    )
+    assert r.status_code == 422
+
+
+def test_bulk_invalid_ticker_400(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    client.put("/api/watchlist", json={"held": ["NVDA"], "watched": []})
+    r = client.post(
+        "/api/watchlist/bulk",
+        json={"tickers": ["!!!"], "action": "remove"},
+    )
+    assert r.status_code == 400
+
 
 def test_get_risk_empty_held(tmp_path: Path) -> None:
     client = _client(tmp_path)

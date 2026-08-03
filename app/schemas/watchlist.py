@@ -85,6 +85,34 @@ class WatchlistIntakeResponse(BaseModel):
     disclaimer: str = Field(default=PHASE0_DISCLAIMER)
 
 
+class BulkAction(str, Enum):
+    """Membership-only bulk ops (no research)."""
+
+    REMOVE = "remove"
+    MOVE_TO_HELD = "move_to_held"
+    MOVE_TO_WATCHED = "move_to_watched"
+
+
+class WatchlistBulkRequest(BaseModel):
+    """Multi-select remove or move between Held/Watched."""
+
+    tickers: list[str] = Field(..., min_length=1, max_length=200)
+    action: BulkAction
+
+
+class WatchlistBulkResponse(BaseModel):
+    """Result of a bulk membership mutation."""
+
+    affected: list[str] = Field(default_factory=list)
+    skipped_not_found: list[str] = Field(default_factory=list)
+    skipped_noop: list[str] = Field(default_factory=list)
+    affected_count: int = 0
+    skipped_not_found_count: int = 0
+    skipped_noop_count: int = 0
+    state: WatchlistState
+    disclaimer: str = Field(default=PHASE0_DISCLAIMER)
+
+
 class BatchRefreshRequest(BaseModel):
     """Optional subset; default = all membership tickers (capped)."""
 

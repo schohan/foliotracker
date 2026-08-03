@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Flexible ticker intake shipped** (2026-08-03). Next: Brief dogfood Assignment → Slice 1b/2, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). Next: orthogonal collections (1A), Brief dogfood Assignment → Slice 1b/2, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
 
 **Design:** [DESIGN.md](DESIGN.md) · living UX plan [docs/design-plan.md](docs/design-plan.md) (`/plan-design-review` 2026-07-28). Brief design: `~/.gstack/projects/schohan-foliotracker/shailenderchohan-main-design-20260731-024904.md`.
 
@@ -11,6 +11,16 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
 
 ## Next milestones (queued)
+
+### Watchlist collections (orthogonal overlays — 1A)
+
+**What:** User-defined named collections (Yahoo-style groups) as overlays on Held/Watched membership. Create/rename/delete; add/remove selected tickers; filter watchlist by collection. Risk/Brief stay Held∪Watched (unchanged).
+
+**Why:** Bulk membership ops shipped; organize ~40 names without replacing capital-vs-curiosity lists.
+
+**Effort:** M  
+**Priority:** P2  
+**Depends on:** Bulk ops shipped (2026-08-03)
 
 ### Daily Decision Brief — Slice 1b — LLM phrasing (default off)
 
@@ -169,6 +179,14 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Risk v2 dogfood; product call on local store shape
 
 ## Completed
+
+### Watchlist bulk ops (2026-08-03)
+
+- Multi-select checkboxes + per-section select-all on Held/Watched tables
+- Bulk bar: Move to Held / Move to Watched / Remove / Clear (membership-only; no research; no confirm)
+- API: `POST /api/watchlist/bulk` (`remove` | `move_to_held` | `move_to_watched`)
+- Store: `bulk_remove` / `bulk_move` with `affected` / `skipped_not_found` / `skipped_noop`
+- Collections (1A overlays) deferred — see queued milestone above
 
 ### Flexible ticker intake (2026-08-03)
 

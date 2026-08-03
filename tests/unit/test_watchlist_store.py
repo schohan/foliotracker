@@ -38,6 +38,47 @@ def test_add_remove_ticker(tmp_path: Path) -> None:
     assert store.get_membership(s).watched == []
 
 
+def test_bulk_remove_subset(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    store.put_membership(["NVDA", "AAPL"], ["MSFT", "GOOG"], s)
+    result = store.bulk_remove(["aapl", "MSFT", "ZZZZ"], s)
+    assert result.affected == ["AAPL", "MSFT"]
+    assert result.skipped_not_found == ["ZZZZ"]
+    m = store.get_membership(s)
+    assert m.held == ["NVDA"]
+    assert m.watched == ["GOOG"]
+
+
+def test_bulk_move_held_watched_and_noop(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    store.put_membership(["NVDA"], ["AAPL", "MSFT"], s)
+    result = store.bulk_move(["AAPL", "NVDA", "FAKE"], ListKind.HELD, s)
+    assert result.affected == ["AAPL"]
+    assert result.skipped_noop == ["NVDA"]
+    assert result.skipped_not_found == ["FAKE"]
+    m = store.get_membership(s)
+    assert m.held == ["NVDA", "AAPL"]
+    assert m.watched == ["MSFT"]
+
+    back = store.bulk_move(["NVDA", "AAPL"], ListKind.WATCHED, s)
+    assert set(back.affected) == {"NVDA", "AAPL"}
+    m = store.get_membership(s)
+    assert m.held == []
+    assert set(m.watched) == {"MSFT", "NVDA", "AAPL"}
+
+
+def test_bulk_remove_invalid_ticker_raises(tmp_path: Path) -> None:
+    from app.schemas.ticker import InvalidTickerError
+
+    s = _settings(tmp_path)
+    store.put_membership(["NVDA"], [], s)
+    try:
+        store.bulk_remove(["NVDA", "not a ticker!!!"], s)
+        raise AssertionError("expected InvalidTickerError")
+    except InvalidTickerError:
+        pass
+
+
 def test_summary_from_phase0_maps_fields() -> None:
     result = Phase0Result(
         ticker="NVDA",

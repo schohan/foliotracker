@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -219,6 +220,108 @@ def remove_ticker(
     held = [x for x in m.held if x != t]
     watched = [x for x in m.watched if x != t]
     return put_membership(held, watched, app_settings)
+
+
+@dataclass
+class BulkMembershipResult:
+    """Outcome of bulk remove / move (membership-only)."""
+
+    affected: list[str] = field(default_factory=list)
+    skipped_not_found: list[str] = field(default_factory=list)
+    skipped_noop: list[str] = field(default_factory=list)
+    membership: WatchlistMembership = field(
+        default_factory=WatchlistMembership
+    )
+
+
+def _normalize_bulk_tickers(tickers: list[str]) -> list[str]:
+    """Normalize and dedupe; raises InvalidTickerError on first bad symbol."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in tickers:
+        t = normalize_ticker(raw)
+        if t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out
+
+
+def bulk_remove(
+    tickers: list[str],
+    app_settings: Settings | None = None,
+) -> BulkMembershipResult:
+    """Remove many tickers from Held ∪ Watched in one write."""
+    normalized = _normalize_bulk_tickers(tickers)
+    m = get_membership(app_settings)
+    existing = set(m.held) | set(m.watched)
+    affected: list[str] = []
+    skipped_not_found: list[str] = []
+    for t in normalized:
+        if t in existing:
+            affected.append(t)
+        else:
+            skipped_not_found.append(t)
+    drop = set(affected)
+    held = [x for x in m.held if x not in drop]
+    watched = [x for x in m.watched if x not in drop]
+    membership = (
+        put_membership(held, watched, app_settings) if affected else m
+    )
+    return BulkMembershipResult(
+        affected=affected,
+        skipped_not_found=skipped_not_found,
+        skipped_noop=[],
+        membership=membership,
+    )
+
+
+def bulk_move(
+    tickers: list[str],
+    list_kind: ListKind,
+    app_settings: Settings | None = None,
+) -> BulkMembershipResult:
+    """Move member tickers to Held or Watched; ignore unknowns; noop if already there."""
+    normalized = _normalize_bulk_tickers(tickers)
+    m = get_membership(app_settings)
+    held_set = set(m.held)
+    watched_set = set(m.watched)
+    existing = held_set | watched_set
+    target_set = held_set if list_kind == ListKind.HELD else watched_set
+
+    affected: list[str] = []
+    skipped_not_found: list[str] = []
+    skipped_noop: list[str] = []
+    for t in normalized:
+        if t not in existing:
+            skipped_not_found.append(t)
+            continue
+        if t in target_set:
+            skipped_noop.append(t)
+            continue
+        affected.append(t)
+
+    if not affected:
+        return BulkMembershipResult(
+            affected=[],
+            skipped_not_found=skipped_not_found,
+            skipped_noop=skipped_noop,
+            membership=m,
+        )
+
+    move_set = set(affected)
+    held = [x for x in m.held if x not in move_set]
+    watched = [x for x in m.watched if x not in move_set]
+    if list_kind == ListKind.HELD:
+        held.extend(affected)
+    else:
+        watched.extend(affected)
+    membership = put_membership(held, watched, app_settings)
+    return BulkMembershipResult(
+        affected=affected,
+        skipped_not_found=skipped_not_found,
+        skipped_noop=skipped_noop,
+        membership=membership,
+    )
 
 
 def now_utc() -> datetime:
