@@ -4,6 +4,7 @@
     addTicker,
     fetchResearch,
     fetchWatchlist,
+    intakeTickers,
     refreshAll,
     refreshTicker,
     removeTicker,
@@ -17,12 +18,14 @@
     AppView,
     ListKind,
     Phase0Result,
+    WatchlistIntakeResponse,
     WatchlistState,
   } from "../types";
   import AddTickerForm from "./AddTickerForm.svelte";
   import DisclaimerBar from "./DisclaimerBar.svelte";
   import PrimaryNav from "./PrimaryNav.svelte";
   import TickerDetailPanel from "./TickerDetailPanel.svelte";
+  import TickerIntakePanel from "./TickerIntakePanel.svelte";
   import TickerListSection from "./TickerListSection.svelte";
 
   interface Props {
@@ -35,6 +38,7 @@
   let state = $state<WatchlistState | null>(null);
   let loadError = $state<string | null>(null);
   let adding = $state(false);
+  let intakeBusy = $state(false);
   let refreshAllBusy = $state(false);
   let refreshing = $state<Record<string, boolean>>({});
   let selected = $state<string | null>(null);
@@ -82,6 +86,25 @@
     const next = { ...refreshing };
     for (const t of tickers) next[t] = value;
     refreshing = next;
+  }
+
+  /** Bulk intake: membership only — no auto research (refresh remains explicit). */
+  async function onIntake(
+    text: string,
+    listKind: ListKind,
+  ): Promise<WatchlistIntakeResponse> {
+    intakeBusy = true;
+    loadError = null;
+    try {
+      const res = await intakeTickers(text, listKind);
+      state = res.state;
+      return res;
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
+      throw e;
+    } finally {
+      intakeBusy = false;
+    }
   }
 
   /** Membership-first: form unlocks after POST; research continues in background. */
@@ -222,7 +245,7 @@
 
   <div class="toolbar">
     <AddTickerForm
-      busy={adding}
+      busy={adding || intakeBusy}
       bind:listKind={formListKind}
       onadd={onAdd}
     />
@@ -230,13 +253,19 @@
       <button
         type="button"
         class="refresh-all"
-        disabled={refreshAllBusy || adding}
+        disabled={refreshAllBusy || adding || intakeBusy}
         onclick={onRefreshAll}
       >
         {refreshAllBusy ? "Refreshing…" : "Refresh all"}
       </button>
     {/if}
   </div>
+
+  <TickerIntakePanel
+    busy={adding || intakeBusy}
+    bind:listKind={formListKind}
+    onintake={onIntake}
+  />
 
   {#if loadError}
     <div class="banner" role="alert">

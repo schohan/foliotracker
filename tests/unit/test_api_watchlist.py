@@ -119,6 +119,36 @@ def test_delete_ticker(tmp_path: Path) -> None:
     assert r.json()["membership"]["watched"] == []
 
 
+def test_intake_bulk_dedupe_no_research(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    client.put("/api/watchlist", json={"held": ["NVDA"], "watched": []})
+    r = client.post(
+        "/api/watchlist/intake",
+        json={"text": "NVDA, AAPL, MSFT", "list_kind": "watched"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["added_count"] == 2
+    assert body["skipped_duplicate_count"] == 1
+    assert "NVDA" in body["skipped_duplicate"]
+    assert set(body["added"]) == {"AAPL", "MSFT"}
+    assert body["state"]["membership"]["held"] == ["NVDA"]
+    assert set(body["state"]["membership"]["watched"]) == {"AAPL", "MSFT"}
+    # Membership-only: summaries for new tickers have null research fields
+    summaries = {row["ticker"]: row for row in body["state"]["summaries"]}
+    assert summaries["AAPL"]["growth_score"] is None
+
+
+def test_intake_empty_400(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    r = client.post(
+        "/api/watchlist/intake",
+        json={"text": "the stock market today", "list_kind": "held"},
+    )
+    assert r.status_code == 400
+
+
+
 def test_get_risk_empty_held(tmp_path: Path) -> None:
     client = _client(tmp_path)
     client.put("/api/watchlist", json={"held": [], "watched": ["AAPL"]})

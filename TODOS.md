@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Flexible ticker intake** queued next. Then Brief dogfood Assignment → Slice 1b/2, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Flexible ticker intake shipped** (2026-08-03). Next: Brief dogfood Assignment → Slice 1b/2, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
 
 **Design:** [DESIGN.md](DESIGN.md) · living UX plan [docs/design-plan.md](docs/design-plan.md) (`/plan-design-review` 2026-07-28). Brief design: `~/.gstack/projects/schohan-foliotracker/shailenderchohan-main-design-20260731-024904.md`.
 
@@ -11,31 +11,6 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
 
 ## Next milestones (queued)
-
-### Flexible ticker intake (CSV / screenshot / speech / paste) (2026-08-03) — **next**
-
-**What:** Multi-channel watchlist intake so users can load Held/Watched without typing one ticker at a time: CSV upload, paste (free text / broker export), screenshot→OCR, and speech. Shared extract → validate → bulk-add path. **Dedupe:** if a ticker is already on Held ∪ Watched, ignore it (no error, no list move, no research re-run). Return counts: `added` / `skipped_duplicate` / `rejected_invalid`.
-
-**Why:** Dogfood universe is ~40 names; one-by-one `AddTickerForm` is the friction that blocks Brief/Risk setup. Intake should meet the user wherever their list already lives (spreadsheet, screenshot of broker UI, voice).
-
-**Defaults:**
-- Day-1 channels: CSV file + paste textarea (same parser)
-- Same milestone or immediate follow-on: screenshot (image → text → parser) and speech (transcript → parser)
-- Target list = user-selected Held or Watched at import time (unless CSV has an explicit list column later)
-- Membership-first: bulk add does **not** auto-run Phase0 research
-- Duplicates within the upload itself collapsed before membership check
-- Invalid / unparseable tokens rejected with stable reporting; empty extract → clear failure, never invent tickers
-
-**Eng sketch:**
-- `ticker_intake` service: text/CSV/OCR-text/transcript → candidates → `normalize_ticker` → dedupe set → diff vs membership
-- `POST /api/watchlist/tickers/batch` (or `/intake`) with response summary counts + optional rejected samples
-- UI: intake affordance near Add form (file picker + paste); mic/screenshot as capture into the same path
-- Unit tests: CSV rows, comma/whitespace paste, dupes in file, already-held skip, invalid reject, cross-list ignore (do not move Held→Watched on re-import)
-
-**Effort:** M  
-**Priority:** P2  
-**Depends on:** Watchlist membership API (done)  
-**Product:** [docs/PRD.md](docs/PRD.md) §5.3 / §6.3
 
 ### Daily Decision Brief — Slice 1b — LLM phrasing (default off)
 
@@ -194,6 +169,16 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Risk v2 dogfood; product call on local store shape
 
 ## Completed
+
+### Flexible ticker intake (2026-08-03)
+
+- `ticker_intake`: shared extract for CSV / paste / OCR text / speech transcript → `normalize_ticker`
+- Dedupe: already on Held ∪ Watched skipped (no list move, no research); within-upload collapse
+- Counts: `added` / `skipped_duplicate` / `rejected_invalid`; empty extract → 400
+- API: `POST /api/watchlist/intake`
+- UI: `TickerIntakePanel` — CSV file, paste, Speak (Web Speech API), Screenshot (tesseract.js OCR)
+- Optional CSV `list`/`kind` column; else user-selected Held/Watched
+- Unit tests: extract, skip-existing, CSV kinds, API
 
 ### Daily Decision Brief — Slice 1 (2026-08-03)
 

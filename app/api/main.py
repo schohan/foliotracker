@@ -21,6 +21,8 @@ from app.schemas.watchlist import (
     BatchRefreshResponse,
     ResearchResponse,
     WatchlistAddRequest,
+    WatchlistIntakeRequest,
+    WatchlistIntakeResponse,
     WatchlistPutRequest,
     WatchlistState,
     WatchlistTickerSummary,
@@ -29,6 +31,7 @@ from app.services import brief_store, watchlist_store as store
 from app.services.brief_service import generate_daily_brief, get_latest_brief
 from app.services.phase0_pipeline import run_phase0_research
 from app.services.portfolio_risk_service import build_portfolio_risk
+from app.services.ticker_intake import apply_intake
 from app.services.watchlist_service import (
     get_watchlist_state,
     refresh_batch,
@@ -100,6 +103,24 @@ def create_app(
         except InvalidTickerError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return get_watchlist_state(s)
+
+    @app.post("/api/watchlist/intake", response_model=WatchlistIntakeResponse)
+    def intake_watchlist_tickers(body: WatchlistIntakeRequest) -> WatchlistIntakeResponse:
+        """Bulk add from paste/CSV/OCR/speech text. Skips existing; no research."""
+        result = apply_intake(body.text, body.list_kind, app_settings=s)
+        state = get_watchlist_state(s)
+        if result.error_message and not result.added and not result.skipped_duplicate:
+            raise HTTPException(status_code=400, detail=result.error_message)
+        return WatchlistIntakeResponse(
+            added=result.added,
+            skipped_duplicate=result.skipped_duplicate,
+            rejected_invalid=result.rejected_invalid,
+            added_count=len(result.added),
+            skipped_duplicate_count=len(result.skipped_duplicate),
+            rejected_invalid_count=len(result.rejected_invalid),
+            state=state,
+            error_message=result.error_message,
+        )
 
     @app.delete("/api/watchlist/tickers/{ticker}", response_model=WatchlistState)
     def delete_watchlist_ticker(ticker: str) -> WatchlistState:

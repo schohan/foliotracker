@@ -64,6 +64,27 @@ class WatchlistAddRequest(BaseModel):
     list_kind: ListKind = ListKind.WATCHED
 
 
+class WatchlistIntakeRequest(BaseModel):
+    """Bulk intake from paste / CSV / OCR text / speech transcript."""
+
+    text: str = Field(default="", max_length=200_000)
+    list_kind: ListKind = ListKind.WATCHED
+
+
+class WatchlistIntakeResponse(BaseModel):
+    """Idempotent bulk-add result (no auto-research)."""
+
+    added: list[str] = Field(default_factory=list)
+    skipped_duplicate: list[str] = Field(default_factory=list)
+    rejected_invalid: list[str] = Field(default_factory=list)
+    added_count: int = 0
+    skipped_duplicate_count: int = 0
+    rejected_invalid_count: int = 0
+    state: WatchlistState
+    error_message: str | None = None
+    disclaimer: str = Field(default=PHASE0_DISCLAIMER)
+
+
 class BatchRefreshRequest(BaseModel):
     """Optional subset; default = all membership tickers (capped)."""
 

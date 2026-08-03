@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 shipped**. **Next:** Brief dogfood Assignment, flexible ticker intake, or Phase 3 evidence deepen. See [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 shipped**. **Flexible ticker intake shipped**. **Next:** Brief dogfood Assignment, or Phase 3 evidence deepen. See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -36,7 +36,8 @@ Update this file whenever a module moves from stub → working.
 | Prompts library | Todo | Thesis prompt inline in thesis_agent |
 | Watchlist HTTP API (`app/api`) | Done | FastAPI: membership, refresh, research GET, risk, brief |
 | Watchlist store / service | Done | Local JSON + `Phase0Result` → summary |
-| Watchlist UI (`web/`) | Done | Svelte 5 dashboard (held/watched, detail panel) |
+| Watchlist UI (`web/`) | Done | Svelte 5 dashboard (held/watched, detail panel, flexible intake) |
+| Ticker intake service / API / UI | Done | `ticker_intake` + `POST /api/watchlist/intake` + `TickerIntakePanel` |
 | Portfolio risk service | Done (v2) | Held equal-weight concentration + pairwise corr from Yahoo source-cache history |
 | Risk UI (`RiskPage` + `PrimaryNav`) | Done (v2) | `Watchlist \| Risk \| Brief`; sector + names + top correlations tables |
 | Brief service / store / classify | Done (Slice 1) | Gate/rank Generate; ring-14 + miss log; no Phase0 research |
@@ -145,9 +146,8 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 ## Suggested next milestones
 
 1. Dogfood Brief Slice 1 (Assignment timing ≤30m) + founder miss log
-2. Flexible ticker intake (CSV / paste / screenshot / speech)
-3. Phase 3 evidence deepen in detail panel (claim↔evidence; design 8A)
-4. Phase0 server single-flight if concurrent refresh still burns cost
+2. Phase 3 evidence deepen in detail panel (claim↔evidence; design 8A)
+3. Phase0 server single-flight if concurrent refresh still burns cost
 
 ---
 
@@ -155,6 +155,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 | Date | Change |
 |------|--------|
+| 2026-08-03 | Flexible ticker intake: extract/dedupe, `/api/watchlist/intake`, CSV/paste/speech/OCR UI |
 | 2026-08-03 | Daily Decision Brief Slice 1: generator, API, BriefPage, yahoo_history, history_closes on Yahoo metrics |
 | 2026-07-31 | Correlation slice (Risk v2): `PairCorrelation`, Yahoo `history_closes` Pearson pairs, RiskPage table |
 | 2026-07-30 | Portfolio Risk v1: schemas, `GET /api/risk`, `RiskPage` + `PrimaryNav` |

@@ -16,5 +16,8 @@
     "typescript": "^5.7.3",
     "vite": "^6.0.7",
     "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "tesseract.js": "^5.1.1"
   }
 }

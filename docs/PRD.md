@@ -1,7 +1,7 @@
 # FolioTracker Product Requirements Document (PRD)
 
 **Product:** FolioTracker — AI portfolio and stock research on [Google ADK](https://adk.dev/)  
-**Status:** Thin Phase 2 + **2C done**; watchlist + Risk v2 shipped; **Daily Decision Brief Slice 1 shipped**; flexible ticker intake queued  
+**Status:** Thin Phase 2 + **2C done**; watchlist + Risk v2 shipped; **Daily Decision Brief Slice 1 shipped**; **flexible ticker intake shipped**  
 **Audience:** Executives (vision, roadmap, risk) and engineers (contracts, acceptance criteria, phase boundaries)  
 **Last updated:** 2026-08-03
 
@@ -35,7 +35,7 @@ Today the product ships locally via `adk web` / `adk run app`. The user asks to 
 
 **What exists now (Phase 0–2C):** single-ticker research from enriched Yahoo Finance fundamentals (profile, returns, BS/CF, trailing/forward P/E), Google News RSS headlines, SEC EDGAR filing metadata + XBRL companyfacts, and optional Alpha Vantage OVERVIEW fill-gaps for forward/market fields when keyed. Evidence aggregator surfaces `evidence.conflicts`; `scorecard` + `fundamentals` on `Phase0Result`. Dual cache: whole-result TTL plus per-source TTL/quota. Yahoo failure softens to `partial` when merged fundamentals pass the min field checklist.
 
-**What comes next:** Flexible ticker intake; Brief dogfood Assignment (≤30m); then Phase 3 evidence deepen. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
+**What comes next:** Brief dogfood Assignment (≤30m); then Phase 3 evidence deepen or Brief Slice 1b/2. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
 
 How the system is built lives in [architecture.md](architecture.md). What is implemented vs stub lives in [implementation-status.md](implementation-status.md). Deferred work lives in [TODOS.md](../TODOS.md).
 
@@ -151,8 +151,8 @@ Design: `~/.gstack/projects/schohan-foliotracker/shailenderchohan-main-design-20
 
 | Feature | What the user gets | Phase | Status |
 |---------|--------------------|-------|--------|
-| Flexible ticker intake | Add many tickers without one-by-one typing: CSV upload, screenshot/OCR, speech, paste of free text / broker exports | Watchlist | **Queued** — see [TODOS.md](../TODOS.md) |
-| Intake dedupe | Tickers already on Held or Watched are skipped (idempotent); invalid symbols reported, not silently invented | Watchlist | Queued with intake |
+| Flexible ticker intake | Add many tickers without one-by-one typing: CSV upload, screenshot/OCR, speech, paste of free text / broker exports | Watchlist | **Shipped** (2026-08-03) |
+| Intake dedupe | Tickers already on Held or Watched are skipped (idempotent); invalid symbols reported, not silently invented | Watchlist | **Shipped** |
 
 **Intake v1 acceptance:**
 - Channels (ship at least CSV + paste day-1; screenshot OCR and speech as same parser behind alternate capture): user supplies unstructured or semi-structured input → system extracts candidate ticker symbols → validates via existing ticker rules → adds to chosen list (Held or Watched).
@@ -237,9 +237,9 @@ Platform capabilities engineers build behind the user experience. Separate from 
 
 | Feature | Role | Phase | Status |
 |---------|------|-------|--------|
-| Ticker extract + normalize service | Parse CSV / free text / OCR text / speech transcript → candidate tickers; validate; dedupe against membership | Watchlist | Queued |
-| Bulk add API | `POST` batch add with `added` / `skipped_duplicate` / `rejected_invalid` counts; never moves existing membership on duplicate | Watchlist | Queued |
-| Intake UI affordances | CSV file picker, paste area; screenshot and mic as capture → same extract path | Watchlist | Queued |
+| Ticker extract + normalize service | Parse CSV / free text / OCR text / speech transcript → candidate tickers; validate; dedupe against membership | Watchlist | **Shipped** |
+| Bulk add API | `POST` batch add with `added` / `skipped_duplicate` / `rejected_invalid` counts; never moves existing membership on duplicate | Watchlist | **Shipped** (`/api/watchlist/intake`) |
+| Intake UI affordances | CSV file picker, paste area; screenshot and mic as capture → same extract path | Watchlist | **Shipped** |
 
 ### 6.4 Planned (deferred / Phase 3)
 
@@ -361,8 +361,8 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 
 | Order | Item | Effort | Status |
 |-------|------|--------|--------|
-| **Intake.1** | Extract/normalize + bulk-add API + CSV/paste UI; membership dedupe | M | Queued |
-| Later | Screenshot OCR + speech capture into same extract path | M | Queued (same milestone or follow-on) |
+| **Intake.1** | Extract/normalize + bulk-add API + CSV/paste UI; membership dedupe | M | **Done** (2026-08-03) |
+| Later | Screenshot OCR + speech capture into same extract path | M | **Done** (same milestone) |
 
 ### Daily Decision Brief sequence (locked 2026-07-31 — Approach B)
 
@@ -459,6 +459,7 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, Brief
 
 | Date | Change |
 |------|--------|
+| 2026-08-03 | Flexible ticker intake shipped (CSV / paste / speech / screenshot OCR + membership dedupe) |
 | 2026-08-03 | Daily Decision Brief Slice 1 shipped (generator, API, BriefPage, yahoo_history) |
 | 2026-08-03 | Add flexible ticker intake (CSV / screenshot / speech / paste) + membership dedupe; user/system features and roadmap sequence |
 | 2026-07-31 | Add Daily Decision Brief (Approach B): user/system features, non-goals, roadmap; social never-in-scores; dissemination recorded not built |

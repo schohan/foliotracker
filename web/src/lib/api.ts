@@ -3,6 +3,7 @@ import type {
   ListKind,
   PortfolioRiskSnapshot,
   ResearchResponse,
+  WatchlistIntakeResponse,
   WatchlistState,
   WatchlistTickerSummary,
 } from "./types";
@@ -33,6 +34,16 @@ export function addTicker(ticker: string, list_kind: ListKind): Promise<Watchlis
   return request("/api/watchlist/tickers", {
     method: "POST",
     body: JSON.stringify({ ticker, list_kind }),
+  });
+}
+
+export function intakeTickers(
+  text: string,
+  list_kind: ListKind,
+): Promise<WatchlistIntakeResponse> {
+  return request("/api/watchlist/intake", {
+    method: "POST",
+    body: JSON.stringify({ text, list_kind }),
   });
 }
 

@@ -172,3 +172,15 @@ export interface DailyBrief {
   empty_message: string | null;
   disclaimer: string;
 }
+
+export interface WatchlistIntakeResponse {
+  added: string[];
+  skipped_duplicate: string[];
+  rejected_invalid: string[];
+  added_count: number;
+  skipped_duplicate_count: number;
+  rejected_invalid_count: number;
+  state: WatchlistState;
+  error_message: string | null;
+  disclaimer: string;
+}
