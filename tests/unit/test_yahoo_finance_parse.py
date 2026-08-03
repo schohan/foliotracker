@@ -15,6 +15,7 @@ from app.tools.finance.yahoo_finance import (
     ToolUpstreamError,
     fetch_financial_metrics,
     metrics_from_bundle,
+    ticker_exists,
 )
 
 
@@ -161,6 +162,38 @@ def test_yahoo_unknown_ticker_raises_not_found(monkeypatch: pytest.MonkeyPatch) 
     )
     with pytest.raises(TickerNotFoundError):
         fetch_financial_metrics("ZZZZ")
+
+
+def test_ticker_exists_true(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(yahoo_finance, "_fetch_info", lambda _t: _ok_info())
+    assert ticker_exists("AAPL") is True
+
+
+def test_ticker_exists_false_empty_info(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(yahoo_finance, "_fetch_info", lambda _t: {})
+    assert ticker_exists("ZZZZ") is False
+
+
+def test_ticker_exists_unknown_on_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    class BoomPool:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def submit(self, fn, *a, **k):
+            class F:
+                def result(self, timeout=None):
+                    raise FuturesTimeout()
+
+            return F()
+
+    monkeypatch.setattr(yahoo_finance, "ThreadPoolExecutor", BoomPool)
+    assert ticker_exists("AAPL", timeout_seconds=0.001) is None
 
 
 def test_yahoo_malformed_payload_raises_parse_error(monkeypatch: pytest.MonkeyPatch) -> None:

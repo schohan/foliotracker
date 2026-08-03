@@ -31,7 +31,7 @@ from app.services import brief_store, watchlist_store as store
 from app.services.brief_service import generate_daily_brief, get_latest_brief
 from app.services.phase0_pipeline import run_phase0_research
 from app.services.portfolio_risk_service import build_portfolio_risk
-from app.services.ticker_intake import apply_intake
+from app.services.ticker_intake import QuoteChecker, apply_intake
 from app.services.watchlist_service import (
     get_watchlist_state,
     refresh_batch,
@@ -44,11 +44,13 @@ def create_app(
     app_settings: Settings | None = None,
     research_fn: Callable[..., Phase0Result] | None = None,
     brief_generate_fn: Callable[..., DailyBrief] | None = None,
+    intake_quote_checker: QuoteChecker | None = None,
 ) -> FastAPI:
     """Build the API app (injectable settings + research for tests)."""
     s = app_settings if app_settings is not None else default_settings
     fn = research_fn or run_phase0_research
     brief_fn = brief_generate_fn or generate_daily_brief
+    quote_checker = intake_quote_checker
 
     app = FastAPI(title="FolioTracker", version="0.1.0")
     origins = [o.strip() for o in s.watchlist_cors_origins.split(",") if o.strip()]
@@ -107,7 +109,12 @@ def create_app(
     @app.post("/api/watchlist/intake", response_model=WatchlistIntakeResponse)
     def intake_watchlist_tickers(body: WatchlistIntakeRequest) -> WatchlistIntakeResponse:
         """Bulk add from paste/CSV/OCR/speech text. Skips existing; no research."""
-        result = apply_intake(body.text, body.list_kind, app_settings=s)
+        result = apply_intake(
+            body.text,
+            body.list_kind,
+            app_settings=s,
+            quote_checker=quote_checker,
+        )
         state = get_watchlist_state(s)
         if result.error_message and not result.added and not result.skipped_duplicate:
             raise HTTPException(status_code=400, detail=result.error_message)

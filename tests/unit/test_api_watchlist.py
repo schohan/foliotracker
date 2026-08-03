@@ -53,6 +53,7 @@ def _client(tmp_path: Path) -> TestClient:
     app = create_app(
         app_settings=_settings(tmp_path),
         research_fn=lambda t, **k: _ok_result(t),
+        intake_quote_checker=lambda _t: "ok",
     )
     return TestClient(app)
 

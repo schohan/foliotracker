@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
+from typing import Callable, Literal
 
 from app.configs.settings import Settings, settings as default_settings
 from app.schemas.ticker import InvalidTickerError, normalize_ticker
@@ -19,10 +22,25 @@ from app.services import watchlist_store as store
 
 logger = logging.getLogger(__name__)
 
+QuoteStatus = Literal["ok", "not_found", "unknown"]
+QuoteChecker = Callable[[str], QuoteStatus]
+LlmCaller = Callable[[str], str]
+
 # Token-ish candidates (letters + optional .suffix). Digits rejected by normalize.
 _TOKEN_RE = re.compile(r"[A-Za-z]{1,10}(?:\.[A-Za-z]{1,3})?")
 
-# Headers / UI chrome — never invent from these.
+# Broker/OCR quote row: leading ALL-CAPS ticker, optional short OCR junk, then a price.
+_OCR_TICKER_PRICE_LINE_RE = re.compile(
+    r"^\s*([A-Z]{1,5}(?:\.[A-Z]{1,3})?)"
+    r"(?:\s*(?:[|\\/\-]+|[A-Za-z]{1,3})){0,3}"
+    r"\s*"
+    r"(\d{1,7}(?:\.\d{1,4})?)\b"
+)
+
+_PRICE_RE = re.compile(r"\b\d{1,7}\.\d{2,4}\b")
+_PCT_CHANGE_RE = re.compile(r"\(\s*[+-]?\d+(?:\.\d+)?%\s*\)")
+
+# Headers / UI chrome / company-name OCR debris — never invent from these.
 _BLOCKLIST = frozenset(
     {
         "THE",
@@ -155,7 +173,7 @@ _BLOCKLIST = frozenset(
         "PLEASE",
         "THANKS",
         "THANK",
-        # Spoken/OCR company names (tickers are AAPL/MSFT/…)
+        # Spoken/OCR company names & legal suffixes
         "APPLE",
         "GOOGLE",
         "MICROSOFT",
@@ -163,6 +181,36 @@ _BLOCKLIST = frozenset(
         "NVIDIA",
         "TESLA",
         "ALPHABET",
+        "APPLIED",
+        "MATERIALS",
+        "ADVANCED",
+        "MICRO",
+        "DEVICES",
+        "SPACE",
+        "EXPLORATION",
+        "DIGITAL",
+        "TECH",
+        "TECHNOLOGY",
+        "TECHNOLOG",
+        "HOLDINGS",
+        "HOLDIN",
+        "CORP",
+        "CORPOR",
+        "INC",
+        "LTD",
+        "LLC",
+        "PLC",
+        "GROUP",
+        "CLASS",
+        "COMMON",
+        "PREFERRED",
+        "REEL",
+        "HYNIX",
+        "AMPHENOL",
+        "COHERENT",
+        "CREDO",
+        "LUMENTUM",
+        "MARVELL",
     }
 )
 
@@ -170,6 +218,8 @@ _LIST_KIND_HEADERS = frozenset({"LIST", "LIST_KIND", "KIND", "TYPE", "STATUS", "
 _TICKER_HEADERS = frozenset(
     {"TICKER", "TICKERS", "SYMBOL", "SYMBOLS", "SYM", "CODE", "SECURITY"}
 )
+
+_QUOTE_WORKERS = 6
 
 
 @dataclass
@@ -251,7 +301,127 @@ def _is_list_like(text: str) -> bool:
     return short == len(tokens) and len(tokens) <= 80
 
 
-def extract_tickers_from_text(text: str) -> ExtractedTickers:
+def looks_like_ocr_portfolio(text: str) -> bool:
+    """Detect broker-screenshot OCR: many price lines and/or % changes."""
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    if len(lines) < 3:
+        return False
+    price_lines = sum(1 for ln in lines if _PRICE_RE.search(ln))
+    pct_lines = sum(1 for ln in lines if _PCT_CHANGE_RE.search(ln))
+    if price_lines >= 3:
+        return True
+    if price_lines >= 2 and pct_lines >= 2:
+        return True
+    lowered = text.lower()
+    return price_lines >= 2 and ("ticker" in lowered or "portfolio" in lowered)
+
+
+def _extract_ocr_portfolio(text: str) -> ExtractedTickers:
+    """Only leading ALL-CAPS ticker tokens that sit on a quote/price row."""
+    out = ExtractedTickers()
+    seen_valid: set[str] = set()
+    seen_reject: set[str] = set()
+    for line in text.splitlines():
+        match = _OCR_TICKER_PRICE_LINE_RE.match(line)
+        if not match:
+            continue
+        token = match.group(1)
+        if not _add_valid(out, seen_valid, token):
+            _record_reject(out, token, seen_reject)
+    return out
+
+
+def _default_llm_caller(prompt: str) -> str:
+    from google import genai
+
+    if not default_settings.google_api_key:
+        raise RuntimeError("GOOGLE_API_KEY is not set")
+    client = genai.Client(api_key=default_settings.google_api_key)
+    interaction = client.interactions.create(
+        model=default_settings.default_model,
+        input=prompt,
+    )
+    # Prefer top-level text; fall back to steps like thesis_agent.
+    text = getattr(interaction, "text", None)
+    if isinstance(text, str) and text.strip():
+        return text
+    chunks: list[str] = []
+    for step in getattr(interaction, "steps", None) or []:
+        content = getattr(step, "content", None) or []
+        if isinstance(step, dict):
+            content = step.get("content") or []
+        for part in content:
+            part_text = getattr(part, "text", None)
+            if part_text is None and isinstance(part, dict):
+                part_text = part.get("text")
+            if part_text:
+                chunks.append(str(part_text))
+    return "".join(chunks)
+
+
+def _parse_llm_ticker_list(raw: str) -> list[str]:
+    text = raw.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\[[\s\S]*\]", text)
+        if not match:
+            return []
+        try:
+            data = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            return []
+    if not isinstance(data, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in data:
+        if not isinstance(item, str):
+            continue
+        norm = _try_normalize(item)
+        if norm is None or norm in seen:
+            continue
+        seen.add(norm)
+        out.append(norm)
+    return out
+
+
+def extract_tickers_via_llm(
+    text: str,
+    *,
+    llm_caller: LlmCaller | None = None,
+) -> list[str]:
+    """Ask the model for ticker symbols only (OCR fallback)."""
+    prompt = (
+        "Extract stock ticker symbols from the following OCR / portfolio text.\n"
+        "Return ONLY a JSON array of uppercase ticker strings, e.g. "
+        '["AMAT","AMD","MRVL"].\n'
+        "Rules:\n"
+        "- Include only real exchange ticker symbols (usually 1–5 letters).\n"
+        "- Do NOT include company names, prices, percentages, OCR junk, "
+        "or common words.\n"
+        "- If unsure whether a token is a ticker, omit it.\n"
+        "- No markdown, no commentary.\n\n"
+        f"TEXT:\n{text[:8000]}"
+    )
+    caller = llm_caller or _default_llm_caller
+    try:
+        raw = caller(prompt)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ticker_intake_llm_failed err=%s", exc)
+        return []
+    return _parse_llm_ticker_list(raw)
+
+
+def extract_tickers_from_text(
+    text: str,
+    *,
+    llm_caller: LlmCaller | None = None,
+    allow_llm: bool = True,
+) -> ExtractedTickers:
     """Parse CSV / free text / OCR / transcript into candidate tickers."""
     out = ExtractedTickers()
     if text is None:
@@ -262,6 +432,24 @@ def extract_tickers_from_text(text: str) -> ExtractedTickers:
 
     seen_valid: set[str] = set()
     seen_reject: set[str] = set()
+
+    if looks_like_ocr_portfolio(raw):
+        ocr = _extract_ocr_portfolio(raw)
+        if ocr.tickers:
+            return ocr
+        if allow_llm and (
+            llm_caller is not None or default_settings.google_api_key
+        ):
+            seen_llm = set(ocr.tickers)
+            for ticker in extract_tickers_via_llm(raw, llm_caller=llm_caller):
+                _add_valid(ocr, seen_llm, ticker)
+            if ocr.tickers:
+                logger.info(
+                    "ticker_intake_llm_ocr count=%s",
+                    len(ocr.tickers),
+                )
+                return ocr
+        return ocr
 
     if "," in raw or "\t" in raw:
         try:
@@ -275,8 +463,21 @@ def extract_tickers_from_text(text: str) -> ExtractedTickers:
     segments = [s.strip() for s in re.split(r"[,;\n\r\t|/]+", raw) if s.strip()]
     if len(segments) >= 2 or _is_list_like(raw):
         for segment in segments if len(segments) >= 2 else [raw]:
-            for match in _TOKEN_RE.finditer(segment):
-                token = match.group(0)
+            tokens = [m.group(0) for m in _TOKEN_RE.finditer(segment)]
+            if not tokens:
+                continue
+            # Whole segment is a single short ticker (e.g. "nvda").
+            if len(tokens) == 1 and _TOKEN_RE.fullmatch(segment.strip()):
+                if not _add_valid(out, seen_valid, tokens[0]):
+                    _record_reject(out, tokens[0], seen_reject)
+                continue
+            # Pure ticker paste ("BRK.B meta") may be lowercase. Longer
+            # Title-Case company words are not all short → ALL-CAPS only.
+            pure_paste = all(len(t) <= 5 or "." in t for t in tokens)
+            for token in tokens:
+                if not pure_paste and token != token.upper():
+                    _record_reject(out, token, seen_reject)
+                    continue
                 if not _add_valid(out, seen_valid, token):
                     _record_reject(out, token, seen_reject)
         return out
@@ -357,19 +558,86 @@ def _parse_list_kind(raw: str) -> ListKind | None:
     return None
 
 
+def _default_quote_checker(ticker: str) -> QuoteStatus:
+    from app.tools.finance.yahoo_finance import ticker_exists
+
+    try:
+        exists = ticker_exists(ticker)
+    except InvalidTickerError:
+        return "not_found"
+    if exists is True:
+        return "ok"
+    if exists is False:
+        return "not_found"
+    return "unknown"
+
+
+def filter_tickers_by_quote(
+    tickers: list[str],
+    *,
+    quote_checker: QuoteChecker | None = None,
+) -> tuple[list[str], list[str]]:
+    """Validate candidates against a quote service.
+
+    Returns (accepted, rejected_not_found). Upstream/timeout → accept
+    (fail open) so paste still works when Yahoo is flaky.
+    """
+    if not tickers:
+        return [], []
+    checker = quote_checker or _default_quote_checker
+    accepted: list[str] = []
+    rejected: list[str] = []
+    # Preserve input order while checking in parallel.
+    status_by_ticker: dict[str, QuoteStatus] = {}
+    workers = min(_QUOTE_WORKERS, len(tickers))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(checker, t): t for t in tickers}
+        for fut in as_completed(futures):
+            t = futures[fut]
+            try:
+                status_by_ticker[t] = fut.result()
+            except Exception:  # noqa: BLE001
+                status_by_ticker[t] = "unknown"
+    for t in tickers:
+        status = status_by_ticker.get(t, "unknown")
+        if status == "not_found":
+            rejected.append(t)
+        else:
+            accepted.append(t)
+    return accepted, rejected
+
+
 def apply_intake(
     text: str,
     list_kind: ListKind,
     *,
     app_settings: Settings | None = None,
+    quote_checker: QuoteChecker | None = None,
+    llm_caller: LlmCaller | None = None,
+    validate_quotes: bool = True,
 ) -> IntakeResult:
     """Extract tickers and add only those absent from Held ∪ Watched.
 
     Membership-first: no research. Duplicates ignored (no list move).
+    Candidates are quote-validated before add (reject clear unknowns).
     """
     s = app_settings if app_settings is not None else default_settings
-    extracted = extract_tickers_from_text(text)
-    if not extracted.tickers and not extracted.rejected_invalid:
+    extracted = extract_tickers_from_text(
+        text,
+        llm_caller=llm_caller,
+    )
+    candidates = list(extracted.tickers)
+    rejected = list(extracted.rejected_invalid)
+
+    if validate_quotes and candidates:
+        accepted, quote_rejected = filter_tickers_by_quote(
+            candidates,
+            quote_checker=quote_checker,
+        )
+        rejected.extend(quote_rejected)
+        candidates = accepted
+
+    if not candidates and not rejected:
         return IntakeResult(
             added=[],
             skipped_duplicate=[],
@@ -377,11 +645,11 @@ def apply_intake(
             membership=store.get_membership(s),
             error_message="No tickers found. Paste symbols, upload a CSV, or try again.",
         )
-    if not extracted.tickers:
+    if not candidates:
         return IntakeResult(
             added=[],
             skipped_duplicate=[],
-            rejected_invalid=list(extracted.rejected_invalid),
+            rejected_invalid=rejected,
             membership=store.get_membership(s),
             error_message="No valid tickers found.",
         )
@@ -394,7 +662,7 @@ def apply_intake(
     held = list(membership.held)
     watched = list(membership.watched)
 
-    for t in extracted.tickers:
+    for t in candidates:
         if t in existing:
             skipped.append(t)
             continue
@@ -412,7 +680,7 @@ def apply_intake(
             "watchlist_intake added=%s skipped=%s rejected=%s",
             len(added),
             len(skipped),
-            len(extracted.rejected_invalid),
+            len(rejected),
         )
     else:
         membership = store.get_membership(s)
@@ -420,7 +688,7 @@ def apply_intake(
     return IntakeResult(
         added=added,
         skipped_duplicate=skipped,
-        rejected_invalid=list(extracted.rejected_invalid),
+        rejected_invalid=rejected,
         membership=membership,
         error_message=None,
     )

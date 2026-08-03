@@ -325,6 +325,61 @@ def _fetch_info(ticker: str) -> dict[str, Any]:
     return info
 
 
+def ticker_exists(
+    ticker: str,
+    *,
+    timeout_seconds: float | None = None,
+) -> bool | None:
+    """Lightweight quote existence check (info only — no statements).
+
+    Returns:
+        True if Yahoo returns a recognizable quote,
+        False if Yahoo clearly has no such symbol,
+        None on timeout / upstream failure (unknown — caller may fail open).
+    """
+    normalized = normalize_ticker(ticker)
+    timeout = (
+        float(timeout_seconds)
+        if timeout_seconds is not None
+        else min(float(settings.yahoo_timeout_seconds), 8.0)
+    )
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_fetch_info, normalized)
+            info = future.result(timeout=timeout)
+    except FuturesTimeout:
+        logger.warning("yahoo_exists_timeout ticker=%s", normalized)
+        return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("yahoo_exists_upstream ticker=%s err=%s", normalized, exc)
+        return None
+
+    if not info:
+        return False
+    if (
+        info.get("regularMarketPrice") is None
+        and info.get("currentPrice") is None
+        and info.get("marketCap") is None
+        and info.get("trailingPegRatio") is None
+        and not info.get("shortName")
+        and not info.get("longName")
+    ):
+        return False
+    quote_type = info.get("quoteType")
+    if quote_type in ("NONE", "OTHER") and info.get("regularMarketPrice") is None:
+        return False
+    # Yahoo sometimes echoes the symbol with empty fundamentals for junk.
+    if (
+        info.get("regularMarketPrice") is None
+        and info.get("currentPrice") is None
+        and info.get("marketCap") is None
+        and not info.get("exchange")
+        and not info.get("quoteType")
+    ):
+        return False
+    return True
+
+
 def _fetch_yahoo_bundle(ticker: str) -> dict[str, Any]:
     """Live yfinance pull → JSON-safe bundle for parse + source cache."""
     info = _fetch_info(ticker)
