@@ -79,6 +79,17 @@ class FinancialMetrics(BaseModel):
     current_ratio: float | None = None
     total_cash: float | None = None
     total_debt: float | None = None
+    # Yahoo stats page — valuation / profitability (brief + watchlist)
+    enterprise_value: float | None = None
+    peg_ratio: float | None = None
+    price_to_sales: float | None = None
+    price_to_book: float | None = None
+    ev_to_revenue: float | None = None
+    ev_to_ebitda: float | None = None
+    profit_margin: float | None = None
+    return_on_assets: float | None = None
+    revenue_ttm: float | None = None
+    net_income_ttm: float | None = None
     profile: CompanyProfile | None = None
     returns: PriceReturns | None = None
     revenue_history: list[PeriodMetric] = Field(default_factory=list)

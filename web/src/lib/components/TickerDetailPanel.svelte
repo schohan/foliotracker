@@ -42,6 +42,28 @@
     return "No cited thesis for this run.";
   }
 
+  function fundNum(f: Record<string, unknown>, key: string): string {
+    const v = f[key];
+    return typeof v === "number" && Number.isFinite(v) ? v.toFixed(2) : "—";
+  }
+
+  function fundCompact(f: Record<string, unknown>, key: string): string {
+    const v = f[key];
+    if (typeof v !== "number" || !Number.isFinite(v)) return "—";
+    const abs = Math.abs(v);
+    if (abs >= 1e12) return `${(v / 1e12).toFixed(2)}T`;
+    if (abs >= 1e9) return `${(v / 1e9).toFixed(2)}B`;
+    if (abs >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
+    return v.toFixed(2);
+  }
+
+  function fundPct(f: Record<string, unknown>, key: string): string {
+    const v = f[key];
+    if (typeof v !== "number" || !Number.isFinite(v)) return "—";
+    // Yahoo margins/returns are fractions (0.25 = 25%).
+    return `${(v * 100).toFixed(2)}%`;
+  }
+
   function getFocusable(root: HTMLElement): HTMLElement[] {
     const nodes = root.querySelectorAll<HTMLElement>(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
@@ -155,11 +177,27 @@
     <section>
       <h3>Fundamentals</h3>
       {#if result.fundamentals}
+        {@const f = result.fundamentals}
         <dl class="grid">
-          <div><dt>Forward P/E</dt><dd>{result.fundamentals.forward_pe ?? "—"}</dd></div>
-          <div><dt>Trailing P/E</dt><dd>{result.fundamentals.pe_ratio ?? result.fundamentals.trailing_pe ?? "—"}</dd></div>
-          <div><dt>EPS trailing</dt><dd>{result.fundamentals.eps_trailing ?? "—"}</dd></div>
-          <div><dt>Source</dt><dd>{result.fundamentals.source_id ?? "—"}</dd></div>
+          <div><dt>Market Cap</dt><dd>{fundCompact(f, "market_cap")}</dd></div>
+          <div><dt>Enterprise Value</dt><dd>{fundCompact(f, "enterprise_value")}</dd></div>
+          <div><dt>Trailing P/E</dt><dd>{fundNum(f, "trailing_pe") !== "—" ? fundNum(f, "trailing_pe") : fundNum(f, "pe_ratio")}</dd></div>
+          <div><dt>Forward P/E</dt><dd>{fundNum(f, "forward_pe")}</dd></div>
+          <div><dt>PEG</dt><dd>{fundNum(f, "peg_ratio")}</dd></div>
+          <div><dt>Price/Sales</dt><dd>{fundNum(f, "price_to_sales")}</dd></div>
+          <div><dt>Price/Book</dt><dd>{fundNum(f, "price_to_book")}</dd></div>
+          <div><dt>EV/Revenue</dt><dd>{fundNum(f, "ev_to_revenue")}</dd></div>
+          <div><dt>EV/EBITDA</dt><dd>{fundNum(f, "ev_to_ebitda")}</dd></div>
+          <div><dt>Profit Margin</dt><dd>{fundPct(f, "profit_margin")}</dd></div>
+          <div><dt>ROA</dt><dd>{fundPct(f, "return_on_assets")}</dd></div>
+          <div><dt>ROE</dt><dd>{fundPct(f, "return_on_equity")}</dd></div>
+          <div><dt>Revenue (ttm)</dt><dd>{fundCompact(f, "revenue_ttm")}</dd></div>
+          <div><dt>Net Income (ttm)</dt><dd>{fundCompact(f, "net_income_ttm")}</dd></div>
+          <div><dt>EPS trailing</dt><dd>{fundNum(f, "eps_trailing")}</dd></div>
+          <div><dt>Total Cash</dt><dd>{fundCompact(f, "total_cash")}</dd></div>
+          <div><dt>Debt/Equity</dt><dd>{fundNum(f, "debt_to_equity")}</dd></div>
+          <div><dt>Free Cash Flow</dt><dd>{fundCompact(f, "free_cash_flow")}</dd></div>
+          <div><dt>Source</dt><dd>{typeof f.source_id === "string" ? f.source_id : "—"}</dd></div>
         </dl>
       {:else}
         <p class="muted">No fundamentals in this result.</p>

@@ -23,7 +23,14 @@ def _overview(**overrides: object) -> dict:
         "EPS": "11.67",
         "TrailingPE": "18.35",
         "ForwardPE": "16.98",
+        "PEGRatio": "1.45",
+        "PriceToSalesRatioTTM": "2.9",
+        "PriceToBookRatio": "6.1",
+        "EVToRevenue": "3.2",
+        "EVToEBITDA": "12.4",
+        "ProfitMargin": "0.121",
         "OperatingMarginTTM": "0.157",
+        "ReturnOnAssetsTTM": "0.062",
         "ReturnOnEquityTTM": "0.345",
         "RevenueTTM": "69094998000",
         "GrossProfitTTM": "40144998000",
@@ -45,6 +52,14 @@ def test_parse_overview_maps_forward_pe() -> None:
     assert m.eps_forward is None  # not on OVERVIEW
     assert m.market_cap == 201795764000.0
     assert m.gross_margin == pytest.approx(40144998000 / 69094998000)
+    assert m.peg_ratio == 1.45
+    assert m.price_to_sales == 2.9
+    assert m.price_to_book == 6.1
+    assert m.ev_to_revenue == 3.2
+    assert m.ev_to_ebitda == 12.4
+    assert m.profit_margin == 0.121
+    assert m.return_on_assets == 0.062
+    assert m.revenue_ttm == 69094998000.0
     assert m.profile is not None
     assert m.profile.name == "International Business Machines"
     assert m.profile.sector == "TECHNOLOGY"

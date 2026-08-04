@@ -87,8 +87,9 @@ def parse_overview_json(
 ) -> FinancialMetrics:
     """Map OVERVIEW JSON into FinancialMetrics (pure, testable).
 
-    Primary fill-gap fields: ``forward_pe``, ``pe_ratio``, ``trailing_pe``.
-    ``eps_forward`` is not present on OVERVIEW (left null).
+    Primary fill-gap fields: forward/trailing P/E, valuation multiples
+    (PEG, P/S, P/B, EV ratios), profit margin, ROA/ROE, revenue TTM.
+    ``eps_forward`` and ``enterprise_value`` are not on OVERVIEW (left null).
     """
     if not isinstance(payload, dict):
         raise ToolParseError(f"OVERVIEW payload is not an object for {ticker}")
@@ -142,6 +143,14 @@ def parse_overview_json(
         eps_trailing=_as_float(payload.get("EPS") or payload.get("DilutedEPSTTM")),
         eps_forward=None,  # not on OVERVIEW; Yahoo / future estimate endpoint
         earnings_growth=_as_float(payload.get("QuarterlyEarningsGrowthYOY")),
+        peg_ratio=_as_float(payload.get("PEGRatio")),
+        price_to_sales=_as_float(payload.get("PriceToSalesRatioTTM")),
+        price_to_book=_as_float(payload.get("PriceToBookRatio")),
+        ev_to_revenue=_as_float(payload.get("EVToRevenue")),
+        ev_to_ebitda=_as_float(payload.get("EVToEBITDA")),
+        profit_margin=_as_float(payload.get("ProfitMargin")),
+        return_on_assets=_as_float(payload.get("ReturnOnAssetsTTM")),
+        revenue_ttm=revenue,
         profile=profile,
         source_id="alpha_vantage",
         as_of=datetime.now(timezone.utc),

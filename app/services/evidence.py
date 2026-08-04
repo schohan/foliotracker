@@ -104,6 +104,16 @@ _SCALAR_METRIC_FIELDS = (
     "current_ratio",
     "total_cash",
     "total_debt",
+    "enterprise_value",
+    "peg_ratio",
+    "price_to_sales",
+    "price_to_book",
+    "ev_to_revenue",
+    "ev_to_ebitda",
+    "profit_margin",
+    "return_on_assets",
+    "revenue_ttm",
+    "net_income_ttm",
 )
 
 

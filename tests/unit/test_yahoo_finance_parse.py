@@ -36,12 +36,23 @@ def _ok_info() -> dict:
         "sector": "Technology",
         "industry": "Consumer Electronics",
         "marketCap": 3.5e12,
+        "enterpriseValue": 3.4e12,
         "trailingPE": 28.0,
         "forwardPE": 25.0,
+        "pegRatio": 2.1,
+        "trailingPegRatio": 2.4,
+        "priceToSalesTrailing12Months": 7.5,
+        "priceToBook": 45.0,
+        "enterpriseToRevenue": 7.2,
+        "enterpriseToEbitda": 22.0,
         "trailingEps": 6.4,
         "forwardEps": 7.1,
         "earningsGrowth": 0.12,
         "returnOnEquity": 1.4,
+        "returnOnAssets": 0.22,
+        "profitMargins": 0.25,
+        "totalRevenue": 4.0e11,
+        "netIncomeToCommon": 1.0e11,
         "currentRatio": 1.0,
         "totalCash": 5.0e10,
         "totalDebt": 1.0e11,
@@ -129,6 +140,28 @@ def test_metrics_from_bundle_returns_and_statements() -> None:
     assert metrics.source_id == "yahoo"
     assert len(metrics.history_closes) >= 2
     assert metrics.history_closes[-1][1] == 220.0
+
+
+def test_metrics_from_bundle_maps_yahoo_stats_fields() -> None:
+    metrics = metrics_from_bundle("AAPL", _ok_bundle())
+    assert metrics.enterprise_value == 3.4e12
+    assert metrics.peg_ratio == 2.1  # prefers pegRatio over trailingPegRatio
+    assert metrics.price_to_sales == 7.5
+    assert metrics.price_to_book == 45.0
+    assert metrics.ev_to_revenue == 7.2
+    assert metrics.ev_to_ebitda == 22.0
+    assert metrics.profit_margin == 0.25
+    assert metrics.return_on_assets == 0.22
+    assert metrics.revenue_ttm == 4.0e11
+    assert metrics.net_income_ttm == 1.0e11
+
+
+def test_metrics_from_bundle_peg_falls_back_to_trailing() -> None:
+    info = _ok_info()
+    del info["pegRatio"]
+    bundle = {**_ok_bundle(), "info": info}
+    metrics = metrics_from_bundle("AAPL", bundle)
+    assert metrics.peg_ratio == 2.4
 
 
 def test_yahoo_timeout_raises_tool_timeout_error(monkeypatch: pytest.MonkeyPatch) -> None:

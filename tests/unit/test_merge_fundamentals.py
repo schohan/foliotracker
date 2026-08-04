@@ -227,3 +227,38 @@ def test_av_fills_forward_pe_when_yahoo_gaps() -> None:
         == SOURCE_ALPHA_VANTAGE
     )
     assert result.snapshot.field_provenance["pe_ratio"].source_id == SOURCE_YAHOO
+
+
+def test_av_fills_valuation_gaps_yahoo_wins_disagreement() -> None:
+    yahoo = FinancialMetrics(
+        ticker="AAPL",
+        enterprise_value=3.4e12,
+        peg_ratio=None,
+        price_to_sales=7.5,
+        source_id=SOURCE_YAHOO,
+    )
+    av = FinancialMetrics(
+        ticker="AAPL",
+        peg_ratio=1.8,
+        price_to_sales=9.0,
+        profit_margin=0.25,
+        revenue_ttm=4.0e11,
+        source_id=SOURCE_ALPHA_VANTAGE,
+    )
+    result = merge_fundamentals(
+        [
+            ProviderSnapshot(SOURCE_YAHOO, yahoo),
+            ProviderSnapshot(SOURCE_ALPHA_VANTAGE, av),
+        ],
+        ticker="AAPL",
+    )
+    assert result.snapshot.enterprise_value == 3.4e12
+    assert result.snapshot.peg_ratio == 1.8
+    assert result.snapshot.price_to_sales == 7.5  # Yahoo market field wins
+    assert result.snapshot.profit_margin == 0.25
+    assert result.snapshot.revenue_ttm == 4.0e11
+    assert (
+        result.snapshot.field_provenance["peg_ratio"].source_id
+        == SOURCE_ALPHA_VANTAGE
+    )
+    assert result.snapshot.field_provenance["price_to_sales"].source_id == SOURCE_YAHOO

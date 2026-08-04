@@ -286,6 +286,11 @@ def metrics_from_bundle(ticker: str, bundle: dict[str, Any]) -> FinancialMetrics
     if total_debt is None and balance_sheet is not None:
         total_debt = balance_sheet.total_debt
 
+    # PEG: Yahoo "PEG Ratio (5yr expected)" → pegRatio; trailingPegRatio fallback.
+    peg = _as_float(info.get("pegRatio"))
+    if peg is None:
+        peg = _as_float(info.get("trailingPegRatio"))
+
     return FinancialMetrics(
         ticker=ticker,
         market_cap=_as_float(info.get("marketCap")),
@@ -304,6 +309,16 @@ def metrics_from_bundle(ticker: str, bundle: dict[str, Any]) -> FinancialMetrics
         current_ratio=_as_float(info.get("currentRatio")),
         total_cash=total_cash,
         total_debt=total_debt,
+        enterprise_value=_as_float(info.get("enterpriseValue")),
+        peg_ratio=peg,
+        price_to_sales=_as_float(info.get("priceToSalesTrailing12Months")),
+        price_to_book=_as_float(info.get("priceToBook")),
+        ev_to_revenue=_as_float(info.get("enterpriseToRevenue")),
+        ev_to_ebitda=_as_float(info.get("enterpriseToEbitda")),
+        profit_margin=_as_float(info.get("profitMargins")),
+        return_on_assets=_as_float(info.get("returnOnAssets")),
+        revenue_ttm=_as_float(info.get("totalRevenue")),
+        net_income_ttm=_as_float(info.get("netIncomeToCommon")),
         profile=profile,
         returns=returns,
         revenue_history=revenue_history,

@@ -34,10 +34,14 @@ _STATEMENT_FIELDS = frozenset(
         "revenue_history",
         "gross_margin",
         "operating_margin",
+        "profit_margin",
         "free_cash_flow",
         "debt_to_equity",
         "return_on_equity",
+        "return_on_assets",
         "current_ratio",
+        "revenue_ttm",
+        "net_income_ttm",
     }
 )
 
@@ -58,6 +62,16 @@ _SCALAR_FIELDS = (
     "current_ratio",
     "total_cash",
     "total_debt",
+    "enterprise_value",
+    "peg_ratio",
+    "price_to_sales",
+    "price_to_book",
+    "ev_to_revenue",
+    "ev_to_ebitda",
+    "profit_margin",
+    "return_on_assets",
+    "revenue_ttm",
+    "net_income_ttm",
 )
 
 _STATEMENT_NESTED_FIELDS = (
@@ -275,6 +289,16 @@ def merge_fundamentals(
         current_ratio=merged_data.get("current_ratio"),
         total_cash=merged_data.get("total_cash"),
         total_debt=merged_data.get("total_debt"),
+        enterprise_value=merged_data.get("enterprise_value"),
+        peg_ratio=merged_data.get("peg_ratio"),
+        price_to_sales=merged_data.get("price_to_sales"),
+        price_to_book=merged_data.get("price_to_book"),
+        ev_to_revenue=merged_data.get("ev_to_revenue"),
+        ev_to_ebitda=merged_data.get("ev_to_ebitda"),
+        profit_margin=merged_data.get("profit_margin"),
+        return_on_assets=merged_data.get("return_on_assets"),
+        revenue_ttm=merged_data.get("revenue_ttm"),
+        net_income_ttm=merged_data.get("net_income_ttm"),
         profile=merged_data.get("profile"),
         returns=merged_data.get("returns"),
         revenue_history=merged_data.get("revenue_history") or [],
