@@ -1,4 +1,5 @@
 import type {
+  BriefInsight,
   BulkAction,
   DailyBrief,
   ListKind,
@@ -90,6 +91,10 @@ export function fetchBrief(): Promise<DailyBrief | null> {
   return request("/api/brief");
 }
 
+export function fetchBriefHistory(limit = 14): Promise<DailyBrief[]> {
+  return request(`/api/brief/history?limit=${limit}`);
+}
+
 export function generateBrief(force_refresh = false): Promise<DailyBrief> {
   return request("/api/brief/generate", {
     method: "POST",
@@ -101,5 +106,19 @@ export function logBriefMiss(note: string): Promise<{ ts: string; note: string }
   return request("/api/brief/miss", {
     method: "POST",
     body: JSON.stringify({ note }),
+  });
+}
+
+export function explainBriefEvent(body: {
+  ticker: string;
+  event_key?: string;
+  category?: string;
+  text?: string;
+  daily_return?: number | null;
+  list_kind?: ListKind;
+}): Promise<BriefInsight> {
+  return request("/api/brief/explain", {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }

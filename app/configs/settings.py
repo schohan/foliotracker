@@ -54,6 +54,8 @@ class Settings:
     brief_max_bullets_per_ticker: int = 5
     brief_generate_budget_seconds: int = 60
     brief_max_workers: int = 6
+    # Insight provider: deterministic | canned | llm (llm fail-closed)
+    brief_insight_mode: str = "deterministic"
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -156,6 +158,10 @@ class Settings:
                 os.getenv("BRIEF_GENERATE_BUDGET_SECONDS", "60")
             ),
             brief_max_workers=int(os.getenv("BRIEF_MAX_WORKERS", "6")),
+            brief_insight_mode=(
+                os.getenv("BRIEF_INSIGHT_MODE", "deterministic").strip().lower()
+                or "deterministic"
+            ),
         )
 
 

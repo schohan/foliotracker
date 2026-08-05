@@ -1,4 +1,4 @@
-"""Daily Decision Brief contracts (Slice 1)."""
+"""Daily Decision Brief contracts (triage-first intelligence dashboard)."""
 
 from __future__ import annotations
 
@@ -34,8 +34,51 @@ class BriefEventCategory(str, Enum):
     PRICE_MOVE = "price_move"
 
 
+class BriefInsightMode(str, Enum):
+    DETERMINISTIC = "deterministic"
+    CANNED = "canned"
+    LLM = "llm"
+
+
+class BriefPriority(str, Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+
+
+class BriefSentiment(str, Enum):
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
+    NEUTRAL = "neutral"
+
+
+class BriefMarketRisk(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class BriefSource(BaseModel):
+    """One verifiable source link for an event."""
+
+    label: str
+    url: str | None = None
+
+
+class BriefInsight(BaseModel):
+    """Structured triage opinion (deterministic, canned, or LLM)."""
+
+    what_happened: str
+    why: str
+    market_reaction: str
+    should_long_term_care: str
+    confidence_label: str
+    suggested_action: str
+    explain_busy: str
+    provider: BriefInsightMode
+
+
 class BriefBullet(BaseModel):
-    """One citeable material-event bullet (evidence title in Slice 1)."""
+    """One citeable material-event bullet with triage fields."""
 
     text: str
     category: BriefEventCategory
@@ -43,6 +86,43 @@ class BriefBullet(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
     source_url: str | None = None
     status: Literal["ok"] = "ok"
+    # Triage enrichment
+    event_key: str = ""
+    impact_score: int = Field(default=0, ge=0, le=100)
+    priority: BriefPriority = BriefPriority.MEDIUM
+    sentiment: BriefSentiment = BriefSentiment.NEUTRAL
+    headline: str = ""
+    one_line_summary: str = ""
+    why_it_matters: list[str] = Field(default_factory=list)
+    portfolio_impact: str = ""
+    suggested_action: str = ""
+    confidence: int = Field(default=50, ge=0, le=100)
+    sources: list[BriefSource] = Field(default_factory=list)
+    insight: BriefInsight | None = None
+
+
+class QuietTicker(BaseModel):
+    """Universe name with no actionable events today."""
+
+    ticker: str
+    list_kind: Literal["held", "watched"]
+
+
+class BriefSummary(BaseModel):
+    """Portfolio-level morning triage strip."""
+
+    holdings_count: int = 0
+    high_count: int = 0
+    medium_count: int = 0
+    quiet_count: int = 0
+    positive_count: int = 0
+    negative_count: int = 0
+    neutral_count: int = 0
+    themes: list[str] = Field(default_factory=list)
+    market_risk: BriefMarketRisk = BriefMarketRisk.LOW
+    biggest_story: str | None = None
+    biggest_risk: str | None = None
+    biggest_opportunity: str | None = None
 
 
 class BriefTicker(BaseModel):
@@ -55,6 +135,12 @@ class BriefTicker(BaseModel):
     move_score: int | None = Field(default=None, ge=0, le=5)
     event_severity: int | None = Field(default=None, ge=0, le=5)
     rank_score: float = 0.0
+    impact_score: int = Field(default=0, ge=0, le=100)
+    priority: BriefPriority | None = None
+    sentiment: BriefSentiment = BriefSentiment.NEUTRAL
+    headline: str | None = None
+    suggested_action: str | None = None
+    insight: BriefInsight | None = None
     bullets: list[BriefBullet] = Field(default_factory=list)
     # Metrics strip (display-only; from Phase0 cache / Yahoo when present)
     trailing_pe: float | None = None
@@ -73,6 +159,9 @@ class DailyBrief(BaseModel):
     universe_count: int = 0
     tickers_considered: int = 0
     tickers: list[BriefTicker] = Field(default_factory=list)
+    quiet_tickers: list[QuietTicker] = Field(default_factory=list)
+    summary: BriefSummary | None = None
+    insight_mode: BriefInsightMode = BriefInsightMode.DETERMINISTIC
     gaps: list[str] = Field(default_factory=list)
     empty_message: str | None = None
     disclaimer: str = PHASE0_DISCLAIMER
@@ -88,3 +177,14 @@ class BriefMissLogRequest(BaseModel):
     """Append-only dogfood miss note."""
 
     note: str = Field(min_length=1, max_length=2000)
+
+
+class BriefExplainRequest(BaseModel):
+    """On-demand Explain Like I'm Busy (uses insight provider)."""
+
+    ticker: str
+    event_key: str = ""
+    category: BriefEventCategory | None = None
+    text: str = ""
+    daily_return: float | None = None
+    list_kind: Literal["held", "watched"] = "watched"

@@ -9,7 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.configs.settings import Settings, settings as default_settings
 from app.schemas.brief import (
+    BriefExplainRequest,
     BriefGenerateRequest,
+    BriefInsight,
     BriefMissLogRequest,
     DailyBrief,
 )
@@ -32,7 +34,11 @@ from app.schemas.watchlist import (
     WatchlistTickerSummary,
 )
 from app.services import brief_store, watchlist_store as store
-from app.services.brief_service import generate_daily_brief, get_latest_brief
+from app.services.brief_service import (
+    explain_event,
+    generate_daily_brief,
+    get_latest_brief,
+)
 from app.services.phase0_pipeline import run_phase0_research
 from app.services.portfolio_risk_service import build_portfolio_risk
 from app.services.ticker_intake import QuoteChecker, apply_intake
@@ -84,6 +90,13 @@ def create_app(
         """Latest persisted DailyBrief (null when none generated yet)."""
         return get_latest_brief(app_settings=s)
 
+    @app.get("/api/brief/history", response_model=list[DailyBrief])
+    def get_brief_history(
+        limit: int = Query(default=14, ge=1, le=14),
+    ) -> list[DailyBrief]:
+        """Ring of recent briefs (newest first) for timeline browse."""
+        return brief_store.list_briefs(app_settings=s, limit=limit)
+
     @app.post("/api/brief/generate", response_model=DailyBrief)
     def post_brief_generate(
         body: BriefGenerateRequest | None = None,
@@ -96,6 +109,22 @@ def create_app(
     def post_brief_miss(body: BriefMissLogRequest) -> dict[str, str]:
         """Append dogfood material-miss note."""
         return brief_store.append_miss_note(body.note, app_settings=s)
+
+    @app.post("/api/brief/explain", response_model=BriefInsight)
+    def post_brief_explain(body: BriefExplainRequest) -> BriefInsight:
+        """Explain Like I'm Busy — uses BRIEF_INSIGHT_MODE (llm fail-closed)."""
+        try:
+            ticker = normalize_ticker(body.ticker)
+        except InvalidTickerError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return explain_event(
+            ticker=ticker,
+            text=body.text or body.event_key,
+            category=body.category,
+            daily_return=body.daily_return,
+            list_kind=body.list_kind,
+            app_settings=s,
+        )
 
     @app.put("/api/watchlist", response_model=WatchlistState)
     def put_watchlist(body: WatchlistPutRequest) -> WatchlistState:

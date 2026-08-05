@@ -1,7 +1,7 @@
 # FolioTracker Product Requirements Document (PRD)
 
 **Product:** FolioTracker — AI portfolio and stock research on [Google ADK](https://adk.dev/)  
-**Status:** Thin Phase 2 + **2C done**; watchlist + Risk v2 shipped; **Daily Decision Brief Slice 1 shipped**; **flexible ticker intake shipped**  
+**Status:** Thin Phase 2 + **2C done**; watchlist + Risk v2 shipped; **Daily Decision Brief Slice 1 + triage dashboard shipped**; **flexible ticker intake shipped**  
 **Audience:** Executives (vision, roadmap, risk) and engineers (contracts, acceptance criteria, phase boundaries)  
 **Last updated:** 2026-08-03
 
@@ -99,7 +99,7 @@ Users will prefer a labeled, citable, sometimes-partial result over a fluent but
 
 **Secondary job-to-be-done (near-term):** See when financial metrics and headlines disagree without reading raw tool dumps.
 
-**Near-term job-to-be-done (Brief):** Across ~40 Held + Watched names, get a ranked daily triage of material price-moving events (with optional source URLs + metrics context) so the ritual fits in **≤30 minutes** (today ~4 hours of Yahoo + broker tabs) and informs trim / add / promote-to-watch — without auto trade advice.
+**Near-term job-to-be-done (Brief):** Across ~40 Held + Watched names, identify **what requires attention today in ≤2 minutes** (High / Medium / Quiet triage with Impact Score, why-it-matters, suggested action, and sources). Full morning ritual still targets **≤30 minutes** (vs ~4h of Yahoo + broker tabs) for deeper reads — without auto trade advice.
 
 **Future job-to-be-done:** Disseminate the same Brief object via messaging, audio, MCP, and email once the website Brief is trusted; optional social/earnings-call sections as display-only context.
 
@@ -131,8 +131,9 @@ Capabilities the human experiences. Separate from [system features](#6-system-fe
 | Feature | What the user gets | Phase | Status |
 |---------|--------------------|-------|--------|
 | Daily Decision Brief (Slice 1) | Ranked material-event bullets for Held ∪ Watched (dedupe; Held wins), optional source URLs, metrics strip, Generate today, calm whole-Brief empty | Brief | **Shipped** (2026-08-03) |
+| Brief triage dashboard | Impact Score, High/Medium/Quiet, filters, quiet list, morning digest strip, history timeline, heat map, stock drawer, insight modes (`BRIEF_INSIGHT_MODE`) | Brief | **Shipped** (2026-08-04) |
 | Brief informs decisions | Surfaces catalysts that inform trim / add / promote-to-watch | Brief | No auto buy/trim actions in v1 |
-| Brief history (minimal) | Last N=14 Brief snapshots persisted for miss review | Brief | Store in Slice 1; browse UI in Slice 2 |
+| Brief history (minimal) | Last N=14 Brief snapshots persisted; timeline browse | Brief | **Shipped** (store 2026-08-03; browse 2026-08-04) |
 | Brief dissemination channels | Same Brief object via messaging apps, audio soundbite, MCP, email | Brief+ | **Recorded only** — build after website Brief trusted |
 | Social signals section | Reddit/X (etc.) in a **separate** report section | Brief+ | **Phase-next**; never feeds scores/ranking/risk |
 | Earnings-call summaries | Call digests as citeable bullets when available | Brief+ | **Phase-next** |
@@ -227,9 +228,9 @@ Platform capabilities engineers build behind the user experience. Separate from 
 
 | Feature | Role | Phase | Status |
 |---------|------|-------|--------|
-| `DailyBrief` / `BriefTicker` / `BriefBullet` schemas | Contract for ranked triage; bullets cite `evidence_ids` and/or `source_url`; `generation_status` + per-ticker status | Brief | **Shipped** |
-| Brief generator service | Cache-first gate/rank over Held∪Watched; keyword event categories; optional LLM phrasing fail-closed | Brief | **Shipped** (LLM = Slice 1b) |
-| Brief HTTP API + thin Svelte page | `Generate today`; list rows; miss log | Brief | **Shipped** |
+| `DailyBrief` / `BriefTicker` / `BriefBullet` schemas | Contract for ranked triage; bullets cite `evidence_ids` and/or `source_url`; Impact Score + insight block; `generation_status` + per-ticker status | Brief | **Shipped** |
+| Brief generator service | Cache-first gate/rank over Held∪Watched; keyword event categories; insight provider `deterministic`/`canned`/`llm` (fail-closed) | Brief | **Shipped** (`BRIEF_INSIGHT_MODE`) |
+| Brief HTTP API + triage UI | Generate; history; explain; High/Medium/Quiet inbox rows; miss log | Brief | **Shipped** |
 | Dissemination adapters | Email / messaging / audio / MCP over same Brief JSON | Brief+ | Recorded only — not built this milestone |
 | Social ingest (display-only) | Separate section; excluded from scores and Brief ranking | Brief+ | Phase-next |
 

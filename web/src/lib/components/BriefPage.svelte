@@ -1,9 +1,29 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { fetchBrief, generateBrief, logBriefMiss } from "../api";
-  import type { AppView, DailyBrief } from "../types";
+  import {
+    fetchBrief,
+    fetchBriefHistory,
+    fetchResearch,
+    generateBrief,
+    logBriefMiss,
+  } from "../api";
+  import { loadSeenKeys, markSeen } from "../briefUnread";
+  import type {
+    AppView,
+    BriefFilter,
+    BriefTicker,
+    DailyBrief,
+    Phase0Result,
+  } from "../types";
+  import type { BriefEventItem } from "../briefEvents";
   import DisclaimerBar from "./DisclaimerBar.svelte";
   import PrimaryNav from "./PrimaryNav.svelte";
+  import FilterBar from "./brief/FilterBar.svelte";
+  import HeatMap from "./brief/HeatMap.svelte";
+  import PortfolioSummary from "./brief/PortfolioSummary.svelte";
+  import PrioritySection from "./brief/PrioritySection.svelte";
+  import StockDrawer from "./brief/StockDrawer.svelte";
+  import TimelineRail from "./brief/TimelineRail.svelte";
 
   interface Props {
     view: AppView;
@@ -13,6 +33,7 @@
   let { view, onnavigate }: Props = $props();
 
   let brief = $state<DailyBrief | null>(null);
+  let history = $state<DailyBrief[]>([]);
   let loadError = $state<string | null>(null);
   let loading = $state(true);
   let generating = $state(false);
@@ -20,39 +41,91 @@
   let missNote = $state("");
   let missBusy = $state(false);
   let missSaved = $state(false);
+  let filter = $state<BriefFilter>("all");
+  let expandedKey = $state<string | null>(null);
+  let focusKey = $state<string | null>(null);
+  let seen = $state<Set<string>>(new Set());
+  let drawerRow = $state<BriefTicker | null>(null);
+  let research = $state<Phase0Result | null>(null);
+  let researchLoading = $state(false);
+  let researchError = $state<string | null>(null);
 
   const emptyUniverse = $derived(
     brief != null &&
       brief.universe_count === 0 &&
       (brief.empty_message?.toLowerCase().includes("add tickers") ?? false),
   );
-  const nothingMaterial = $derived(
-    brief != null &&
-      brief.universe_count > 0 &&
-      brief.tickers.length === 0 &&
-      brief.empty_message != null,
+
+  const allEvents = $derived.by((): BriefEventItem[] => {
+    if (!brief) return [];
+    const out: BriefEventItem[] = [];
+    for (const row of brief.tickers) {
+      for (const bullet of row.bullets) {
+        out.push({ row, bullet });
+      }
+    }
+    return out.sort(
+      (a, b) =>
+        b.bullet.impact_score - a.bullet.impact_score ||
+        a.row.ticker.localeCompare(b.row.ticker),
+    );
+  });
+
+  function matchesFilter(
+    item: BriefEventItem,
+    f: BriefFilter,
+    seenKeys: Set<string>,
+  ): boolean {
+    const { row, bullet } = item;
+    const cat = bullet.category;
+    switch (f) {
+      case "all":
+        return true;
+      case "high":
+        return bullet.priority === "high";
+      case "positive":
+        return bullet.sentiment === "positive";
+      case "negative":
+        return bullet.sentiment === "negative";
+      case "earnings":
+        return cat === "earnings_guidance";
+      case "analyst":
+        return cat === "analyst_rating";
+      case "products":
+        return cat === "product_announcement";
+      case "management":
+        return /ceo|cfo|resign|management|executive/i.test(bullet.text);
+      case "sec":
+        return cat === "regulatory_material";
+      case "macro":
+        return cat === "other_material" || cat === "price_move";
+      case "held":
+        return row.list_kind === "held";
+      case "unread":
+        return !seenKeys.has(bullet.event_key);
+      default:
+        return true;
+    }
+  }
+
+  const filteredEvents = $derived(
+    allEvents.filter((e) => matchesFilter(e, filter, seen)),
   );
 
-  function formatPct(v: number | null | undefined): string {
-    if (v == null || Number.isNaN(v)) return "—";
-    const pct = v * 100;
-    const sign = pct > 0 ? "+" : "";
-    return `${sign}${pct.toFixed(1)}%`;
-  }
+  const highItems = $derived(
+    filteredEvents.filter((e) => e.bullet.priority === "high"),
+  );
+  const mediumItems = $derived(
+    filteredEvents.filter((e) => e.bullet.priority === "medium"),
+  );
 
-  function formatScore(v: number | null | undefined): string {
-    if (v == null || Number.isNaN(v)) return "—";
-    return v.toFixed(0);
-  }
+  const focusKeys = $derived(filteredEvents.map((e) => e.bullet.event_key));
 
-  function formatWhen(iso: string): string {
+  async function loadHistory() {
     try {
-      return new Date(iso).toLocaleString(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      });
+      history = await fetchBriefHistory();
     } catch {
-      return iso;
+      history = [];
     }
   }
 
@@ -61,6 +134,7 @@
     loadError = null;
     try {
       brief = await fetchBrief();
+      await loadHistory();
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
@@ -74,6 +148,7 @@
     loadError = null;
     try {
       brief = await generateBrief(forceRefresh);
+      await loadHistory();
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
@@ -98,12 +173,89 @@
     }
   }
 
+  function ontoggle(key: string) {
+    expandedKey = expandedKey === key ? null : key;
+    focusKey = key;
+    if (expandedKey) {
+      seen = markSeen(seen, key);
+    }
+  }
+
+  function onmark(key: string) {
+    seen = markSeen(seen, key);
+  }
+
+  async function openDrawer(row: BriefTicker) {
+    drawerRow = row;
+    research = null;
+    researchError = null;
+    researchLoading = true;
+    try {
+      const res = await fetchResearch(row.ticker);
+      research = res.result;
+    } catch (err) {
+      researchError = err instanceof Error ? err.message : String(err);
+    } finally {
+      researchLoading = false;
+    }
+  }
+
+  function openDrawerByTicker(ticker: string) {
+    const row = brief?.tickers.find((t) => t.ticker === ticker);
+    if (row) void openDrawer(row);
+  }
+
+  function selectHistory(b: DailyBrief) {
+    brief = b;
+    expandedKey = null;
+    focusKey = null;
+    drawerRow = null;
+  }
+
+  function onKeyNav(e: KeyboardEvent) {
+    if (!focusKeys.length) return;
+    const tag = (e.target as HTMLElement | null)?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+    if (e.key === "j" || e.key === "k") {
+      e.preventDefault();
+      const idx = focusKey ? focusKeys.indexOf(focusKey) : -1;
+      const next =
+        e.key === "j"
+          ? Math.min(focusKeys.length - 1, Math.max(0, idx + 1))
+          : Math.max(0, idx <= 0 ? 0 : idx - 1);
+      focusKey = focusKeys[next] ?? null;
+    } else if (e.key === "Enter" && focusKey) {
+      e.preventDefault();
+      ontoggle(focusKey);
+    }
+  }
+
   onMount(() => {
+    seen = loadSeenKeys();
     void load();
+    window.addEventListener("keydown", onKeyNav);
+    return () => window.removeEventListener("keydown", onKeyNav);
   });
 
   const defaultDisclaimer =
     "FolioTracker output is for informational and educational purposes only. It is not investment, legal, or tax advice. Do your own research.";
+
+  const summary = $derived(
+    brief?.summary ?? {
+      holdings_count: brief?.universe_count ?? 0,
+      high_count: 0,
+      medium_count: 0,
+      quiet_count: brief?.quiet_tickers?.length ?? 0,
+      positive_count: 0,
+      negative_count: 0,
+      neutral_count: 0,
+      themes: [] as string[],
+      market_risk: "low" as const,
+      biggest_story: null,
+      biggest_risk: null,
+      biggest_opportunity: null,
+    },
+  );
 </script>
 
 <main class="page">
@@ -111,8 +263,8 @@
     <p class="brand">FolioTracker</p>
     <PrimaryNav {view} {onnavigate} />
     <p class="tag">
-      Daily Decision Brief — material events across Held and Watched. Informs
-      trim / add / promote. Not advice.
+      Daily Decision Brief — what requires attention today. Triage, not a news
+      feed. Not advice.
     </p>
   </header>
 
@@ -170,109 +322,119 @@
       Go to Watchlist
     </button>
   {:else}
-    <div class="meta" aria-live="polite">
-      <p>
-        <span class="status status-{brief.generation_status}"
-          >{brief.generation_status}</span
-        >
-        · {formatWhen(brief.generated_at)}
-        · universe {brief.universe_count}
-        · considered {brief.tickers_considered}
-        · surfaced {brief.tickers.length}
-      </p>
-    </div>
+    <div class="layout">
+      <aside class="side">
+        <TimelineRail
+          {history}
+          activeGeneratedAt={brief.generated_at}
+          onselect={selectHistory}
+        />
+      </aside>
 
-    {#if nothingMaterial}
-      <p class="empty calm">{brief.empty_message}</p>
-    {:else}
-      <section class="block" aria-labelledby="brief-heading">
-        <h2 id="brief-heading">Material today</h2>
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Ticker</th>
-              <th scope="col">List</th>
-              <th scope="col">Daily</th>
-              <th scope="col">Metrics</th>
-              <th scope="col">Bullets</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each brief.tickers as row (row.ticker)}
-              <tr class="row status-{row.status}">
-                <th scope="row">{row.ticker}</th>
-                <td class="list">{row.list_kind}</td>
-                <td class="ret">{formatPct(row.daily_return)}</td>
-                <td class="metrics">
-                  P/E {formatScore(row.trailing_pe)} · 1Y {formatPct(row.return_1y)}
-                  · G {formatScore(row.growth_score)} / V {formatScore(row.value_score)}
-                  / R {formatScore(row.risk_score)}
-                </td>
-                <td>
-                  {#if row.status === "unavailable"}
-                    <span class="muted">Unavailable</span>
-                  {:else if row.bullets.length === 0}
-                    <span class="muted">Move only</span>
-                  {:else}
-                    <ul class="bullets">
-                      {#each row.bullets as b, i (`${row.ticker}-${i}`)}
-                        <li>
-                          <span class="cat">{b.category}</span>
-                          {#if b.source_url}
-                            <a href={b.source_url} target="_blank" rel="noreferrer"
-                              >{b.text}</a
-                            >
-                          {:else}
-                            {b.text}
-                          {/if}
-                        </li>
-                      {/each}
-                    </ul>
-                  {/if}
-                </td>
-              </tr>
+      <div class="main-col">
+        <PortfolioSummary
+          summary={summary}
+          generatedAt={brief.generated_at}
+          insightMode={brief.insight_mode ?? "deterministic"}
+          generationStatus={brief.generation_status}
+        />
+
+        <FilterBar active={filter} onchange={(f) => (filter = f)} />
+
+        <HeatMap
+          material={brief.tickers}
+          quiet={brief.quiet_tickers ?? []}
+          onselect={openDrawerByTicker}
+        />
+
+        {#if brief.tickers.length === 0 && (brief.quiet_tickers?.length ?? 0) > 0}
+          <p class="empty calm">{brief.empty_message ?? "Nothing material in the last 24h."}</p>
+        {/if}
+
+        <PrioritySection
+          title="High priority"
+          headingId="high-priority"
+          items={highItems}
+          {expandedKey}
+          {focusKey}
+          {seen}
+          {ontoggle}
+          onopen={openDrawer}
+          {onmark}
+        />
+
+        <PrioritySection
+          title="Medium priority"
+          headingId="medium-priority"
+          items={mediumItems}
+          {expandedKey}
+          {focusKey}
+          {seen}
+          {ontoggle}
+          onopen={openDrawer}
+          {onmark}
+        />
+
+        <PrioritySection
+          title="No important events"
+          headingId="quiet"
+          quiet={brief.quiet_tickers ?? []}
+          {expandedKey}
+          {focusKey}
+          {seen}
+          {ontoggle}
+          onopen={openDrawer}
+          {onmark}
+        />
+
+        {#if brief.gaps.length > 0}
+          <ul class="gaps">
+            {#each brief.gaps as gap (gap)}
+              <li>{gap}</li>
             {/each}
-          </tbody>
-        </table>
-      </section>
-    {/if}
+          </ul>
+        {/if}
 
-    {#if brief.gaps.length > 0}
-      <ul class="gaps">
-        {#each brief.gaps as gap (gap)}
-          <li>{gap}</li>
-        {/each}
-      </ul>
-    {/if}
-
-    <section class="miss" aria-labelledby="miss-heading">
-      <h2 id="miss-heading">Miss log</h2>
-      <p class="muted">
-        Note a material miss you noticed (dogfood). Append-only; not shown in
-        the Brief ranking.
-      </p>
-      <form class="miss-form" onsubmit={onMissSubmit}>
-        <label class="sr">
-          Miss note
-          <input
-            bind:value={missNote}
-            maxlength={2000}
-            placeholder="Material miss I noticed…"
-            disabled={missBusy}
-          />
-        </label>
-        <button type="submit" disabled={missBusy || !missNote.trim()}>
-          {missBusy ? "Saving…" : "Log miss"}
-        </button>
-      </form>
-      {#if missSaved}
-        <p class="muted" aria-live="polite">Saved.</p>
-      {/if}
-    </section>
+        <section class="miss" aria-labelledby="miss-heading">
+          <h2 id="miss-heading">Miss log</h2>
+          <p class="muted">
+            Note a material miss you noticed (dogfood). Append-only; not shown in
+            ranking.
+          </p>
+          <form class="miss-form" onsubmit={onMissSubmit}>
+            <label class="sr">
+              Miss note
+              <input
+                bind:value={missNote}
+                maxlength={2000}
+                placeholder="Material miss I noticed…"
+                disabled={missBusy}
+              />
+            </label>
+            <button type="submit" disabled={missBusy || !missNote.trim()}>
+              {missBusy ? "Saving…" : "Log miss"}
+            </button>
+          </form>
+          {#if missSaved}
+            <p class="muted" aria-live="polite">Saved.</p>
+          {/if}
+        </section>
+      </div>
+    </div>
   {/if}
 
   <DisclaimerBar text={brief?.disclaimer ?? defaultDisclaimer} />
 </main>
+
+{#if drawerRow}
+  <StockDrawer
+    row={drawerRow}
+    {research}
+    {researchLoading}
+    {researchError}
+    onclose={() => (drawerRow = null)}
+  />
+{/if}
 
 <style>
   .page {
@@ -280,7 +442,7 @@
     display: flex;
     flex-direction: column;
     padding: 1.5rem 1.25rem 0;
-    max-width: 72rem;
+    max-width: 78rem;
     margin: 0 auto;
   }
   .hero {
@@ -364,68 +526,11 @@
     font-size: 1.05rem;
     color: var(--ink);
   }
-  .meta {
-    margin: 0 0 1rem;
-    font-size: 0.9rem;
-    color: var(--ink-soft);
-  }
-  .status {
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--ink);
-  }
-  .block {
-    margin-bottom: 1.5rem;
-  }
-  h2 {
-    margin: 0 0 0.65rem;
-    font-family: var(--font-display);
-    font-size: 1.15rem;
-    font-weight: 600;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.92rem;
-  }
-  th,
-  td {
-    text-align: left;
-    padding: 0.65rem 0.5rem;
-    border-bottom: 1px solid var(--line);
-    vertical-align: top;
-  }
-  thead th {
-    color: var(--ink-soft);
-    font-weight: 500;
-    font-size: 0.8rem;
-  }
-  .list {
-    text-transform: capitalize;
-  }
-  .ret {
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-  .metrics {
-    color: var(--ink-soft);
-    font-size: 0.82rem;
-    white-space: nowrap;
-  }
-  .bullets {
-    margin: 0;
-    padding-left: 1.1rem;
-  }
-  .bullets li {
-    margin: 0.2rem 0;
-  }
-  .cat {
-    display: inline-block;
-    margin-right: 0.35rem;
-    color: var(--ink-soft);
-    font-size: 0.75rem;
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(11rem, 14rem) 1fr;
+    gap: 1.5rem;
+    align-items: start;
   }
   .gaps {
     margin: 0 0 1.25rem;
@@ -435,6 +540,11 @@
   }
   .miss {
     margin: 0 0 2rem;
+  }
+  .miss h2 {
+    margin: 0 0 0.35rem;
+    font-family: var(--font-display);
+    font-size: 1.1rem;
   }
   .miss-form {
     display: flex;
@@ -465,33 +575,12 @@
   .miss-form button:disabled {
     opacity: 0.5;
   }
-  @media (max-width: 720px) {
-    .metrics {
-      white-space: normal;
+  @media (max-width: 860px) {
+    .layout {
+      grid-template-columns: 1fr;
     }
-    table,
-    thead,
-    tbody,
-    th,
-    td,
-    tr {
-      display: block;
-    }
-    thead {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip: rect(0 0 0 0);
-    }
-    tr {
-      border-bottom: 1px solid var(--line);
-      padding: 0.75rem 0;
-    }
-    th,
-    td {
-      border: none;
-      padding: 0.2rem 0;
+    .side {
+      order: -1;
     }
   }
 </style>

@@ -71,6 +71,23 @@ def test_brief_get_null_then_generate_and_miss(tmp_path: Path) -> None:
     assert "Missed 8-K" in r.json()["note"]
     assert Path(s.brief_miss_log_path).exists()
 
+    r = client.get("/api/brief/history")
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+
+    r = client.post(
+        "/api/brief/explain",
+        json={
+            "ticker": "NVDA",
+            "text": "Goldman upgrades",
+            "category": "analyst_rating",
+            "list_kind": "held",
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["explain_busy"]
+    assert r.json()["provider"] in {"deterministic", "canned", "llm"}
+
 
 def test_risk_still_works_after_brief_routes(tmp_path: Path) -> None:
     s = _settings(tmp_path)

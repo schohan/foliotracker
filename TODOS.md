@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). Next: orthogonal collections (1A), Brief dogfood Assignment → Slice 1b/2, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). Next: orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
 
 **Design:** [DESIGN.md](DESIGN.md) · living UX plan [docs/design-plan.md](docs/design-plan.md) (`/plan-design-review` 2026-07-28). Brief design: `~/.gstack/projects/schohan-foliotracker/shailenderchohan-main-design-20260731-024904.md`.
 
@@ -22,27 +22,27 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Priority:** P2  
 **Depends on:** Bulk ops shipped (2026-08-03)
 
-### Daily Decision Brief — Slice 1b — LLM phrasing (default off)
+### Daily Decision Brief — insight mode dogfood (LLM staging)
 
-**What:** Optional LLM bullet phrasing behind settings flag (default **off**); fail-closed discard if uncited; unit tests.
+**What:** Keep production on `BRIEF_INSIGHT_MODE=deterministic`. Staging: exercise `canned`, then `llm` (Gemini structured insight; fail-closed to deterministic). Confirm Generate budget + honesty of provider label.
 
-**Why:** PRD allowed optional LLM; Slice 1 correctly ships headline bullets to protect sync budget and sole-LLM=thesis invariant.
+**Why:** Triage UI + contract shipped; LLM path exists behind flag but must not be default until dogfood proves cost/latency.
 
-**Context:** Reuse thesis-style citation checks; do not enable by default until Generate budget is proven in dogfood. Start at `brief_service` + settings.
+**Context:** `app/services/brief_insight.py`; `POST /api/brief/explain`. Never invent source URLs; reject buy/sell phrasing.
+
+**Effort:** S–M  
+**Priority:** P2  
+**Depends on:** Brief triage dashboard shipped (2026-08-04)
+
+### Daily Decision Brief — Slice 2 polish (after Assignment)
+
+**What:** Scheduled generation; virtualized lists at 100+ holdings; real position weights when available.
+
+**Why:** History browse + drawer already shipped with triage dashboard; schedule still waits on Assignment timing bar.
 
 **Effort:** M  
 **Priority:** P2  
-**Depends on:** Brief Slice 1 shipped + Assignment timing OK
-
-### Daily Decision Brief — Slice 2 (after Assignment)
-
-**What:** Polish, scheduled generation, Brief history browse.
-
-**Why:** Only after timed Assignment comparison supports ≤30m bar.
-
-**Effort:** M  
-**Priority:** P2  
-**Depends on:** Brief Slice 1 dogfood + Assignment validation
+**Depends on:** Brief dogfood + Assignment validation
 
 ### Brief — Phase-next (recorded)
 
@@ -52,7 +52,7 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 
 **Effort:** L  
 **Priority:** P3  
-**Depends on:** Brief Slice 1 trusted in dogfood
+**Depends on:** Brief triage trusted in dogfood
 
 ### Brief — E2E Generate smoke
 
@@ -210,6 +210,16 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 - UI: `BriefPage` + `PrimaryNav` Brief; Generate / force-refresh / ranked rows / miss log
 - Docs: architecture + implementation-status updated
 - Tests: classify/history/store/service/API + Risk regression green
+
+### Daily Decision Brief — triage dashboard (2026-08-04)
+
+- Schemas: Impact Score, priority, sentiment, `BriefInsight`, `BriefSummary`, `quiet_tickers`, `insight_mode`
+- `brief_impact.py` + `brief_insight.py` with `BRIEF_INSIGHT_MODE=deterministic|canned|llm` (llm fail-closed)
+- Generator: enrich bullets, quiet list, portfolio summary / morning digest fields
+- API: `GET /api/brief/history`, `POST /api/brief/explain`
+- UI: PortfolioSummary, FilterBar, EventRow, PrioritySection, HeatMap, TimelineRail, StockDrawer
+- Unread via localStorage; keyboard j/k + Enter
+- Tests: impact, insight modes, service quiet/summary, history + explain API
 
 ### Correlation slice — portfolio Risk v2 (2026-07-31)
 

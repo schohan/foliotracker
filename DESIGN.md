@@ -50,11 +50,11 @@ Do not use Inter, Roboto, Arial, or system-ui as the primary stack. Two typeface
 ## Layout & chrome
 
 - **Primary workspace:** Held / Watched tables (Held first). Text nav `Watchlist | Risk | Brief` (Brief = daily material-event triage).
-- **Secondary context:** Right detail panel on row select (Watchlist only). Brief has no detail panel in Slice 1 — ranked rows only.
+- **Secondary context:** Right detail panel on row select (Watchlist). Brief uses a **StockDrawer** (same fixed-panel pattern) for event + insight drill-down — no full-page navigation away from the triage dashboard.
 - **First-run (0 tickers):** Collapsed composition — brand, one line, add form only. No empty section shells. Brief with empty universe: calm “Add tickers on Watchlist to generate a Brief.”
-- **Cards:** Default none. Tables, list rows, and the detail panel are the interaction surfaces. No dashboard card mosaic. Brief uses **ranked ticker rows**, not cards.
+- **Cards:** Default none. Tables, list rows, and the detail panel are the interaction surfaces. No dashboard card mosaic. Brief uses **expandable inbox rows** (Linear-style) plus a portfolio summary strip — not a card grid.
 - **Radius:** `2px` — tool-like, not bubbly.
-- **Motion (intentional):** row enter stagger, detail panel slide, refresh pulse. Brief: Generate pulse only. No ornamental motion.
+- **Motion (intentional):** row enter stagger, detail panel slide, refresh pulse. Brief: Generate pulse + row expand + drawer slide. No ornamental motion.
 
 ---
 
@@ -67,7 +67,15 @@ Reuse before inventing:
 | `WatchlistPage` | Page shell, lists, first-run |
 | `PrimaryNav` | Text nav `Watchlist \| Risk \| Brief` |
 | `RiskPage` | Held equal-weight concentration + top pairwise correlations (tables; no charts) |
-| `BriefPage` | Daily Decision Brief — Generate, ranked material rows, miss log (Slice 1) |
+| `BriefPage` | Daily Decision Brief — triage dashboard (summary, filters, High/Medium/Quiet, miss log) |
+| `brief/PortfolioSummary` | Holdings counts, themes, morning digest strip |
+| `brief/FilterBar` | Gmail-like triage filters |
+| `brief/EventRow` | Expandable impact-ranked event row |
+| `brief/PrioritySection` | High / Medium / Quiet sections |
+| `brief/SourceList` | Original source links |
+| `brief/HeatMap` | Compact Held/Watched impact grid |
+| `brief/TimelineRail` | Brief history browse (ring-14) |
+| `brief/StockDrawer` | Side panel for ticker events + insight + research |
 | `AddTickerForm` | Primary add action |
 | `TickerRow` | Glanceable summary row |
 | `ScoreStrip` | G / V / R glance (Brief metrics strip may reuse Growth/Value/Risk only) |
@@ -77,7 +85,7 @@ Reuse before inventing:
 
 Portfolio / Brief / Phase 3 UI must extend this vocabulary and these tokens.
 
-**Brief trust rules (UI):** optional source links on bullets; never auto buy/trim; Phase-next social section (if shown) must be visually separate and labeled display-only / not used in scores.
+**Brief trust rules (UI):** optional source links on bullets; never auto buy/trim (actions are Read / Review / Monitor); Phase-next social section (if shown) must be visually separate and labeled display-only / not used in scores. Insight `provider` (`deterministic` / `canned` / `llm`) is always visible.
 
 ---
 
@@ -89,7 +97,7 @@ Full state table: [docs/design-plan.md](docs/design-plan.md#interaction-states).
 - Research wait: keep row; muted honest stage line (no fake progress bar).
 - Remove: instant (no confirm) for Held and Watched.
 - Detail hierarchy: status → scorecard → thesis → conflicts → fundamentals → raw JSON.
-- Brief: whole-Brief empty when no ticker passes the material gate; quiet names omitted (not listed empty); stale/partial Generate uses banner via `generation_status`.
+- Brief: portfolio summary answers “what requires attention?”; High/Medium ranked by Impact Score; Quiet names listed with ✓; timeline for missed days; `j`/`k` + Enter for keyboard triage; stale/partial Generate uses banner via `generation_status`.
 
 ---
 
