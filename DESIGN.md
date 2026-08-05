@@ -12,8 +12,9 @@ Classifier: **App UI** — dense research workspace, not a marketing site.
 
 - **Brand first:** “FolioTracker” in Fraunces is the loudest text on the watchlist.
 - **Utility copy:** orientation, status, action. Not mood, aspiration, or “Welcome to…”.
-- **Trust:** honest `ok` / `partial` / `error`. No auto buy/trim signals. Disclaimer always present.
-- **Cite-first:** claims show evidence IDs; conflicts are a feature, not a failure banner.
+- **Trust:** honest `ok` / `partial` / `error`. No auto buy/trim signals on Watchlist / Risk / Brief. Disclaimer always present.
+- **Scoped exception (2026-08-05):** directive guidance (buy more / hold / trim / research / wait) is allowed **only** from the Thesis page's AI Portfolio Advisor, always with reasoning, confidence, provider label, and disclaimer.
+- **Cite-first:** claims show evidence IDs; conflicts are a feature, not a failure banner. Framework scores cite the fundamentals they were computed from.
 
 ---
 
@@ -49,7 +50,7 @@ Do not use Inter, Roboto, Arial, or system-ui as the primary stack. Two typeface
 
 ## Layout & chrome
 
-- **Primary workspace:** Held / Watched tables (Held first). Text nav `Watchlist | Risk | Brief` (Brief = daily material-event triage).
+- **Primary workspace:** Held / Watched tables (Held first). Text nav `Watchlist | Risk | Brief | Thesis` (Brief = daily material-event triage; Thesis = multi-framework Portfolio Intelligence page, planned).
 - **Secondary context:** Right detail panel on row select (Watchlist). Brief uses a **StockDrawer** (same fixed-panel pattern) for event + insight drill-down — no full-page navigation away from the triage dashboard.
 - **First-run (0 tickers):** Collapsed composition — brand, one line, add form only. No empty section shells. Brief with empty universe: calm “Add tickers on Watchlist to generate a Brief.”
 - **Cards:** Default none. Tables, list rows, and the detail panel are the interaction surfaces. No dashboard card mosaic. Brief uses **expandable inbox rows** (Linear-style) plus a portfolio summary strip — not a card grid.
@@ -65,7 +66,7 @@ Reuse before inventing:
 | Component | Job |
 |-----------|-----|
 | `WatchlistPage` | Page shell, lists, first-run |
-| `PrimaryNav` | Text nav `Watchlist \| Risk \| Brief` |
+| `PrimaryNav` | Text nav `Watchlist \| Risk \| Brief \| Thesis` (Thesis planned) |
 | `RiskPage` | Held equal-weight concentration + top pairwise correlations (tables; no charts) |
 | `BriefPage` | Daily Decision Brief — triage dashboard (summary, filters, High/Medium/Quiet, miss log) |
 | `brief/PortfolioSummary` | Holdings counts, themes, morning digest strip |
@@ -76,6 +77,15 @@ Reuse before inventing:
 | `brief/HeatMap` | Compact Held/Watched impact grid |
 | `brief/TimelineRail` | Brief history browse (ring-14) |
 | `brief/StockDrawer` | Side panel for ticker events + insight + research |
+| `ThesisPage` | Portfolio Intelligence landing page (planned) — framework scores, valuations, thesis monitoring, advisor |
+| `thesis/FrameworkScoreTable` | Per-stock scores across investment philosophies (planned) |
+| `thesis/FrameworkScorecard` | Single-framework drill-down: named checks, PASS/value/rating (planned) |
+| `thesis/ValuationLadder` | Six-value ladder: market / intrinsic / liquidation / replacement / enterprise / expected fair (planned) |
+| `thesis/MarginOfSafety` | Intrinsic vs price, % + star rating (planned) |
+| `thesis/AssetBreakdown` | Net Asset Intelligence: assets − liabilities → adjusted net assets vs market cap (planned) |
+| `thesis/ThesisTimeline` | Quarterly thesis-change verdicts with evidence (planned) |
+| `thesis/AdvisorInsight` | Advisor reasoning + directive conclusion + confidence + provider label (planned) |
+| `thesis/ResearchButton` | One-click framework questions per stock (planned) |
 | `AddTickerForm` | Primary add action |
 | `TickerRow` | Glanceable summary row |
 | `ScoreStrip` | G / V / R glance (Brief metrics strip may reuse Growth/Value/Risk only) |
@@ -86,6 +96,8 @@ Reuse before inventing:
 Portfolio / Brief / Phase 3 UI must extend this vocabulary and these tokens.
 
 **Brief trust rules (UI):** optional source links on bullets; never auto buy/trim (actions are Read / Review / Monitor); Phase-next social section (if shown) must be visually separate and labeled display-only / not used in scores. Insight `provider` (`deterministic` / `canned` / `llm`) is always visible.
+
+**Thesis trust rules (UI, planned):** directive guidance appears only inside `thesis/AdvisorInsight`, always with reasoning lines, confidence, provider label, and disclaimer. Framework scores and valuations show honest gaps (`null` / “insufficient data”) — never invented values. Thesis reuses the Brief patterns: expandable rows / drawer, no card mosaic, same tokens.
 
 ---
 

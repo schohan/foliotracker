@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 shipped**. **Flexible ticker intake shipped**. **Next:** Brief dogfood Assignment, or Phase 3 evidence deepen. See [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 shipped**. **Flexible ticker intake shipped**. **Portfolio Intelligence vision adopted — Thesis page planned (docs 2026-08-05)**. **Next:** Thesis T1, Brief dogfood Assignment, or Phase 3 evidence deepen. See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -143,11 +143,31 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 ---
 
+## Portfolio Intelligence — Thesis page (planned 2026-08-05)
+
+Contracts and slices: [architecture.md](architecture.md) "Portfolio Intelligence — Thesis page" + [PRD](PRD.md) §5.4. Shipped Brief rows above are unaffected (Engine 1 surface, preserved).
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `app/schemas/thesis.py` (`FrameworkScorecard`, `ValuationSet`, `AssetBreakdown`, `ThesisSnapshot`, `AdvisorInsight`, `InvestmentOSScore`, `ThesisDashboard`) | Todo | T1–T5 |
+| Framework engine service (Graham + Financial Strength first) | Todo | T1; deterministic, unit tests before agent use |
+| Valuation service (Graham / Buffett / Modern sets, six-value ladder) | Todo | T2; Replacement Value `null` until method locked |
+| Net asset service (Adjusted Net Assets vs market cap) | Todo | T2 |
+| Thesis snapshot store + change verdicts | Todo | T3; ring store like `brief_store` |
+| Advisor + explain service (`THESIS_INSIGHT_MODE`, fail-closed) | Todo | T4; only surface allowed directive phrasing |
+| Investment OS Score composite | Todo | T5; locked weight table in PRD §5.4.11 |
+| Thesis HTTP API (`GET /api/thesis`, `POST /api/thesis/generate`, `POST /api/thesis/explain`) | Todo | T1+ |
+| `ThesisPage` + `thesis/*` UI; `PrimaryNav` adds Thesis | Todo | T1+; vocabulary in [DESIGN.md](../DESIGN.md) |
+| Brief E1 enrichment (optional `BriefBullet` fields + morning counts) | Todo | Additive, backwards-compatible; after T3 |
+
+---
+
 ## Suggested next milestones
 
 1. Dogfood Brief Slice 1 (Assignment timing ≤30m) + founder miss log
-2. Phase 3 evidence deepen in detail panel (claim↔evidence; design 8A)
-3. Phase0 server single-flight if concurrent refresh still burns cost
+2. Thesis T1: landing page shell + Framework Engine v1 (Graham + Financial Strength)
+3. Phase 3 evidence deepen in detail panel (claim↔evidence; design 8A)
+4. Phase0 server single-flight if concurrent refresh still burns cost
 
 ---
 
@@ -155,6 +175,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 
 | Date | Change |
 |------|--------|
+| 2026-08-05 | Portfolio Intelligence (Thesis page) planned rows added: schemas, framework/valuation/net-asset services, snapshot store, advisor, API, UI, Brief E1 |
 | 2026-08-03 | Flexible ticker intake: extract/dedupe, `/api/watchlist/intake`, CSV/paste/speech/OCR UI |
 | 2026-08-03 | Daily Decision Brief Slice 1: generator, API, BriefPage, yahoo_history, history_closes on Yahoo metrics |
 | 2026-07-31 | Correlation slice (Risk v2): `PairCorrelation`, Yahoo `history_closes` Pearson pairs, RiskPage table |

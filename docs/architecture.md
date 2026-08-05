@@ -784,10 +784,68 @@ LLM bullet phrasing (1b), schedule/history browse (Slice 2), social, disseminati
 
 ---
 
+## Portfolio Intelligence — Thesis page (PLANNED — docs locked 2026-08-05)
+
+Product frame: [PRD](PRD.md) §1 (six engines) and §5.4 (Thesis landing page, normative examples). Slices T1–T5 + Brief E1 sequenced in [TODOS.md](../TODOS.md).
+
+**Engine → surface mapping:** Engine 1 (Market Intelligence) = the shipped Brief, **unchanged** — everything in the "Daily Decision Brief (Slice 1)" section above remains authoritative. Engines 2–6 (Fundamental, Valuation, Framework, Thesis Monitoring, Advisor) = the new Thesis page, built on the same evidence spine and the Brief architectural template.
+
+### Data flow (planned)
+
+```
+membership snapshot (Held ∪ Watched)
+  → per ticker (bounded pool, cache-first):
+        merged fundamentals (Yahoo + SEC XBRL via cached_fetch / phase0 cache)
+        → fundamental metrics (incl. Altman Z / Piotroski F / Beneish M where computable)
+        → valuation service (Graham / Buffett / Modern sets → six-value ladder)
+        → framework engine (deterministic per-framework scorecards)
+        → net asset service (asset breakdown → adjusted net assets)
+  → thesis snapshot store (per-ticker ring): diff vs prior quarter
+        → change verdict: No change | Strengthened | Slightly weaker | Broken
+  → advisor insight (THESIS_INSIGHT_MODE, fail-closed) + Investment OS Score
+  → GET/POST /api/thesis* → ThesisPage (PrimaryNav: Watchlist | Risk | Brief | Thesis)
+```
+
+Like Brief, Generate does **not** call `run_phase0_research`; it composes over cached sources and merged fundamentals. The existing Phase 0 `InvestmentThesis` (from `thesis_agent`) seeds each ticker's original thesis for monitoring.
+
+### Contracts (planned — `app/schemas/thesis.py`)
+
+| Piece | Role |
+|-------|------|
+| `FrameworkScorecard` / `FrameworkCheck` | Per-framework score (0–100 or null) + named checks (PASS / value / rating); cites the fundamentals fields consumed |
+| `ValuationSet` | Graham / Buffett / Modern valuations + six-value ladder (Market / Intrinsic / Liquidation / Replacement / Enterprise / Expected Fair); null per method when unsupported |
+| `AssetBreakdown` | Assets − liabilities → Adjusted Net Assets; vs market cap delta |
+| `ThesisSnapshot` / `ThesisChange` | Point-in-time thesis + framework/valuation state; quarterly diff → closed verdict set |
+| `AdvisorInsight` | Reasoning lines + directive conclusion + confidence + provider label |
+| `InvestmentOSScore` | Deterministic composite from the locked weight table (PRD §5.4.11) |
+| `ThesisDashboard` | Portfolio rollup counts (health, strong/weak balance sheets, value traps, under/overvalued, conviction, thesis broken) |
+| Store | Per-ticker ring JSON (like `brief_store`); path/env below |
+| API | `GET /api/thesis`, `POST /api/thesis/generate`, `POST /api/thesis/explain` |
+| UI | `ThesisPage` + `thesis/*` components (see [DESIGN.md](../DESIGN.md)) |
+
+### Settings (planned — mirror Brief conventions)
+
+| Env | Purpose |
+|-----|---------|
+| `THESIS_INSIGHT_MODE` | `deterministic` (default) \| `canned` \| `llm`; llm fail-closed to deterministic |
+| `THESIS_STORE_PATH` | Snapshot ring store (default under `.cache/foliotracker/`) |
+| `THESIS_GENERATE_BUDGET_SECONDS` / `THESIS_MAX_WORKERS` | Wall budget + bounded pool |
+
+### Engineering invariants (restated for this track)
+
+- **Deterministic math first:** every framework formula, valuation, and the OS Score composite is a pure-Python service with unit tests **before** any agent consumes it. LLMs never perform score/valuation arithmetic.
+- **LLM scope:** thesis-change narrative, advisor reasoning, and research-button answers only — structured output, fail-closed, provider label always on the payload (same pattern as `brief_insight`).
+- **Honest gaps:** unsupported metrics/valuations are `null` with an "insufficient data" label; Replacement Value ships `null` until a method is locked (PRD open question).
+- **Advice stance ripple:** directive phrasing (buy more / hold / trim / research / wait) is allowed **only** in `AdvisorInsight`. Brief, Watchlist, and Risk stay non-directive; the fixed disclaimer remains on every result and surface.
+- **Brief preservation:** no shipped Brief schema/service/API/UI contract changes. Brief E1 adds **optional** `BriefBullet` fields (impact, confidence, affected_frameworks, thesis_impact) + a morning count strip — backwards-compatible, sequenced after T3.
+
+---
+
 ## Changelog
 
 | Date | Change |
 |------|--------|
+| 2026-08-05 | Portfolio Intelligence (planned): Thesis page section — engines 2–6 data flow, `app/schemas/thesis.py` contracts, `THESIS_*` settings, invariants; Brief preserved unchanged as Engine 1 surface |
 | 2026-08-03 | Daily Decision Brief Slice 1: schemas, classify, yahoo_history, generator, API, BriefPage; `history_closes` on Yahoo cache |
 | 2026-07-31 | Correlation slice (Risk v2): pairwise ~1y returns from Yahoo source-cache `history_closes`; `PairCorrelation` on `GET /api/risk` |
 | 2026-07-30 | Portfolio Risk v1: Held equal-weight concentration (`GET /api/risk`, `RiskPage`, design 7A nav) |

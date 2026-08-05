@@ -1,9 +1,10 @@
 # FolioTracker Product Requirements Document (PRD)
 
-**Product:** FolioTracker — AI portfolio and stock research on [Google ADK](https://adk.dev/)  
-**Status:** Thin Phase 2 + **2C done**; watchlist + Risk v2 shipped; **Daily Decision Brief Slice 1 + triage dashboard shipped**; **flexible ticker intake shipped**  
+**Product:** FolioTracker — **Portfolio Intelligence**: an AI Investment Operating System on [Google ADK](https://adk.dev/)  
+**Tagline:** *Evidence-based investing for busy professionals.* (alternate: *The investment copilot that monitors your portfolio using the world's best investing frameworks.*)  
+**Status:** Thin Phase 2 + **2C done**; watchlist + Risk v2 shipped; **Daily Decision Brief Slice 1 + triage dashboard shipped**; **flexible ticker intake shipped**; **Portfolio Intelligence vision adopted — Thesis landing page (Engines 2–6) planned**  
 **Audience:** Executives (vision, roadmap, risk) and engineers (contracts, acceptance criteria, phase boundaries)  
-**Last updated:** 2026-08-03
+**Last updated:** 2026-08-05
 
 **Related:** [architecture.md](architecture.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -11,11 +12,11 @@
 
 ## Table of contents
 
-1. [Overview](#1-overview)
+1. [Overview](#1-overview) (incl. Portfolio Intelligence vision and six-engine architecture)
 2. [Problem and opportunity](#2-problem-and-opportunity)
 3. [Goals and non-goals](#3-goals-and-non-goals)
 4. [Personas and primary jobs](#4-personas-and-primary-jobs)
-5. [User features](#5-user-features) (incl. Daily Decision Brief)
+5. [User features](#5-user-features) (incl. Daily Decision Brief and Thesis landing page)
 6. [System features](#6-system-features)
 7. [Core user journey](#7-core-user-journey)
 8. [Success metrics](#8-success-metrics)
@@ -29,13 +30,60 @@
 
 ## 1. Overview
 
-FolioTracker turns a ticker symbol into **structured, citable research**: an evidence bundle grounded in live market and news sources, plus an investment thesis where every material claim cites evidence IDs. The product is deliberately **evidence-first** — LLMs reason over structured findings; they do not invent numbers or hide missing data.
+### 1.1 Vision — Portfolio Intelligence
+
+FolioTracker is evolving from a portfolio tracker into an **AI Investment Operating System**. Working name: **Portfolio Intelligence**.
+
+Most portfolio applications answer: *"What happened to my stocks?"*  
+Portfolio Intelligence answers: **"What should I think about my portfolio today?"**
+
+**Core philosophy — frameworks as lenses.** Instead of following one investing style, the application continuously evaluates every holding through multiple proven investment frameworks. Benjamin Graham is never the headline; he is one of many engines:
+
+> Benjamin Graham · Warren Buffett · Peter Lynch · Joel Greenblatt · Quality Investing · Growth at a Reasonable Price (GARP) · Financial Strength · Momentum · Risk Management · Capital Allocation
+
+Each framework is another "lens" through which a company is evaluated. The user is never forced into one philosophy; each framework contributes **evidence** rather than dictating the final rating. The platform does not tell users **how to invest** — it presents evidence-based, easy-to-digest assessments for professionals who don't have time to read every earnings report or financial statement.
+
+**Product mission — five morning questions.** Help busy professionals answer every morning:
+
+1. Has my investment thesis changed?
+2. Is this company becoming stronger or weaker?
+3. Am I paying too much?
+4. Is there hidden risk?
+5. Should I buy more, hold, trim, or research further?
+
+### 1.2 Six-engine architecture
+
+Portfolio Intelligence is six AI engines working together:
+
+```mermaid
+flowchart TD
+  engine1["Engine 1 — Market Intelligence"] --> engine2["Engine 2 — Fundamental Engine"]
+  engine2 --> engine3["Engine 3 — Valuation Engine"]
+  engine3 --> engine4["Engine 4 — Investment Framework Engine"]
+  engine4 --> engine5["Engine 5 — Thesis Monitoring"]
+  engine5 --> engine6["Engine 6 — AI Portfolio Advisor"]
+```
+
+| Engine | Answers | Product surface | Status |
+|--------|---------|-----------------|--------|
+| 1. Market Intelligence | "What changed that matters?" (not a news feed) | **Brief page — shipped, preserved unchanged**; event enrichment (impact, confidence, affected frameworks, thesis impact) is additive Brief E1 | Shipped (E1 planned) |
+| 2. Fundamental Engine | Is the company becoming stronger or weaker? | Thesis landing page | Planned (T1+) |
+| 3. Valuation Engine | Am I paying too much? Multiple simultaneous valuations | Thesis landing page | Planned (T2) |
+| 4. Investment Framework Engine | How does each philosophy score this stock? | Thesis landing page | Planned (T1) |
+| 5. Thesis Monitoring | Has my thesis changed? (monitor thesis, not price) | Thesis landing page | Planned (T3) |
+| 6. AI Portfolio Advisor | Buy more, hold, trim, or research further — with reasoning + confidence | Thesis landing page | Planned (T4) |
+
+The shipped **Daily Decision Brief is carried into this structure unchanged** as the Engine 1 surface: its contracts, generator, triage dashboard, and acceptance criteria in [5.2](#52-planned--daily-decision-brief-approach-b-office-hours-2026-07-31) remain authoritative. The new **Thesis landing page** ([5.4](#54-planned--thesis-landing-page-portfolio-intelligence-engines-26)) replaces the current embedded thesis surface and hosts Engines 2–6; slices are sequenced in the [Roadmap](#10-roadmap).
+
+### 1.3 Evidence-first spine (what exists now)
+
+FolioTracker turns a ticker symbol into **structured, citable research**: an evidence bundle grounded in live market and news sources, plus an investment thesis where every material claim cites evidence IDs. The product is deliberately **evidence-first** — LLMs reason over structured findings; they do not invent numbers or hide missing data. Every Portfolio Intelligence engine composes over this same spine.
 
 Today the product ships locally via `adk web` / `adk run app`. The user asks to analyze a ticker (for example, `Analyze NVDA`); the system returns a `Phase0Result` JSON payload with status, evidence (including conflicts when sources disagree), a cited thesis when possible, a fixed non-advice disclaimer, cache metadata, and a request id for log correlation.
 
 **What exists now (Phase 0–2C):** single-ticker research from enriched Yahoo Finance fundamentals (profile, returns, BS/CF, trailing/forward P/E), Google News RSS headlines, SEC EDGAR filing metadata + XBRL companyfacts, and optional Alpha Vantage OVERVIEW fill-gaps for forward/market fields when keyed. Evidence aggregator surfaces `evidence.conflicts`; `scorecard` + `fundamentals` on `Phase0Result`. Dual cache: whole-result TTL plus per-source TTL/quota. Yahoo failure softens to `partial` when merged fundamentals pass the min field checklist.
 
-**What comes next:** Brief dogfood Assignment (≤30m); then Phase 3 evidence deepen or Brief Slice 1b/2. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
+**What comes next:** Brief dogfood Assignment (≤30m); Thesis T1 (landing page shell + Framework Engine v1); then Phase 3 evidence deepen or Brief Slice 1b/2. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
 
 How the system is built lives in [architecture.md](architecture.md). What is implemented vs stub lives in [implementation-status.md](implementation-status.md). Deferred work lives in [TODOS.md](../TODOS.md).
 
@@ -73,7 +121,7 @@ Users will prefer a labeled, citable, sometimes-partial result over a fluent but
 
 | Non-goal | Clarification |
 |----------|---------------|
-| Investment advice | Output is informational/educational only; fixed disclaimer always present |
+| Undisciplined trade advice | **Rescoped 2026-08-05:** directive guidance (buy more / hold / trim / research further, with confidence) is allowed **only** from the planned AI Portfolio Advisor (Engine 6), always paired with reasoning and the fixed disclaimer. All other surfaces stay non-directive — Brief keeps its shipped Read / Review / Monitor action model |
 | Brokerage / order execution | No trading, accounts, or order routing |
 | Full research terminal | ADK chat + JSON remain; watchlist dashboard v1 for multi-ticker review |
 | Production multi-tenant SaaS | Local process + file cache only until Phase 3 |
@@ -100,6 +148,8 @@ Users will prefer a labeled, citable, sometimes-partial result over a fluent but
 **Secondary job-to-be-done (near-term):** See when financial metrics and headlines disagree without reading raw tool dumps.
 
 **Near-term job-to-be-done (Brief):** Across ~40 Held + Watched names, identify **what requires attention today in ≤2 minutes** (High / Medium / Quiet triage with Impact Score, why-it-matters, suggested action, and sources). Full morning ritual still targets **≤30 minutes** (vs ~4h of Yahoo + broker tabs) for deeper reads — without auto trade advice.
+
+**Near-term job-to-be-done (Thesis):** Answer the five morning questions per holding through multiple framework lenses — framework scores, valuations, thesis-change verdicts, and advisor guidance — without reading every earnings report or financial statement.
 
 **Future job-to-be-done:** Disseminate the same Brief object via messaging, audio, MCP, and email once the website Brief is trusted; optional social/earnings-call sections as display-only context.
 
@@ -161,7 +211,234 @@ Design: `~/.gstack/projects/schohan-foliotracker/shailenderchohan-main-design-20
 - No auto-research on bulk add (membership-first; refresh remains explicit) — preserves watchlist cost model.
 - Fail closed on empty extract: clear “no tickers found” message; never invent symbols from OCR/speech noise.
 
-### 5.4 Planned (deferred / Phase 3)
+### 5.4 Planned — Thesis landing page (Portfolio Intelligence, Engines 2–6)
+
+Replaces the current embedded thesis surface (Watchlist one-liner + detail-panel text) with a dedicated **Thesis** landing page beside Brief: `PrimaryNav` becomes `Watchlist | Risk | Brief | Thesis`. The page evaluates every Held ∪ Watched holding through multiple investment frameworks and answers the five morning questions. **The shipped Brief page is untouched** — it remains the Engine 1 surface.
+
+| Feature | What the user gets | Slice | Status |
+|---------|--------------------|-------|--------|
+| Framework score table | Every stock scored against multiple investment philosophies at a glance | T1 | Planned |
+| Framework scorecards | Per-framework drill-down with named checks (PASS / value / rating) | T1 | Planned |
+| Valuation ladder | Six values per company instead of one P/E | T2 | Planned |
+| Net Asset Intelligence | Asset breakdown → Adjusted Net Assets vs market cap | T2 | Planned |
+| Margin of Safety visualization | Intrinsic vs price with % and star rating | T2 | Planned |
+| Thesis monitoring | Quarterly thesis-change verdicts per holding | T3 | Planned |
+| AI Portfolio Advisor | Directive insight (buy more / hold / trim / research) with reasoning + confidence | T4 | Planned |
+| AI Research button | One-click framework questions per stock | T4 | Planned |
+| Investment OS Score | Proprietary composite blending multiple disciplines | T5 | Planned |
+| Portfolio dashboard | Portfolio health rollup counts | T5 | Planned |
+
+The examples below are **normative acceptance references**: when a slice ships, its UI and contracts must be able to reproduce these shapes.
+
+#### 5.4.1 Engine 2 — Fundamental Engine
+
+Continuously evaluates company health; updates after each quarterly report. Metric catalog:
+
+> Revenue · Revenue Growth · Gross Margin · Operating Margin · EPS · EPS Growth · FCF · ROIC · ROE · Debt · Cash · Inventory · Share Dilution · Buybacks · Dividend · Working Capital · **Altman Z-Score** · **Piotroski F-Score** · **Beneish M-Score** · Interest Coverage · Current Ratio · Quick Ratio
+
+Metrics unavailable from current sources are shown as honest gaps (`null` / "insufficient data") — never invented.
+
+#### 5.4.2 Engine 3 — Valuation Engine
+
+One of the product's biggest differentiators: compute **multiple valuations simultaneously** instead of showing only P/E.
+
+| School | Valuations |
+|--------|-----------|
+| **Graham** | Net Current Asset Value (NCAV) · Margin of Safety · Net-Net · Intrinsic Value · Liquidation Value · Adjusted Book Value |
+| **Buffett** | Owner Earnings · Free Cash Flow Yield · ROIC · Capital Efficiency · Economic Moat Indicators |
+| **Modern** | Discounted Cash Flow · Reverse DCF · EV/EBITDA · EV/FCF · PEG · Historical PE Bands · Historical PS Bands · Historical PB Bands · Sector Relative Valuation · Market Expectations Model |
+
+Every company gets a **six-value ladder** rather than one valuation:
+
+```
+Market Price
+Intrinsic Value
+Liquidation Value
+Replacement Value
+Enterprise Value
+Expected Fair Value
+```
+
+#### 5.4.3 Engine 4 — Investment Framework Engine
+
+The unique differentiator: instead of one overall score, every stock is scored against multiple investment philosophies. Reference example:
+
+| Framework | Score |
+|-----------|-------|
+| Graham Deep Value | 91 |
+| Buffett Quality | 82 |
+| Peter Lynch Growth | 74 |
+| Greenblatt Magic Formula | 88 |
+| Quality Investing | 86 |
+| Dividend | 42 |
+| GARP | 79 |
+| Financial Strength | 93 |
+| Value Trap Risk | Low |
+| Bankruptcy Risk | Very Low |
+
+This immediately explains why a stock may be attractive to different types of investors.
+
+**Graham framework** (inspired by *The Intelligent Investor*: buy below intrinsic value, insist on a margin of safety, emphasize strong balance sheets, distinguish price from value, use conservative measures like NCAV; defensive vs enterprising investors; discipline over market emotion). Reference scorecard:
+
+| Check | Result |
+|-------|--------|
+| Margin of Safety | Excellent — 34% |
+| Net-Net | PASS |
+| Current Ratio | 2.8 — PASS |
+| Debt | Low |
+| Earnings Stability | PASS |
+| Dividend History | PASS |
+| **Graham Score** | **91** |
+
+**Buffett framework** evaluates: economic moat · owner earnings · ROIC · capital allocation · management quality · share repurchases · debt discipline · long-term earnings consistency.
+
+**Peter Lynch framework** evaluates: PEG · revenue growth · earnings growth · inventory trends · expansion opportunities · industry growth · reasonable valuation.
+
+**Greenblatt framework** evaluates: ROC · Earnings Yield · Magic Formula ranking.
+
+**Quality Investing framework** evaluates: ROIC · gross margin · operating margin · cash conversion · capital allocation · debt · consistency.
+
+#### 5.4.4 Engine 5 — Thesis Monitoring
+
+Monitor **thesis**, not price. Reference example:
+
+```
+Original Thesis
+  Cloud spending accelerating.
+  Strong balance sheet.
+  Expanding margins.
+```
+
+Every quarter the AI asks: *has anything changed?* Verdicts (closed set):
+
+`No change | Strengthened | Slightly weaker | Broken`
+
+This is enormously valuable for long-term investors; the thesis timeline shows every verdict with its evidence.
+
+#### 5.4.5 Engine 6 — AI Portfolio Advisor
+
+Generate **reasoning**, not a bare Buy/Sell. Directive conclusions are allowed here (and only here), always with reasoning and confidence. Reference example:
+
+```
+Today's Insight
+
+LITE remains expensive.
+Business quality improved.
+Valuation expanded faster than fundamentals.
+No thesis change.
+Wait for better entry.
+
+Confidence: 89%
+```
+
+#### 5.4.6 Net Asset Intelligence
+
+Every company gets an Asset Breakdown:
+
+```
+Assets:      Cash · Receivables · Inventory · Factories · Land ·
+             Investments · Patents · Other Assets
+Subtract:    Current Debt · Long-term Debt · Lease · Other Liabilities
+Produces:    Adjusted Net Assets
+Compare:     Market Value vs Net Assets
+```
+
+Reference example:
+
+```
+Market Cap             48B
+Adjusted Net Assets    61B
+Difference             -21%
+Possible Undervaluation
+```
+
+#### 5.4.7 Margin of Safety visualization
+
+```
+Intrinsic Value    $180
+Market Price       $128
+Margin of Safety   29%
+★★★★★
+```
+
+#### 5.4.8 Portfolio dashboard (rollup)
+
+```
+Portfolio Health            92   Excellent
+---------------------------------
+Strong Balance Sheets       31
+Weak Balance Sheets          4
+Potential Value Traps        2
+Significantly Undervalued    8
+Overvalued                  11
+High Conviction             14
+Thesis Broken                1
+```
+
+#### 5.4.9 Daily Morning Brief counts (Engine 1 extension — Brief E1)
+
+The Brief gains an **additive** portfolio-state count strip (after Thesis T3 provides the underlying signals):
+
+```
+Today's Portfolio
+  Thesis Changed               2
+  Valuation Improved           5
+  Margin of Safety Increased   4
+  Balance Sheet Weakened       1
+  Risk Increased               2
+  Opportunity Score            High
+```
+
+Backwards-compatible: optional fields only; shipped Brief behavior unchanged until E1 ships.
+
+#### 5.4.10 AI Research button
+
+Every stock offers one-click framework questions, e.g.:
+
+- *"Why does this stock score poorly under Buffett but well under Graham?"*
+- *"Why did Margin of Safety decrease?"*
+- *"Which framework is most bullish?"*
+
+Reuses the `POST /api/brief/explain` pattern: structured, fail-closed, provider-labeled.
+
+#### 5.4.11 The Investment OS Score
+
+Instead of a single "Graham Score", a proprietary composite blends multiple proven disciplines:
+
+| Dimension | Weight |
+|-----------|--------|
+| Business Quality | 20% |
+| Financial Strength | 15% |
+| Valuation | 20% |
+| Balance Sheet | 15% |
+| Earnings Quality | 10% |
+| Capital Allocation | 10% |
+| Investment Framework Consensus | 5% |
+| Thesis Stability | 5% |
+
+Each underlying framework (Graham, Buffett, Lynch, Greenblatt, …) contributes **evidence rather than dictating the final rating** — methodology-agnostic while benefiting from decades of investing wisdom.
+
+#### 5.4.12 Thesis page acceptance rules
+
+- All framework and valuation math is **deterministic services with unit tests before any agent consumes them** (existing scoring invariant; no LLM arithmetic).
+- Honest gaps: any metric/valuation the sources cannot support is `null` with an "insufficient data" label — never invented.
+- LLM is used only for thesis-change narrative, advisor reasoning, and research-button answers; `THESIS_INSIGHT_MODE` mirrors `BRIEF_INSIGHT_MODE` (`deterministic | canned | llm`, fail-closed) and the provider label is always visible.
+- Directive phrasing appears only in Advisor output, always with reasoning + confidence.
+- Fixed disclaimer always present.
+- Framework scores cite the underlying evidence/fundamentals fields they were computed from.
+
+#### 5.4.13 Future framework modules (Phase-next)
+
+Recorded for the Investment Intelligence Platform trajectory — not sequenced yet:
+
+- **Howard Marks**: market cycle positioning and risk asymmetry
+- **Charlie Munger**: qualitative business quality and competitive durability
+- **Michael Mauboussin**: expectations investing and capital allocation
+- **Fama-French**: factor exposures (value, quality, profitability, momentum, size)
+- **Behavioral Finance**: concentration risk, overconfidence, recency bias, confirmation-bias alerts
+- **Macro Overlay**: interest-rate sensitivity, recession resilience, inflation exposure, geopolitical risk
+
+### 5.5 Planned (deferred / Phase 3)
 
 | Feature | What the user gets | Phase | Status |
 |---------|--------------------|-------|--------|
@@ -242,7 +519,23 @@ Platform capabilities engineers build behind the user experience. Separate from 
 | Bulk add API | `POST` batch add with `added` / `skipped_duplicate` / `rejected_invalid` counts; never moves existing membership on duplicate | Watchlist | **Shipped** (`/api/watchlist/intake`) |
 | Intake UI affordances | CSV file picker, paste area; screenshot and mic as capture → same extract path | Watchlist | **Shipped** |
 
-### 6.4 Planned (deferred / Phase 3)
+### 6.4 Planned — Portfolio Intelligence engines (Thesis page)
+
+Follows the Brief architectural template: Pydantic schemas → deterministic services (LLM fail-closed) → ring-store JSON → HTTP API → Svelte page. Shipped Brief contracts are not modified.
+
+| Feature | Role | Slice | Status |
+|---------|------|-------|--------|
+| `app/schemas/thesis.py` contracts | `FrameworkScorecard`, `FrameworkCheck`, `ValuationSet`, `AssetBreakdown`, `ThesisSnapshot`, `ThesisChange`, `AdvisorInsight`, `InvestmentOSScore`, `ThesisDashboard` | T1–T5 | Planned |
+| Framework engine service | Deterministic per-framework scoring from merged fundamentals (Yahoo + SEC XBRL); Graham + Financial Strength first; remaining frameworks phased | T1+ | Planned |
+| Valuation service | NCAV / net-net / intrinsic / liquidation / adjusted book; owner earnings / FCF yield; DCF / reverse DCF / EV multiples / PEG / historical bands | T2 | Planned |
+| Net asset service | Asset breakdown → Adjusted Net Assets vs market cap | T2 | Planned |
+| Thesis snapshot store | Per-ticker ring store (like `brief_store`); quarterly diff → change verdict | T3 | Planned |
+| Advisor + explain service | `THESIS_INSIGHT_MODE=deterministic\|canned\|llm` fail-closed (mirrors `brief_insight`); provider label on every insight | T4 | Planned |
+| Investment OS Score service | Deterministic composite from locked weight table | T5 | Planned |
+| Thesis HTTP API + page | `GET /api/thesis`, `POST /api/thesis/generate`, `POST /api/thesis/explain`; `ThesisPage` + `thesis/*` components; `PrimaryNav` adds Thesis | T1+ | Planned |
+| Brief E1 enrichment | **Additive optional** `BriefBullet` fields (impact, confidence, affected_frameworks, thesis_impact) + morning count strip; backwards-compatible; after T3 | E1 | Planned |
+
+### 6.5 Planned (deferred / Phase 3)
 
 | Feature | Role | Phase | Status |
 |---------|------|-------|--------|
@@ -323,6 +616,8 @@ These are non-negotiable product and engineering rules (see also architecture):
 3. **Evidence over vibes.** Downstream steps consume `Evidence`, not upstream chat text.
 4. **Eval-first.** Tests and eval fixtures are reviewed before phase implementation code.
 5. **Partial failure is visible.** Missing data yields a degraded, labeled result — never a silent fake thesis.
+6. **Frameworks are lenses, not verdicts.** Each investment framework contributes evidence; no single philosophy dictates the rating.
+7. **Directive guidance is earned, scoped, and explained.** Buy/hold/trim/research phrasing is allowed only from the AI Portfolio Advisor, always with reasoning, confidence, provider label, and disclaimer.
 
 ---
 
@@ -337,6 +632,7 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 | **2** | Product depth (thin) | Filings context + scorecards | SEC specialist → scoring service | **Complete** (2A+2B) |
 | **2C** | Multi-source ingestion | Richer, resilient fundamentals | Provider port, per-source cache, Yahoo → SEC XBRL → AV | **Done** |
 | **Brief** | Daily decision triage | ≤30m material-event Brief for Held+Watched | Brief schemas, generator, thin UI; dissemination recorded | **Slice 1 shipped** |
+| **Thesis** | Portfolio Intelligence (Engines 2–6) | Multi-framework Thesis landing page: scores, valuations, thesis monitoring, advisor | Framework/valuation/net-asset services, thesis snapshot store, advisor, `/api/thesis*`, `ThesisPage` | **Planned (docs locked 2026-08-05)** |
 | **3** | Platform | First-party deepen / hosted product | Evidence browser deepen, observability, deploy | **Planned** |
 
 ### Phase 2 sequence (locked 2026-07-24)
@@ -375,6 +671,21 @@ Phased delivery. Shipped phases are product fact; later phases are planned until
 | **Brief.2** | Polish, schedule, history browse — after ≤30m Assignment validates | M | Queued |
 | Later | Social display-only section; earnings-call digests; dissemination adapters | L | Recorded / Phase-next |
 
+### Portfolio Intelligence — Thesis sequence (locked 2026-08-05)
+
+Shipped Brief milestones above stay queued unchanged; Thesis slices are independent of them.
+
+| Order | Item | Effort | Status |
+|-------|------|--------|--------|
+| Docs | PRD / TODOS / architecture / DESIGN adopt Portfolio Intelligence vision | S | **Done** (2026-08-05) |
+| **T1** | Thesis landing page shell + Framework Engine v1 (Graham + Financial Strength from merged fundamentals) | M | Queued |
+| **T2** | Valuation Engine + Net Asset Intelligence + Margin of Safety visualization | L | Queued |
+| **T3** | Thesis Monitoring (snapshot store + quarterly change verdicts) | M | Queued |
+| **T4** | AI Portfolio Advisor + AI Research button | M | Queued |
+| **T5** | Investment OS Score + Portfolio dashboard rollup | M | Queued |
+| **E1** | Brief event enrichment + morning count strip (additive; after T3) | S–M | Queued |
+| Later | Remaining frameworks (Lynch, Greenblatt, Quality, GARP, Dividend, Momentum); then future modules (Marks, Munger, Mauboussin, Fama-French, Behavioral Finance, Macro Overlay) | L | Phase-next |
+
 ### Phase 3 backlog (planned)
 
 - Deepen evidence browser in detail panel (claim↔evidence)
@@ -389,7 +700,7 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, Brief
 
 | Constraint | Detail |
 |------------|--------|
-| Not advice | Fixed disclaimer on every `Phase0Result`: *“FolioTracker output is for informational and educational purposes only. It is not investment, legal, or tax advice. Do your own research.”* |
+| Advice stance (rescoped 2026-08-05) | Directive guidance only from the AI Portfolio Advisor (Engine 6), always with reasoning + confidence. Fixed disclaimer stays on every `Phase0Result` and surface: *“FolioTracker output is for informational and educational purposes only. It is not investment, legal, or tax advice. Do your own research.”* Disclaimer string unchanged for now — wording review is an open question |
 | Local-only deploy (now) | `adk web` / `adk run app`; no cloud multi-tenant product yet |
 | Secrets | `GOOGLE_API_KEY` (and related) only in `.env`; never logged |
 | Ticker validation | Strict pattern before tool calls or prompt inclusion |
@@ -433,12 +744,21 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, Brief
 
 6. **Daily Decision Brief** → Approach B product contract: hybrid website Brief on evidence spine; v1 = material events + metrics; social/earnings-call/dissemination recorded; social never in scores. Defaults: rolling 24h, 5% OR event, cap 15, cache-first. See office-hours design APPROVED and [TODOS.md](../TODOS.md).
 
+### Resolved (2026-08-05)
+
+7. **Portfolio Intelligence framing** → Umbrella vision: PRD repositioned as Portfolio Intelligence; shipped Brief = Engine 1 surface (preserved unchanged); new Thesis landing page hosts Engines 2–6.
+8. **Advice stance** → Directive guidance (buy/hold/trim/research + confidence) allowed only from the AI Portfolio Advisor; all other surfaces stay non-directive; disclaimer retained.
+
 ### Still open
 
 1. Multi-account tags on Brief rows? *(default: single Held/Watched book)*  
 2. Watchlist category labels (Biotech/AI/…) on Brief rows in v1? *(default: no)*  
 3. Intake OCR/speech: on-device vs cloud model for screenshot/voice? *(default: browser SpeechRecognition + local/lightweight OCR where possible; cloud only if quality forces it)*  
-4. Bulk intake default list kind when CSV has no Held/Watched column? *(default: user-selected list at import time)*
+4. Bulk intake default list kind when CSV has no Held/Watched column? *(default: user-selected list at import time)*  
+5. Data sourcing for Thesis metrics not currently fetched — insider buying, analyst changes, inventory trends, buyback/dilution series, historical PE/PS/PB price bands? *(default: ship what Yahoo + SEC XBRL support in T1–T2 with honest gaps; new providers via the 2C provider port when a slice needs them)*  
+6. Framework formula lock process — where are Graham/Buffett/etc. formulas and thresholds locked before implementation? *(default: per-framework spec table in architecture.md + unit tests before any agent consumes scores, per existing scoring invariant)*  
+7. Replacement Value methodology for the six-value ladder? *(default: defer to T2 design; show `null` until a defensible method is locked)*  
+8. Disclaimer wording under the directive-advisor stance — soften to "guidance is informational; you are responsible for decisions"? *(default: keep current locked string until legal-style review)*
 
 ---
 
@@ -449,7 +769,7 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, Brief
 | [architecture.md](architecture.md) | How the system is designed (flows, schemas, failures, ADK mapping) |
 | [implementation-status.md](implementation-status.md) | What is Done / Partial / Todo vs architecture |
 | [TODOS.md](../TODOS.md) | Deferred Phase 2+ work items |
-| [DESIGN.md](../DESIGN.md) | Design system (incl. Brief nav) |
+| [DESIGN.md](../DESIGN.md) | Design system (incl. Brief nav + planned Thesis vocabulary) |
 | [design-plan.md](design-plan.md) | Living UX plan |
 | [evaluations/phase0/README.md](../evaluations/phase0/README.md) | How to run on-demand LLM evals |
 | [README.md](../README.md) | Setup, run, and design principles |
@@ -460,6 +780,7 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, Brief
 
 | Date | Change |
 |------|--------|
+| 2026-08-05 | Adopt **Portfolio Intelligence** umbrella vision: six-engine architecture, Thesis landing page (Engines 2–6) with normative examples, T1–T5 + E1 roadmap, advice stance rescoped to Advisor-only; shipped Brief preserved unchanged as Engine 1 surface |
 | 2026-08-03 | Flexible ticker intake shipped (CSV / paste / speech / screenshot OCR + membership dedupe) |
 | 2026-08-03 | Daily Decision Brief Slice 1 shipped (generator, API, BriefPage, yahoo_history) |
 | 2026-08-03 | Add flexible ticker intake (CSV / screenshot / speech / paste) + membership dedupe; user/system features and roadmap sequence |

@@ -1,6 +1,8 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). Next: orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). Next: Thesis T1 (landing page shell + Framework Engine v1), orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+
+**Portfolio Intelligence (2026-08-05):** Umbrella vision in [docs/PRD.md](docs/PRD.md) §1: six engines; shipped Brief = Engine 1 surface (**preserved unchanged**); new Thesis landing page hosts Engines 2–6. Directive guidance only from the AI Portfolio Advisor. Thesis slices T1–T5 + Brief E1 below.
 
 **Design:** [DESIGN.md](DESIGN.md) · living UX plan [docs/design-plan.md](docs/design-plan.md) (`/plan-design-review` 2026-07-28). Brief design: `~/.gstack/projects/schohan-foliotracker/shailenderchohan-main-design-20260731-024904.md`.
 
@@ -11,6 +13,78 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
 
 ## Next milestones (queued)
+
+### Thesis T1 — landing page shell + Framework Engine v1
+
+**What:** Dedicated Thesis landing page (`PrimaryNav` → `Watchlist | Risk | Brief | Thesis`; `AppView` gains `thesis`). New `app/schemas/thesis.py` contracts (`FrameworkScorecard`, `FrameworkCheck`, per-stock framework score table). Deterministic Graham Deep Value + Financial Strength scorecards computed from existing merged fundamentals (Yahoo + SEC XBRL); honest `null` for unsupported checks. `GET /api/thesis` + `POST /api/thesis/generate`; `ThesisPage` + `thesis/FrameworkScoreTable` + `thesis/FrameworkScorecard`.
+
+**Why:** First slice of Portfolio Intelligence (PRD §5.4): replaces the embedded thesis one-liner with a multi-framework landing page. Graham + Financial Strength are computable from data we already fetch.
+
+**Context:** Follow the Brief template (schemas → deterministic services → ring store → API → page). Formulas + unit tests land **before** any agent consumes scores (2B invariant). Reference examples in PRD §5.4.3 are normative (Graham scorecard shape, score table shape). Brief is untouched.
+
+**Effort:** M  
+**Priority:** P1  
+**Depends on:** Docs locked (2026-08-05)
+
+### Thesis T2 — Valuation Engine + Net Asset Intelligence + Margin of Safety
+
+**What:** Valuation service: Graham set (NCAV, net-net, intrinsic, liquidation, adjusted book), Buffett set (owner earnings, FCF yield, ROIC, capital efficiency), Modern set (DCF, reverse DCF, EV/EBITDA, EV/FCF, PEG, historical PE/PS/PB bands, sector relative). Six-value ladder (Market / Intrinsic / Liquidation / Replacement / Enterprise / Expected Fair). Net asset service → Adjusted Net Assets vs market cap. UI: `thesis/ValuationLadder`, `thesis/AssetBreakdown`, `thesis/MarginOfSafety` (% + stars, PRD §5.4.7).
+
+**Why:** Biggest differentiator per PRD §5.4.2: multiple simultaneous valuations instead of one P/E.
+
+**Context:** Replacement Value method is an open PRD question — ship `null` until locked. Bands need price history (`history_closes`) + statement series; gaps stay honest.
+
+**Effort:** L  
+**Priority:** P2  
+**Depends on:** T1 schemas + page
+
+### Thesis T3 — Thesis Monitoring
+
+**What:** Per-ticker thesis snapshot ring store (like `brief_store`). Quarterly change assessment → closed verdict set `No change | Strengthened | Slightly weaker | Broken` with cited evidence. `thesis/ThesisTimeline` UI. LLM narrative behind `THESIS_INSIGHT_MODE=deterministic|canned|llm`, fail-closed like `brief_insight`.
+
+**Why:** Engine 5 (PRD §5.4.4): monitor thesis, not price — the core long-term-investor value.
+
+**Effort:** M  
+**Priority:** P2  
+**Depends on:** T1; existing `InvestmentThesis` from Phase 0 seeds the original thesis
+
+### Thesis T4 — AI Portfolio Advisor + AI Research button
+
+**What:** Advisor insight per holding: reasoning lines + directive conclusion (buy more / hold / trim / research further / wait) + confidence, per PRD §5.4.5 reference example. `POST /api/thesis/explain` research button with canned framework questions (PRD §5.4.10), patterned on `POST /api/brief/explain`. Provider label always visible; fail-closed.
+
+**Why:** Engine 6 — the only surface allowed directive phrasing (PRD principle 7).
+
+**Effort:** M  
+**Priority:** P2  
+**Depends on:** T1–T3 signals (frameworks, valuations, thesis verdicts)
+
+### Thesis T5 — Investment OS Score + Portfolio dashboard
+
+**What:** Deterministic composite from the locked weight table (PRD §5.4.11: Business Quality 20 / Financial Strength 15 / Valuation 20 / Balance Sheet 15 / Earnings Quality 10 / Capital Allocation 10 / Framework Consensus 5 / Thesis Stability 5). Portfolio health rollup counts (PRD §5.4.8) on the Thesis page.
+
+**Effort:** M  
+**Priority:** P3  
+**Depends on:** T1–T3 (consensus + stability inputs)
+
+### Brief E1 — event enrichment + morning counts (additive)
+
+**What:** **Additive optional** `BriefBullet` fields: impact, confidence, affected frameworks, thesis impact. Morning count strip (thesis changed / valuation improved / MoS increased / balance sheet weakened / risk increased / opportunity score, PRD §5.4.9).
+
+**Why:** Engine 1 extension of the shipped Brief. Backwards-compatible by contract: optional fields only; Brief behavior unchanged until this ships; **no shipped Brief acceptance criteria change**. Existing Brief milestones (insight-mode dogfood, Slice 2 polish, E2E smoke, near-miss log) stay queued unchanged.
+
+**Effort:** S–M  
+**Priority:** P3  
+**Depends on:** Thesis T3 (verdict + valuation-delta signals)
+
+### Thesis — Phase-next frameworks (recorded)
+
+**What:** Remaining framework modules after Graham + Financial Strength: Peter Lynch, Greenblatt Magic Formula, Quality Investing, GARP, Dividend, Momentum. Then future modules: Howard Marks (cycle/risk asymmetry), Munger (qualitative quality), Mauboussin (expectations investing), Fama-French (factor exposures), Behavioral Finance (bias alerts), Macro Overlay (rate/recession/inflation/geopolitical).
+
+**Why:** Investment Intelligence Platform trajectory (PRD §5.4.13); recorded, not sequenced.
+
+**Effort:** L (per module S–M)  
+**Priority:** P3  
+**Depends on:** T1 framework engine pattern proven
 
 ### Watchlist collections (orthogonal overlays — 1A)
 
