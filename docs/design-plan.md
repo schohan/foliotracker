@@ -1,7 +1,7 @@
 # FolioTracker Design Plan
 
-**Status:** Living plan from `/plan-design-review` (2026-07-28)  
-**Surfaces:** Shipped watchlist dashboard v1 (`web/`) + deferred UI in [TODOS.md](../TODOS.md)  
+**Status:** Living plan from `/plan-design-review` (2026-07-28); updated 2026-08-06 for the **Portfolio Intelligence** platform framing ([PRD §1](PRD.md))  
+**Surfaces:** Shipped — Watchlist (incl. flexible intake), Risk, **Brief triage dashboard (Engine 1 — preserved unchanged)**. Planned — **Thesis landing page (Engines 2–6)**, sequenced in [TODOS.md](../TODOS.md)  
 **Classifier:** App UI (workspace-driven, data-dense, task-focused)  
 **Visual lock (shipped):** navy/paper/copper · Fraunces (display) + IBM Plex Sans (body) · CSS vars in `web/src/app.css`  
 **Design system:** [DESIGN.md](../DESIGN.md)
@@ -79,13 +79,14 @@ Show a section only when it has rows **or** when the other section has rows (so 
 
 ### Navigation
 
-Single-page app. No global nav in v1. Close detail returns focus to the list. No marketing shell.
+*(Superseded 2026-08-06 — original v1 was single-page with no global nav.)* Shipped nav is `PrimaryNav`: **Watchlist | Risk | Brief** (text nav, same shell, per 7A). The planned Thesis landing page extends it to **Watchlist | Risk | Brief | Thesis** ([PRD §5.4](PRD.md)). Watchlist stays home default. Close detail returns focus to the list. No marketing shell.
 
 ### Deferred IA (TODOS — sketched)
 
 | Surface | Job | First / second / third |
 |---------|-----|------------------------|
-| Portfolio / correlation | Multi-ticker risk | **7A:** same shell; text nav `Watchlist \| Risk`; Risk view is primary workspace when selected; watchlist stays home default |
+| Portfolio / correlation | Multi-ticker risk | **7A — shipped (Risk v2):** same shell; text nav; Risk view is primary workspace when selected; watchlist stays home default |
+| **Thesis landing page (Engines 2–6)** | Answer the five morning questions per holding through multiple framework lenses | Planned (T1+): nav adds Thesis; page hosts framework score table, valuation ladder, thesis timeline, advisor insight — see [Thesis surface](#thesis-surface-planned--portfolio-intelligence-engines-26) below |
 | Phase 3 research UI | Single-ticker deep research without ADK chat | **8A:** detail panel *is* the research UI — deepen evidence/claim links; optional full-page mode; ADK chat stays optional for engineers. Contract: `Phase0Result` |
 
 ### Decisions locked
@@ -116,7 +117,7 @@ What the user **sees** (not backend behavior).
 | Conflicts (detail) | — | Calm success copy: “No source conflicts detected.” (agreement is good, not an empty failure) | — | List by topic + severity + summary | — |
 | Fundamentals (detail) | — | “No fundamentals in this result.” | — | Key metrics grid | Sparse metrics + “—” |
 | Remove ticker | — | — | Banner if remove fails; ticker stays | Row gone; if it was selected, panel closes | — |
-| **Brief page** | Soft line: “Generating today’s brief…”; prior Brief stays visible if any | **No universe:** “Add tickers on Watchlist to generate a Brief.” **No material events:** calm “Nothing material in the last 24h.” | Banner + Retry Generate; keep last Brief if present | Ranked ticker **rows** (cap 15); bullets with optional source links; metrics strip; miss-log control | `generation_status` stale/partial banner; per-row `partial`/`unavailable` honest |
+| **Brief page** | Soft line: “Generating today’s brief…”; prior Brief stays visible if any | **No universe:** “Add tickers on Watchlist to generate a Brief.” **No material events:** calm “Nothing material in the last 24h.” | Banner + Retry Generate; keep last Brief if present | Triage dashboard: High/Medium/Quiet sections of ranked ticker **rows** (cap 15); Impact Score; bullets with optional source links; digest strip; timeline; provider-labeled insights | `generation_status` stale/partial banner; per-row `partial`/`unavailable` honest |
 | Brief Generate | Button “Generating…”; disabled until done | — | Banner; do not invent bullets | New Brief replaces prior; date/meta updates | Some tickers unavailable — omit quiet; show unavailable only when move unknown and no bullets |
 
 ### Empty-state copy principles
@@ -251,9 +252,9 @@ What the user **sees** (not backend behavior).
 
 ### Component vocabulary (shipped — reuse)
 
-`WatchlistPage` · `AddTickerForm` · `TickerRow` · `ScoreStrip` · `TickerDetailPanel` · `ConflictsList` · `DisclaimerBar`
+`WatchlistPage` · `AddTickerForm` · `TickerListSection` · `TickerRow` · `ScoreStrip` · `TickerDetailPanel` · `ConflictsList` · `TickerIntakePanel` · `DisclaimerBar` · `PrimaryNav` · `RiskPage` · `BriefPage` + `brief/*` (`PrioritySection`, `EventRow`, `FilterBar`, `PortfolioSummary`, `TimelineRail`, `HeatMap`, `StockDrawer`, `SourceList`)
 
-No new component families for v1 polish. Portfolio / Phase 3 UI (TODOS) must extend this vocabulary, not invent a second visual language.
+The planned `ThesisPage` + `thesis/*` components must extend this vocabulary and the same visual language — not invent a second one. Shipped `brief/*` components are the Engine 1 surface and stay unchanged.
 
 ### Decisions locked (system)
 
@@ -370,19 +371,31 @@ All design choices from this review are locked (1–8 + focus management). Imple
 
 **Overall design score:** 5/10 → 9/10 (plan complete; implementation still in TODOS)
 
-Risk nav scaffold + correlation table shipped (Risk v2, 2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03) — nav is `Watchlist | Risk | Brief`. Further TODOS: flexible ticker intake, Brief dogfood → Slice 1b/2, Phase 3 evidence deepen, server single-flight.
+Risk nav scaffold + correlation table shipped (Risk v2, 2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03) and **triage dashboard shipped** (2026-08-04) — nav is `Watchlist | Risk | Brief`. **Flexible ticker intake shipped** (2026-08-03). Further TODOS: Brief dogfood Assignment, **Thesis landing page T1–T5** (next planned surface), Phase 3 evidence deepen, server single-flight.
 
-### Brief surface (office-hours 2026-07-31 — Approach B)
+### Brief surface (office-hours 2026-07-31 — Approach B; triage dashboard shipped 2026-08-04)
+
+**This is the Engine 1 (Market Intelligence) surface of Portfolio Intelligence — preserved unchanged** ([PRD §1.2](PRD.md)). Shipped beyond Slice 1: High/Medium/Quiet priority sections with Impact Score, filters, morning digest strip, history timeline, heat map, stock drawer, and provider-labeled insight blocks (`BRIEF_INSIGHT_MODE`). The only queued visual change is the additive Brief E1 morning count strip (after Thesis T3).
 
 Constraint worship — if the user can only notice **3 things** on Brief:
 
 1. **Brand + date** — FolioTracker + which Brief day / how many tickers surfaced  
 2. **Generate today** — primary action (cache-first)  
-3. **Ranked material rows** — move + precise bullets + optional source links  
+3. **Ranked material rows** — High/Medium/Quiet triage, move + precise bullets + optional source links  
 
-Secondary: metrics strip, miss log, disclaimer, Phase-next social placeholder (not in Slice 1 UI).
+Secondary: metrics strip, digest strip, timeline, heat map, miss log, disclaimer, Phase-next social placeholder.
 
 Wireframe: `~/.gstack/projects/schohan-foliotracker/brief-wireframe-20260731.html`
+
+### Thesis surface (planned — Portfolio Intelligence, Engines 2–6)
+
+New landing page beside Brief (`PrimaryNav`: Watchlist | Risk | Brief | **Thesis**), replacing the embedded thesis surface (Watchlist one-liner + detail-panel text). Product contract: [PRD §5.4](PRD.md) normative examples; system contracts: [architecture.md](architecture.md) Thesis section. **Detailed design pass happens at T1 — nothing below is a locked wireframe.** Design intents to carry in:
+
+1. **Same visual language** — navy/paper/copper, Fraunces + IBM Plex Sans, table-first density; `thesis/*` components extend the shipped vocabulary (no second design system).
+2. **Constraint worship (provisional 3 things):** framework score table (every holding × multiple philosophies) · thesis-change verdicts · Generate/refresh action. Secondary: valuation ladder, net-asset breakdown, Margin of Safety visualization, portfolio rollup, AI Research button.
+3. **Honesty patterns reused:** `null`/"insufficient data" gaps rendered as "—" (never invented values); provider labels on every insight (`THESIS_INSIGHT_MODE` mirrors Brief); disclaimer always visible.
+4. **Directive phrasing is visually scoped:** buy/hold/trim/research language appears **only** inside the Advisor insight block (with reasoning + confidence) — no directive copy leaks into score tables, valuations, or rollups.
+5. **Verdict vocabulary is a closed set:** `No change | Strengthened | Slightly weaker | Broken` — styled as status labels (text + color, like ok/partial/error), not free prose.
 
 ### Eng review scope (2026-07-28) — **A locked**
 

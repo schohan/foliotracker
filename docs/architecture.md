@@ -1,8 +1,8 @@
 # FolioTracker Architecture
 
-AI portfolio / stock research on [Google ADK](https://adk.dev/).
+**Portfolio Intelligence** — an AI Investment Operating System on [Google ADK](https://adk.dev/). Six AI engines compose over one shared **evidence spine** (fetch → evidence → cite → score); see [Platform shape](#platform-shape--six-engines-one-evidence-spine) below and [PRD §1](PRD.md).
 
-**Status:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 shipped**. **Next:** Brief dogfood Assignment, or flexible ticker intake / Phase 3 evidence deepen. See [TODOS.md](../TODOS.md).
+**Status:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface — preserved unchanged). **Flexible ticker intake shipped.** **Portfolio Intelligence vision adopted — Thesis page (Engines 2–6) planned.** **Next:** Brief dogfood Assignment, then Thesis T1. See [TODOS.md](../TODOS.md).
 
 **Related:** [PRD.md](PRD.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -15,6 +15,25 @@ AI portfolio / stock research on [Google ADK](https://adk.dev/).
 3. **Evidence over vibes.** Downstream agents consume `Evidence`, not raw prose from upstream agents.
 4. **Eval-first.** Tests and evals are written and reviewed before implementation code for each phase.
 5. **Partial failure is visible.** Missing data yields a degraded, labeled result — never a silent fake thesis.
+6. **Frameworks are lenses, not verdicts.** Each investment framework (Graham, Buffett, Lynch, …) is a deterministic service contributing evidence; no single philosophy dictates a rating.
+7. **Directive guidance is earned, scoped, and explained.** Buy / hold / trim / research phrasing is allowed **only** from the AI Portfolio Advisor (Engine 6), always with reasoning, confidence, provider label, and the fixed disclaimer. Every other surface stays non-directive.
+
+---
+
+## Platform shape — six engines, one evidence spine
+
+Portfolio Intelligence is six AI engines composing over the same evidence spine ([PRD §1.2](PRD.md)). The spine — sources → per-source cache → merged fundamentals → evidence builders → aggregator → deterministic services → sole-LLM reasoning steps — is what Phases 0–2C built; engines are composition over it, not parallel stacks.
+
+| Engine | Answers | System components | Surface | Status |
+|--------|---------|-------------------|---------|--------|
+| 1. Market Intelligence | "What changed that matters?" | `brief_classify`, `yahoo_history`, `brief_service`, `brief_insight`, `brief_store`, `/api/brief*` | **Brief page — shipped, preserved unchanged** (E1 enrichment additive, after T3) | **Shipped** |
+| 2. Fundamental Engine | Stronger or weaker? | Merged fundamentals (Yahoo + SEC XBRL) → metric services incl. Altman Z / Piotroski F / Beneish M where computable | Thesis page | Planned (T1+) |
+| 3. Valuation Engine | Am I paying too much? | Valuation service (Graham / Buffett / Modern sets → six-value ladder) + net asset service | Thesis page | Planned (T2) |
+| 4. Investment Framework Engine | How does each philosophy score this? | Framework engine service → `FrameworkScorecard` per philosophy | Thesis page | Planned (T1) |
+| 5. Thesis Monitoring | Has my thesis changed? | Thesis snapshot ring store + quarterly diff → closed verdict set | Thesis page | Planned (T3) |
+| 6. AI Portfolio Advisor | Buy more / hold / trim / research? | Advisor + explain service (`THESIS_INSIGHT_MODE`, fail-closed) | Thesis page | Planned (T4) |
+
+Shared substrate for every engine: `source_registry` / `source_cache` / `cached_fetch`, `merge_fundamentals` + provenance, evidence builders + aggregator, deterministic scoring services, and the fail-closed insight-provider pattern (`brief_insight` → mirrored by `thesis` advisor). Detailed designs: shipped spine in the Phase 0–2C sections below; Engine 1 in [Daily Decision Brief](#engine-1--daily-decision-brief-shipped); Engines 2–6 in [Portfolio Intelligence — Thesis page](#portfolio-intelligence--thesis-page-engines-26-planned).
 
 ---
 
@@ -141,7 +160,7 @@ analyze_ticker
 - Full evidence graph edges / confidence calibration
 - Memory layers, Mongo, vector store (local TTL file cache **is** in Phase 0 — see below)
 - Position weights / ADK `portfolio_agent` (Risk v2 concentration + correlation shipped; see TODOS)
-- Custom HTTP API / UI beyond watchlist + Risk + Brief (Phase 3 evidence deepen still open)
+- Custom HTTP API / UI beyond watchlist + Risk + Brief + intake (Thesis page is the next planned surface; Phase 3 evidence deepen still open)
 - Production deploy, Redis multi-tenant rate-limit platform, Kafka/Celery ingestion
 - Shipping Alpha Vantage / Finnhub / Polygon in slice 1
 - Web scraping of article bodies or full filing HTML (RSS headlines + EDGAR metadata only until XBRL slice)
@@ -615,46 +634,42 @@ Steps 4–7 do not begin until step 3 is approved.
 
 ---
 
-## Target platform (DEFERRED — 12-month ideal)
+## Target platform — Portfolio Intelligence (adopted north star)
 
-Capability-oriented OS: many specialists, shared workflows, evidence graph, scoring, memory, portfolio layer. Useful as north star; **do not implement in Phase 0**.
-
-```
-                           User Request
-                                │
-                                ▼
-                    Portfolio / Stock Research Agent
-                                │
-                    (Planning & Orchestration)
-                                │
-          ┌───────────────┬───────────────┬───────────────┐
-          ▼               ▼               ▼               ▼
-    Company Domain   Financial Domain   Market Domain   Governance
-                                │
-                        Shared Workflows
-                                │
-                     Shared Tool & Service Layer
-                                │
-                         Evidence Repository
-                                │
-                      Scoring / Analytics Services
-                                │
-                         Report Generation Agent
-```
-
-### Deferred capability map (scaffold may exist; not Phase 0 work)
+The adopted target (2026-08-05, superseding the earlier capability-oriented cathedral): **six engines over one evidence spine**, each engine a composition of deterministic services plus narrowly-scoped LLM reasoning — never a parallel data stack. Build only the slice currently sequenced in [TODOS.md](../TODOS.md).
 
 ```
-agents/     orchestrator/, company/, financials/, market/,
-            technical/, governance/, report/
-tools/      finance/, filings/, search/, web/, news/, social/,
-            ai/, cache/, persistence/
-workflows/  search_extract, filing_analysis, earnings_*, …
-services/   valuation, scoring, ranking, normalization, caching
-memory/     research, ticker, company, session, portfolio
+                        Busy professional, every morning
+                                     │
+     ┌───────────────────────────────┼───────────────────────────────┐
+     ▼                               ▼                               ▼
+ Brief page (shipped)          Thesis page (planned)          Watchlist / Risk (shipped)
+ Engine 1                      Engines 2–6
+ Market Intelligence           Fundamental │ Valuation │ Framework
+                               Thesis Monitoring │ AI Advisor
+     │                               │                               │
+     └───────────────────────────────┼───────────────────────────────┘
+                                     ▼
+                    Deterministic service layer (no LLM math)
+        scoring · framework engines · valuations · net assets · OS Score
+                                     │
+                                     ▼
+              Evidence spine: builders → aggregator → citations
+                                     │
+                                     ▼
+        merge_fundamentals + provenance (trust ladder, honest gaps)
+                                     │
+                                     ▼
+      source_registry / per-source cache / cached_fetch (TTL + budgets)
+                                     │
+              ┌──────────┬───────────┼───────────┬──────────┐
+              ▼          ▼           ▼           ▼          ▼
+            yahoo    google_news  sec_edgar   sec_xbrl  alpha_vantage
 ```
 
-Future composition (when Phase 0 is done): ETF, dividend, M&A, earnings preview, portfolio risk agents reuse the same evidence spine — after aggregator grows beyond pass-through.
+LLM steps stay narrow and fail-closed: `thesis_agent` (cited research thesis), insight providers (`brief_insight`, planned thesis advisor/explain) — always provider-labeled, never arithmetic.
+
+**Deferred beyond the engine map** (recorded, not sequenced): future framework modules (Marks, Munger, Mauboussin, Fama-French, Behavioral, Macro Overlay — PRD §5.4.13), Brief dissemination adapters, social display-only ingest, memory layers beyond TTL files, full evidence graph edges, hosted multi-tenant deploy (Phase 3).
 
 ---
 
@@ -667,15 +682,15 @@ Future composition (when Phase 0 is done): ETF, dividend, M&A, earnings preview,
 | Path dependency | Evidence + citation spine is the load-bearing choice — good |
 | 1-year readability | Phase 0 section at top of this doc is the on-ramp |
 
-**After thin Phase 2 shipped (2A + 2B):** Phase 2C multi-source ingestion next; portfolio/memory/dashboard deferred (see TODOS).
+**Current position (2026-08-06):** spine + watchlist + Risk v2 + Brief (Engine 1) + intake shipped; next is Brief dogfood Assignment, then Thesis T1 (Engines 2–6 begin).
 
 ## Dream state delta
 
-| Now | After Phase 2C | 12-month ideal |
-|-----|----------------|----------------|
-| Yahoo + news + SEC cited thesis + conflicts + Scorecard; single result TTL | Provider port, per-source TTL/quota, richer fundamentals + provenance; SEC XBRL for statements | Full evidence graph, portfolio dashboard, scoring, memory |
+| Now | After Thesis T1–T5 | Full Portfolio Intelligence |
+|-----|--------------------|-----------------------------|
+| Evidence spine (Yahoo + news + SEC + XBRL + AV), cited thesis, Scorecard, watchlist/Risk, Brief triage dashboard (Engine 1), intake | Thesis page hosting Engines 2–6: framework scorecards, valuation ladder, net assets, thesis monitoring, advisor, OS Score; Brief E1 count strip | All six engines mature; future framework modules; dissemination; memory; hosted deploy (Phase 3) |
 
-Phase 0–2B proved the spine. 2C makes fundamentals multi-provider-ready without pretending the cathedral is built.
+Phase 0–2C proved the spine. Brief proved the engine template (schemas → deterministic services → ring store → API → page). Thesis reuses that template for Engines 2–6 without pretending the full platform is built.
 
 ---
 
@@ -743,9 +758,9 @@ COVERAGE: 2C.1–2C.2 unit-covered; 2C.3 + cache-interaction paths remain GAPs
 
 ---
 
-## Daily Decision Brief (Slice 1 — shipped 2026-08-03)
+## Engine 1 — Daily Decision Brief (shipped)
 
-Portfolio-scoped material-event triage over **Held ∪ Watched** (Held wins duplicates).
+Portfolio-scoped material-event triage over **Held ∪ Watched** (Held wins duplicates). Slice 1 shipped 2026-08-03; triage dashboard shipped 2026-08-04. **This is the Engine 1 (Market Intelligence) surface of Portfolio Intelligence — its contracts, generator, and UI are preserved unchanged.** The only queued change is the additive, backwards-compatible Brief E1 enrichment (after Thesis T3).
 
 ### Data flow
 
@@ -755,9 +770,11 @@ membership snapshot
         cached_fetch yahoo → history_closes → last-session daily %
         cached_fetch news + SEC → evidence_from_* → brief_classify
   → gate: |daily return| ≥ 5% OR classified event (24h window)
-  → rank max(move_score, event_severity); cap 15 tickers / 5 bullets
+  → rank max(move_score, event_severity); Impact Score (0–100) + High/Medium/Quiet priority
+  → insight provider (BRIEF_INSIGHT_MODE: deterministic | canned | llm, fail-closed)
+  → cap 15 tickers / 5 bullets
   → brief_store ring-14 + DailyBrief JSON
-  → GET/POST /api/brief* + BriefPage (PrimaryNav)
+  → GET/POST /api/brief* + BriefPage triage dashboard (PrimaryNav)
 ```
 
 **Does not** call `run_phase0_research`. Phase0 cache is optional for the metrics strip (P/E, 1Y, G/V/R).
@@ -766,29 +783,43 @@ membership snapshot
 
 | Piece | Role |
 |-------|------|
-| `DailyBrief` / `BriefTicker` / `BriefBullet` | `app/schemas/brief.py` |
+| `DailyBrief` / `BriefTicker` / `BriefBullet` / `BriefInsight` | `app/schemas/brief.py` — triage fields (`impact_score` 0–100, priority, category, severity), structured insight (what happened / why / market reaction / should long-term care), `insight_mode` provider label |
 | `yahoo_history` | Shared parse + last-session daily % + `move_score` (Risk + Brief) |
 | `brief_classify` | Keyword + SEC form heuristics → category/severity |
 | `brief_service.generate_daily_brief` | Sync Generate; ~60s wall → `generation_status` complete/stale/partial |
-| `brief_store` | Ring-14 JSON + miss-log JSONL |
-| API | `GET /api/brief`, `POST /api/brief/generate`, `POST /api/brief/miss` |
-| UI | `BriefPage` — Generate, ranked rows, miss log; no detail panel |
+| `brief_insight` | Insight provider: `BRIEF_INSIGHT_MODE=deterministic` (default) \| `canned` \| `llm`; llm fails closed to deterministic; provider label always on payload |
+| `brief_store` | Ring-14 JSON (history browse) + miss-log JSONL |
+| API | `GET /api/brief`, `GET /api/brief/history`, `POST /api/brief/generate`, `POST /api/brief/miss`, `POST /api/brief/explain` |
+| UI | `BriefPage` triage dashboard — High/Medium/Quiet inbox rows, filters, quiet list, morning digest strip, history timeline, heat map, stock drawer, miss log |
 
 ### Yahoo `history_closes`
 
 `FinancialMetrics.history_closes` is populated by Yahoo `metrics_from_bundle` and persisted in the Yahoo source cache so Risk correlations and Brief daily % share one series. Excluded from evidence serialization (ID stability).
 
-### Out of Slice 1
+### Out of current Brief scope
 
-LLM bullet phrasing (1b), schedule/history browse (Slice 2), social, dissemination adapters.
+Scheduled generation, social display-only section, earnings-call digests, dissemination adapters (email / messaging / audio / MCP — recorded, not built until the website Brief is trusted). Brief E1 enrichment (optional `BriefBullet` fields + morning count strip) is queued **after** Thesis T3 and must stay backwards-compatible.
 
 ---
 
-## Portfolio Intelligence — Thesis page (PLANNED — docs locked 2026-08-05)
+## Flexible ticker intake (shipped 2026-08-03)
 
-Product frame: [PRD](PRD.md) §1 (six engines) and §5.4 (Thesis landing page, normative examples). Slices T1–T5 + Brief E1 sequenced in [TODOS.md](../TODOS.md).
+Bulk membership intake without one-by-one typing: CSV / free-text paste / screenshot-OCR text / speech transcript all feed one extract path. Membership-first — **no auto-research on bulk add** (preserves the watchlist cost model).
 
-**Engine → surface mapping:** Engine 1 (Market Intelligence) = the shipped Brief, **unchanged** — everything in the "Daily Decision Brief (Slice 1)" section above remains authoritative. Engines 2–6 (Fundamental, Valuation, Framework, Thesis Monitoring, Advisor) = the new Thesis page, built on the same evidence spine and the Brief architectural template.
+| Piece | Role |
+|-------|------|
+| Extract + normalize service | Parse unstructured text → candidate tickers; validate via existing strict ticker rules; never invent symbols from OCR/speech noise (fail closed on empty extract) |
+| `WatchlistIntakeRequest` / `WatchlistIntakeResponse` | `app/schemas/watchlist.py` — text + target list kind → `added` / `skipped_duplicate` / `rejected_invalid` |
+| API | `POST /api/watchlist/intake` — idempotent: tickers already in Held ∪ Watched are skipped (no error, no list move) |
+| UI | CSV file picker + paste area; screenshot and mic are capture affordances into the same extract path |
+
+---
+
+## Portfolio Intelligence — Thesis page (Engines 2–6, planned)
+
+Docs locked 2026-08-05. Product frame: [PRD](PRD.md) §1 (six engines) and §5.4 (Thesis landing page, normative examples). Slices T1–T5 + Brief E1 sequenced in [TODOS.md](../TODOS.md).
+
+**Engine → surface mapping:** Engine 1 (Market Intelligence) = the shipped Brief, **unchanged** — everything in the "Engine 1 — Daily Decision Brief" section above remains authoritative. Engines 2–6 (Fundamental, Valuation, Framework, Thesis Monitoring, Advisor) = the new Thesis page, built on the same evidence spine and the Brief architectural template (schemas → deterministic services → ring store → HTTP API → Svelte page).
 
 ### Data flow (planned)
 
@@ -831,6 +862,22 @@ Like Brief, Generate does **not** call `run_phase0_research`; it composes over c
 | `THESIS_STORE_PATH` | Snapshot ring store (default under `.cache/foliotracker/`) |
 | `THESIS_GENERATE_BUDGET_SECONDS` / `THESIS_MAX_WORKERS` | Wall budget + bounded pool |
 
+### Framework formula specs (LOCK BEFORE T1 IMPLEMENTATION)
+
+Per [PRD open question 6](PRD.md) (default adopted): every framework's formulas and thresholds are locked **here** as a spec table — with unit tests — before any agent or service consumes its scores (same invariant as the 2B scoring service). T1 covers **Graham** and **Financial Strength**; remaining frameworks add their tables when their slice is designed.
+
+Table skeleton per framework (filled at T1 design; placeholders below are illustrative, not locked):
+
+| Check | Input fields (merged fundamentals) | Formula / threshold | Result type | Missing-input behavior |
+|-------|------------------------------------|---------------------|-------------|------------------------|
+| e.g. Margin of Safety | intrinsic value, market price | *TBD at T1 design* | % + rating | `null` + "insufficient data" |
+| e.g. Current Ratio | `balance_sheet.*` | *TBD at T1 design* | value + PASS/FAIL | `null` |
+| **Framework score** | check results | weighted composite, 0–100 *(weights TBD)* | 0–100 or `null` | `null` when below minimum check coverage |
+
+- **Graham Deep Value** — checks per PRD §5.4.3 (Margin of Safety, Net-Net, Current Ratio, Debt, Earnings Stability, Dividend History): *table pending T1 design*
+- **Financial Strength** — checks TBD (candidates: leverage, coverage, liquidity, Altman Z / Piotroski F when computable): *table pending T1 design*
+- Lynch, Greenblatt, Quality, GARP, Dividend, Momentum, Buffett: phase-next; tables land with their slices
+
 ### Engineering invariants (restated for this track)
 
 - **Deterministic math first:** every framework formula, valuation, and the OS Score composite is a pure-Python service with unit tests **before** any agent consumes it. LLMs never perform score/valuation arithmetic.
@@ -845,6 +892,7 @@ Like Brief, Generate does **not** call `run_phase0_research`; it composes over c
 
 | Date | Change |
 |------|--------|
+| 2026-08-06 | Align doc to Portfolio Intelligence platform (PRD 2026-08-05): reframed header/status, principles 6–7 (frameworks-as-lenses, Advisor-only directive guidance), platform-level six-engine map, Brief section refreshed to shipped triage dashboard (history/explain/insight modes) as Engine 1 surface, flexible intake section added, framework formula-spec lock placeholder (pre-T1 gate), six-engine target architecture replaces deferred cathedral north star |
 | 2026-08-05 | Portfolio Intelligence (planned): Thesis page section — engines 2–6 data flow, `app/schemas/thesis.py` contracts, `THESIS_*` settings, invariants; Brief preserved unchanged as Engine 1 surface |
 | 2026-08-03 | Daily Decision Brief Slice 1: schemas, classify, yahoo_history, generator, API, BriefPage; `history_closes` on Yahoo cache |
 | 2026-07-31 | Correlation slice (Risk v2): pairwise ~1y returns from Yahoo source-cache `history_closes`; `PairCorrelation` on `GET /api/risk` |

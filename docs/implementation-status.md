@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 shipped**. **Flexible ticker intake shipped**. **Portfolio Intelligence vision adopted — Thesis page planned (docs 2026-08-05)**. **Next:** Thesis T1, Brief dogfood Assignment, or Phase 3 evidence deepen. See [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface — preserved unchanged). **Flexible ticker intake shipped**. **Portfolio Intelligence vision adopted — Thesis page (Engines 2–6) planned (docs 2026-08-05)**. **Next:** Brief dogfood Assignment, then Thesis T1. See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -34,14 +34,14 @@ Update this file whenever a module moves from stub → working.
 | Min fundamentals checklist (`fundamentals_minimum`) | Done | Editable `MINIMUM_FUNDAMENTALS_FIELD_PATHS`; gate for soften Yahoo-fatal |
 | Evaluations framework | Done | Cases + rubric + `python -m evaluations.phase0.run` |
 | Prompts library | Todo | Thesis prompt inline in thesis_agent |
-| Watchlist HTTP API (`app/api`) | Done | FastAPI: membership, refresh, research GET, risk, brief |
+| Watchlist HTTP API (`app/api`) | Done | FastAPI: membership, intake, refresh, research GET, risk, brief (get/history/generate/miss/explain) |
 | Watchlist store / service | Done | Local JSON + `Phase0Result` → summary |
 | Watchlist UI (`web/`) | Done | Svelte 5 dashboard (held/watched, detail panel, flexible intake) |
 | Ticker intake service / API / UI | Done | `ticker_intake` + `POST /api/watchlist/intake` + `TickerIntakePanel` |
 | Portfolio risk service | Done (v2) | Held equal-weight concentration + pairwise corr from Yahoo source-cache history |
 | Risk UI (`RiskPage` + `PrimaryNav`) | Done (v2) | `Watchlist \| Risk \| Brief`; sector + names + top correlations tables |
-| Brief service / store / classify | Done (Slice 1) | Gate/rank Generate; ring-14 + miss log; no Phase0 research |
-| Brief UI (`BriefPage`) | Done (Slice 1) | Generate today, ranked rows, miss log |
+| Brief service / store / classify / insight | Done | Gate/rank Generate; Impact Score + priority; insight provider (`BRIEF_INSIGHT_MODE` deterministic/canned/llm, fail-closed); ring-14 + history browse + miss log; no Phase0 research |
+| Brief UI (`BriefPage` triage dashboard) | Done | High/Medium/Quiet sections, filters, morning digest strip, history timeline, heat map, stock drawer, miss log (`brief/*` components) |
 
 ---
 
@@ -109,7 +109,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `scoring` | Done (2B) — `score_from_metrics` (consumes merged snapshot) |
 | `portfolio_risk_service` | Done (v2) — Held concentration + top pairwise correlations |
 | `yahoo_history` | Done — shared history parse + last-session daily % + move_score |
-| `brief_classify` / `brief_store` / `brief_service` | Done (Slice 1) |
+| `brief_classify` / `brief_store` / `brief_service` / `brief_insight` | Done — insight provider fail-closed (`BRIEF_INSIGHT_MODE`) |
 | `source_registry` / `source_cache` / `source_fetch` | Done (2C.1; registry includes `sec_xbrl`, `alpha_vantage`; `force_refresh`) |
 | `merge_fundamentals` | Done (2C.3) |
 | `valuation` / `financial_math` / `ranking` / `normalization` | Todo |
@@ -130,7 +130,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `fundamentals_minimum` | Done | Editable min field paths for soften Yahoo-fatal (2C.3 gate) |
 | `watchlist` | Done | Membership + ticker summaries for dashboard |
 | `portfolio` | Done (v2) | `PortfolioRiskSnapshot` + `PairCorrelation` |
-| `brief` | Done (Slice 1) | `DailyBrief` / `BriefTicker` / `BriefBullet` |
+| `brief` | Done | `DailyBrief` / `BriefTicker` / `BriefBullet` / `BriefInsight`; triage fields (`impact_score`, priority, `insight_mode` provider label) |
 | `financials.history_closes` | Done | Yahoo daily closes on source-cache payload (Risk + Brief) |
 
 ---
@@ -149,6 +149,7 @@ Contracts and slices: [architecture.md](architecture.md) "Portfolio Intelligence
 
 | Item | Status | Notes |
 |------|--------|-------|
+| Framework formula spec tables (architecture.md) | Todo | **Pre-T1 gate:** Graham + Financial Strength formulas/thresholds locked in architecture.md "Framework formula specs" before implementation |
 | `app/schemas/thesis.py` (`FrameworkScorecard`, `ValuationSet`, `AssetBreakdown`, `ThesisSnapshot`, `AdvisorInsight`, `InvestmentOSScore`, `ThesisDashboard`) | Todo | T1–T5 |
 | Framework engine service (Graham + Financial Strength first) | Todo | T1; deterministic, unit tests before agent use |
 | Valuation service (Graham / Buffett / Modern sets, six-value ladder) | Todo | T2; Replacement Value `null` until method locked |
@@ -175,6 +176,7 @@ Contracts and slices: [architecture.md](architecture.md) "Portfolio Intelligence
 
 | Date | Change |
 |------|--------|
+| 2026-08-06 | Align to Portfolio Intelligence docs: Brief rows updated to shipped triage dashboard (2026-08-04 — `brief_insight`, `BriefInsight`, history/explain API, `brief/*` UI components); pre-T1 framework formula-lock gate row added; scope line reflects Brief dogfood → Thesis T1 sequence |
 | 2026-08-05 | Portfolio Intelligence (Thesis page) planned rows added: schemas, framework/valuation/net-asset services, snapshot store, advisor, API, UI, Brief E1 |
 | 2026-08-03 | Flexible ticker intake: extract/dedupe, `/api/watchlist/intake`, CSV/paste/speech/OCR UI |
 | 2026-08-03 | Daily Decision Brief Slice 1: generator, API, BriefPage, yahoo_history, history_closes on Yahoo metrics |
