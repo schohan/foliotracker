@@ -4,8 +4,12 @@
   import type { AppView, ThesisDashboard } from "../types";
   import DisclaimerBar from "./DisclaimerBar.svelte";
   import PrimaryNav from "./PrimaryNav.svelte";
+  import AssetBreakdown from "./thesis/AssetBreakdown.svelte";
   import FrameworkScorecard from "./thesis/FrameworkScorecard.svelte";
   import FrameworkScoreTable from "./thesis/FrameworkScoreTable.svelte";
+  import MarginOfSafety from "./thesis/MarginOfSafety.svelte";
+  import ValuationLadder from "./thesis/ValuationLadder.svelte";
+  import { formatValuationValue } from "../thesisFormat";
 
   interface Props {
     view: AppView;
@@ -81,8 +85,9 @@
     <PrimaryNav {view} {onnavigate} />
     <p class="tag">
       Every holding through multiple investment lenses — deterministic Graham
-      Deep Value and Financial Strength scorecards from merged fundamentals.
-      Gaps stay honest. Not advice.
+      Deep Value and Financial Strength scorecards, multi-method valuations,
+      and net-asset intelligence from merged fundamentals. Gaps stay honest. Not
+      advice.
     </p>
   </header>
 
@@ -117,7 +122,8 @@
 
   {#if generating}
     <p class="muted" aria-live="polite">
-      Scoring frameworks from cached fundamentals — usually under a minute.
+      Scoring frameworks and valuations from cached fundamentals — usually under
+      a minute.
     </p>
   {/if}
 
@@ -181,6 +187,67 @@
           {/each}
         </div>
       </section>
+
+      {#if selectedRow.margin_of_safety || selectedRow.valuation || selectedRow.assets}
+        <section class="block" aria-labelledby="valuation-heading">
+          <h2 id="valuation-heading">Valuation</h2>
+          <p class="hint">
+            Multiple simultaneous valuations and net-asset comparison. “—” means
+            insufficient data.
+          </p>
+          <div class="cards">
+            {#if selectedRow.margin_of_safety}
+              <MarginOfSafety view={selectedRow.margin_of_safety} />
+            {/if}
+            {#if selectedRow.valuation}
+              <ValuationLadder ladder={selectedRow.valuation.ladder} />
+            {/if}
+            {#if selectedRow.assets}
+              <AssetBreakdown breakdown={selectedRow.assets} />
+            {/if}
+          </div>
+
+          {#if selectedRow.valuation}
+            <div class="method-schools">
+              {#each [
+                { key: "graham", label: "Graham", methods: selectedRow.valuation.graham },
+                { key: "buffett", label: "Buffett", methods: selectedRow.valuation.buffett },
+                { key: "modern", label: "Modern", methods: selectedRow.valuation.modern },
+              ] as school (school.key)}
+                <article class="method-panel" aria-label={`${school.label} valuations`}>
+                  <h3>{school.label}</h3>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th scope="col">Method</th>
+                        <th scope="col">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {#each school.methods as method (method.id)}
+                        <tr>
+                          <td>
+                            <span class="check-name">{method.label}</span>
+                            {#if method.detail}
+                              <span class="detail">{method.detail}</span>
+                            {/if}
+                          </td>
+                          <td
+                            class="result"
+                            class:na={method.value == null}
+                          >
+                            {formatValuationValue(method)}
+                          </td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </article>
+              {/each}
+            </div>
+          {/if}
+        </section>
+      {/if}
     {/if}
   {/if}
 
@@ -308,6 +375,60 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
     gap: 1rem;
+  }
+  .method-schools {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  .method-panel {
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1rem 1.1rem;
+  }
+  .method-panel h3 {
+    margin: 0 0 0.55rem;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+  .method-panel table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  .method-panel th,
+  .method-panel td {
+    text-align: left;
+    padding: 0.4rem 0.25rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  .method-panel th {
+    color: var(--ink-soft);
+    font-weight: 500;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .check-name {
+    display: block;
+    font-weight: 500;
+  }
+  .detail {
+    display: block;
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+    margin-top: 0.15rem;
+  }
+  .result {
+    white-space: nowrap;
+    font-weight: 600;
+  }
+  .result.na {
+    color: var(--ink-soft);
+    font-weight: 400;
   }
   .banner {
     display: flex;

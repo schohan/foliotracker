@@ -251,6 +251,12 @@ export interface PortfolioRiskSnapshot {
 export type FrameworkId = "graham" | "financial_strength";
 export type CheckStatus = "pass" | "fail" | "unknown";
 export type ThesisGenerationStatus = "complete" | "partial";
+export type ValuationSchool = "graham" | "buffett" | "modern";
+export type ValuationUnit = "currency" | "ratio" | "multiple" | "percent";
+export type AssetVerdict =
+  | "possible_undervaluation"
+  | "fair"
+  | "possible_overvaluation";
 
 export interface FrameworkCheck {
   name: string;
@@ -271,12 +277,65 @@ export interface FrameworkScorecard {
   coverage: number;
 }
 
+export interface ValuationMethod {
+  id: string;
+  label: string;
+  school: ValuationSchool;
+  value: number | null;
+  unit: ValuationUnit;
+  inputs: string[];
+  detail: string;
+}
+
+export interface ValuationLadder {
+  market: number | null;
+  intrinsic: number | null;
+  liquidation: number | null;
+  replacement: number | null;
+  enterprise: number | null;
+  expected_fair: number | null;
+}
+
+export interface ValuationSet {
+  graham: ValuationMethod[];
+  buffett: ValuationMethod[];
+  modern: ValuationMethod[];
+  ladder: ValuationLadder;
+}
+
+export interface MarginOfSafetyView {
+  intrinsic_value: number | null;
+  market_price: number | null;
+  margin_of_safety: number | null;
+  stars: number | null;
+  rating: string;
+  detail: string;
+}
+
+export interface AssetLine {
+  name: string;
+  value: number | null;
+}
+
+export interface AssetBreakdown {
+  assets: AssetLine[];
+  liabilities: AssetLine[];
+  adjusted_net_assets: number | null;
+  market_cap: number | null;
+  difference_pct: number | null;
+  verdict: AssetVerdict | null;
+  detail: string;
+}
+
 export interface ThesisTicker {
   ticker: string;
   list_kind: ListKind;
   name: string | null;
   sector: string | null;
   frameworks: FrameworkScorecard[];
+  valuation: ValuationSet | null;
+  margin_of_safety: MarginOfSafetyView | null;
+  assets: AssetBreakdown | null;
   sources_used: string[];
   gaps: string[];
 }

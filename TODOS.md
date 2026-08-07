@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). **Thesis T1 shipped** (2026-08-07). Next: Thesis T2 (Valuation Engine + Net Assets + Margin of Safety), orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). **Thesis T1 shipped** (2026-08-07). **Thesis T2 shipped** (2026-08-07). Next: Thesis T3 (Thesis Monitoring), orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
 
 **Portfolio Intelligence (2026-08-05):** Umbrella vision in [docs/PRD.md](docs/PRD.md) §1: six engines; shipped Brief = Engine 1 surface (**preserved unchanged**); new Thesis landing page hosts Engines 2–6. Directive guidance only from the AI Portfolio Advisor. Thesis slices T1–T5 + Brief E1 below.
 
@@ -13,18 +13,6 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
 
 ## Next milestones (queued)
-
-### Thesis T2 — Valuation Engine + Net Asset Intelligence + Margin of Safety
-
-**What:** Valuation service: Graham set (NCAV, net-net, intrinsic, liquidation, adjusted book), Buffett set (owner earnings, FCF yield, ROIC, capital efficiency), Modern set (DCF, reverse DCF, EV/EBITDA, EV/FCF, PEG, historical PE/PS/PB bands, sector relative). Six-value ladder (Market / Intrinsic / Liquidation / Replacement / Enterprise / Expected Fair). Net asset service → Adjusted Net Assets vs market cap. UI: `thesis/ValuationLadder`, `thesis/AssetBreakdown`, `thesis/MarginOfSafety` (% + stars, PRD §5.4.7).
-
-**Why:** Biggest differentiator per PRD §5.4.2: multiple simultaneous valuations instead of one P/E.
-
-**Context:** Replacement Value method is an open PRD question — ship `null` until locked. Bands need price history (`history_closes`) + statement series; gaps stay honest.
-
-**Effort:** L  
-**Priority:** P2  
-**Depends on:** T1 schemas + page
 
 ### Thesis T3 — Thesis Monitoring
 
@@ -241,6 +229,16 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Risk v2 dogfood; product call on local store shape
 
 ## Completed
+
+### Thesis T2 — Valuation Engine + Net Asset Intelligence + Margin of Safety (2026-08-07)
+
+- Valuation / MoS / net-asset formula specs **locked** in architecture.md (Graham / Buffett / Modern + ladder + asset verdict bands)
+- Schemas: `ValuationMethod` / `ValuationLadder` / `ValuationSet` / `MarginOfSafetyView` / `AssetBreakdown` on `ThesisTicker`
+- `thesis_valuations`: deterministic Graham (NCAV cash-proxy, net-net, intrinsic, liquidation, adjusted book, MoS), Buffett (FCF owner-earnings proxy, FCF yield, capital efficiency, margin pass-through; ROIC always null), Modern (Gordon DCF r=10%/g≤4%, reverse DCF, EV multiples, PEG; historical bands + sector relative always null); six-value ladder (Replacement null); Expected Fair = median of Intrinsic/DCF/Adjusted book
+- `thesis_net_assets`: honest line gaps; adjusted = assets − liabilities; difference % + undervaluation/fair/overvaluation verdict
+- Same Generate path — no new API routes; `build_thesis_ticker` attaches valuation / MoS / assets
+- UI: `ValuationLadder`, `MarginOfSafety`, `AssetBreakdown` + method school tables on ticker drill-down; format helpers + Vitest
+- Tests: valuation + net-asset units green; framework/API regression green; Brief untouched
 
 ### Thesis T1 — landing page shell + Framework Engine v1 (2026-08-07)
 

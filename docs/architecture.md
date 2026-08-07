@@ -2,7 +2,7 @@
 
 **Portfolio Intelligence** — an AI Investment Operating System on [Google ADK](https://adk.dev/). Six AI engines compose over one shared **evidence spine** (fetch → evidence → cite → score); see [Platform shape](#platform-shape--six-engines-one-evidence-spine) below and [PRD §1](PRD.md).
 
-**Status:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface — preserved unchanged). **Flexible ticker intake shipped.** **Portfolio Intelligence vision adopted — Thesis page (Engines 2–6) planned.** **Next:** Brief dogfood Assignment, then Thesis T1. See [TODOS.md](../TODOS.md).
+**Status:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface — preserved unchanged). **Flexible ticker intake shipped.** **Thesis T1 + T2 shipped** (Framework Engine + Valuation Engine / Net Assets / MoS). **Next:** Brief dogfood Assignment, then Thesis T3. See [TODOS.md](../TODOS.md).
 
 **Related:** [PRD.md](PRD.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -28,8 +28,8 @@ Portfolio Intelligence is six AI engines composing over the same evidence spine 
 |--------|---------|-------------------|---------|--------|
 | 1. Market Intelligence | "What changed that matters?" | `brief_classify`, `yahoo_history`, `brief_service`, `brief_insight`, `brief_store`, `/api/brief*` | **Brief page — shipped, preserved unchanged** (E1 enrichment additive, after T3) | **Shipped** |
 | 2. Fundamental Engine | Stronger or weaker? | Merged fundamentals (Yahoo + SEC XBRL) → metric services incl. Altman Z / Piotroski F / Beneish M where computable | Thesis page | Planned (T1+) |
-| 3. Valuation Engine | Am I paying too much? | Valuation service (Graham / Buffett / Modern sets → six-value ladder) + net asset service | Thesis page | Planned (T2) |
-| 4. Investment Framework Engine | How does each philosophy score this? | Framework engine service → `FrameworkScorecard` per philosophy | Thesis page | Planned (T1) |
+| 3. Valuation Engine | Am I paying too much? | Valuation service (Graham / Buffett / Modern sets → six-value ladder) + net asset service | Thesis page | **Shipped (T2)** |
+| 4. Investment Framework Engine | How does each philosophy score this? | Framework engine service → `FrameworkScorecard` per philosophy | Thesis page | **Shipped (T1)** |
 | 5. Thesis Monitoring | Has my thesis changed? | Thesis snapshot ring store + quarterly diff → closed verdict set | Thesis page | Planned (T3) |
 | 6. AI Portfolio Advisor | Buy more / hold / trim / research? | Advisor + explain service (`THESIS_INSIGHT_MODE`, fail-closed) | Thesis page | Planned (T4) |
 
@@ -815,11 +815,13 @@ Bulk membership intake without one-by-one typing: CSV / free-text paste / screen
 
 ---
 
-## Portfolio Intelligence — Thesis page (Engines 2–6; T1 shipped 2026-08-07)
+## Portfolio Intelligence — Thesis page (Engines 2–6; T1 + T2 shipped)
 
 Docs locked 2026-08-05. Product frame: [PRD](PRD.md) §1 (six engines) and §5.4 (Thesis landing page, normative examples). Slices T1–T5 + Brief E1 sequenced in [TODOS.md](../TODOS.md).
 
-**T1 shipped (2026-08-07):** `app/schemas/thesis.py` (`FrameworkCheck`, `FrameworkScorecard`, `ThesisTicker`, `ThesisDashboard`), deterministic Framework Engine v1 (`thesis_frameworks` — Graham Deep Value + Financial Strength per the locked spec below), `thesis_service` (cache-first merged-fundamentals fan-out; no `run_phase0_research`), `thesis_store` dashboard ring, `GET /api/thesis` + `POST /api/thesis/generate`, `ThesisPage` + `thesis/FrameworkScoreTable` + `thesis/FrameworkScorecard`, `PrimaryNav` → `Watchlist | Risk | Brief | Thesis`. T2+ pieces (valuation, net assets, per-ticker snapshot monitoring, advisor, OS Score, `/api/thesis/explain`) remain planned.
+**T1 shipped (2026-08-07):** `FrameworkCheck` / `FrameworkScorecard` / `ThesisTicker` / `ThesisDashboard`, deterministic Framework Engine v1 (`thesis_frameworks` — Graham Deep Value + Financial Strength), `thesis_service` / `thesis_store`, `GET /api/thesis` + `POST /api/thesis/generate`, `ThesisPage` + framework score table/scorecard, `PrimaryNav` → `Watchlist | Risk | Brief | Thesis`.
+
+**T2 shipped (2026-08-07):** Valuation Engine + Net Asset Intelligence + Margin of Safety — `ValuationSet` / `ValuationLadder` / `MarginOfSafetyView` / `AssetBreakdown` on `ThesisTicker`; `thesis_valuations` + `thesis_net_assets` (locked specs below); UI `thesis/ValuationLadder`, `thesis/MarginOfSafety`, `thesis/AssetBreakdown` on ticker drill-down. Same Generate path (no new routes). T3+ (thesis monitoring, advisor, OS Score, `/api/thesis/explain`) remain planned.
 
 **Engine → surface mapping:** Engine 1 (Market Intelligence) = the shipped Brief, **unchanged** — everything in the "Engine 1 — Daily Decision Brief" section above remains authoritative. Engines 2–6 (Fundamental, Valuation, Framework, Thesis Monitoring, Advisor) = the new Thesis page, built on the same evidence spine and the Brief architectural template (schemas → deterministic services → ring store → HTTP API → Svelte page).
 
@@ -841,20 +843,21 @@ membership snapshot (Held ∪ Watched)
 
 Like Brief, Generate does **not** call `run_phase0_research`; it composes over cached sources and merged fundamentals. The existing Phase 0 `InvestmentThesis` (from `thesis_agent`) seeds each ticker's original thesis for monitoring.
 
-### Contracts (planned — `app/schemas/thesis.py`)
+### Contracts (`app/schemas/thesis.py`)
 
-| Piece | Role |
-|-------|------|
-| `FrameworkScorecard` / `FrameworkCheck` | Per-framework score (0–100 or null) + named checks (PASS / value / rating); cites the fundamentals fields consumed |
-| `ValuationSet` | Graham / Buffett / Modern valuations + six-value ladder (Market / Intrinsic / Liquidation / Replacement / Enterprise / Expected Fair); null per method when unsupported |
-| `AssetBreakdown` | Assets − liabilities → Adjusted Net Assets; vs market cap delta |
-| `ThesisSnapshot` / `ThesisChange` | Point-in-time thesis + framework/valuation state; quarterly diff → closed verdict set |
-| `AdvisorInsight` | Reasoning lines + directive conclusion + confidence + provider label |
-| `InvestmentOSScore` | Deterministic composite from the locked weight table (PRD §5.4.11) |
-| `ThesisDashboard` | Portfolio rollup counts (health, strong/weak balance sheets, value traps, under/overvalued, conviction, thesis broken) |
-| Store | Per-ticker ring JSON (like `brief_store`); path/env below |
-| API | `GET /api/thesis`, `POST /api/thesis/generate`, `POST /api/thesis/explain` |
-| UI | `ThesisPage` + `thesis/*` components (see [DESIGN.md](../DESIGN.md)) |
+| Piece | Role | Status |
+|-------|------|--------|
+| `FrameworkScorecard` / `FrameworkCheck` | Per-framework score (0–100 or null) + named checks (PASS / value / rating); cites the fundamentals fields consumed | **T1** |
+| `ValuationSet` / `ValuationMethod` / `ValuationLadder` | Graham / Buffett / Modern valuations + six-value ladder; null per method when unsupported | **T2** |
+| `MarginOfSafetyView` | Intrinsic vs market price, MoS %, stars 1–5, rating | **T2** |
+| `AssetBreakdown` / `AssetLine` | Assets − liabilities → Adjusted Net Assets; vs market cap delta + verdict | **T2** |
+| `ThesisSnapshot` / `ThesisChange` | Point-in-time thesis + framework/valuation state; quarterly diff → closed verdict set | Planned (T3) |
+| `AdvisorInsight` | Reasoning lines + directive conclusion + confidence + provider label | Planned (T4) |
+| `InvestmentOSScore` | Deterministic composite from the locked weight table (PRD §5.4.11) | Planned (T5) |
+| `ThesisDashboard` | Framework + valuation rows (T1–T2); portfolio rollup counts later (T5) | **T1–T2** |
+| Store | Dashboard ring JSON (like `brief_store`); path/env below | **T1** |
+| API | `GET /api/thesis`, `POST /api/thesis/generate`; `POST /api/thesis/explain` planned T4 | **T1** (+ explain planned) |
+| UI | `ThesisPage` + `thesis/*` (framework + valuation drill-down; see [DESIGN.md](../DESIGN.md)) | **T1–T2** |
 
 ### Settings (planned — mirror Brief conventions)
 
@@ -897,6 +900,75 @@ Shared composite rule (both frameworks): each check yields **points 0–100 or `
 
 - Lynch, Greenblatt, Quality, GARP, Dividend, Momentum, Buffett: phase-next; tables land with their slices
 
+### Valuation / net-asset formula specs (LOCKED 2026-08-07 — T2)
+
+Same invariant as frameworks: formulas locked here with unit tests before any UI or agent consumes them. Missing inputs → `null` + `"insufficient data: <fields>"` — never invent. All inputs from the **merged** fundamentals snapshot.
+
+**Graham valuation set:**
+
+| Method | Input fields | Formula | Unit | Missing-input behavior |
+|--------|--------------|---------|------|------------------------|
+| NCAV (cash proxy) | `total_cash`, `balance_sheet.total_liabilities` | `cash − liabilities` (no current-assets breakdown — same honesty as T1 Net-Net) | currency | `null` |
+| Net-Net | NCAV, `market_cap` | Ratio `NCAV / market_cap`; undervalued iff ratio ≥ 1 | ratio | `null` when NCAV missing or `market_cap ≤ 0` |
+| Intrinsic (per-share) | `eps_trailing`, `trailing_pe`/`pe_ratio`, `earnings_growth` | `V = eps × (8.5 + 2·g·100)`, `g = clamp(growth, 0, 0.15)` (missing growth → 0) | currency | `null` when `eps ≤ 0` or no positive P/E |
+| Intrinsic (firm) | per-share V, `market_cap`, pe, eps | `market_cap × V / (pe × eps)` | currency | `null` when per-share or market_cap missing |
+| Liquidation | `total_cash`, BS `total_assets`, BS `total_liabilities` | `cash + 0.5×(assets − cash) − liabilities` (50% haircut on non-cash; cash defaults to 0 if missing) | currency | `null` when assets or liabilities missing |
+| Adjusted book | BS assets/liabilities; else `market_cap`/`price_to_book` | Prefer `assets − liabilities`; fallback `market_cap / pb` when `pb > 0` | currency | `null` when neither path available |
+| Margin of Safety | same as T1 Graham check | `MoS = (V − P) / V`, `P = pe × eps` | percent | same as T1 |
+
+**Buffett valuation set:**
+
+| Method | Input fields | Formula | Unit | Missing-input behavior |
+|--------|--------------|---------|------|------------------------|
+| Owner earnings | `free_cash_flow` | **FCF proxy** (labeled — D&A / maintenance CapEx unavailable) | currency | `null` |
+| FCF yield | FCF, `market_cap` | `FCF / market_cap` | percent | `null` when either missing or `market_cap ≤ 0` |
+| ROIC | — | Always `null` in T2 (no EBIT / invested-capital fields) | — | always `null` |
+| Capital efficiency | FCF, `revenue_ttm` | `FCF / revenue` | ratio | `null` when either missing or `revenue ≤ 0` |
+| Gross margin / Operating margin | `gross_margin`, `operating_margin` | Pass-through display (moat indicators; not a composite) | percent | per-field `null` |
+
+**Modern valuation set:**
+
+| Method | Input fields | Formula | Unit | Missing-input behavior |
+|--------|--------------|---------|------|------------------------|
+| DCF (Gordon) | FCF, `earnings_growth` | Firm value `FCF×(1+g)/(r−g)` with locked `r = 0.10`, `g = clamp(growth, 0, 0.04)` (missing growth → 0) | currency | `null` when `FCF ≤ 0` or `r ≤ g` |
+| Reverse DCF | FCF, `market_cap`, r=0.10 | Implied `g = (market·r − FCF) / (market + FCF)` | percent | `null` when `FCF ≤ 0` or `market ≤ 0` |
+| EV/EBITDA | `ev_to_ebitda` | Pass-through | multiple | `null` |
+| EV/FCF | `enterprise_value`, FCF | `EV / FCF` | multiple | `null` when either missing or `FCF ≤ 0` |
+| PEG | `peg_ratio` | Pass-through | multiple | `null` |
+| Historical PE / PS / PB bands | — | Always `null` (no historical multiples series) | — | always `null` |
+| Sector relative | — | Always `null` (no peer set) | — | always `null` |
+
+**Six-value ladder (firm $):**
+
+| Rung | Source |
+|------|--------|
+| Market | `market_cap` |
+| Intrinsic | Graham firm intrinsic |
+| Liquidation | Graham liquidation |
+| Replacement | Always `null` (PRD open Q — method unlocked) |
+| Enterprise | `enterprise_value` |
+| Expected Fair | Median of non-null `{Intrinsic, DCF, Adjusted book}` when ≥ 1 present; else `null` |
+
+**Margin of Safety visualization (PRD §5.4.7):**
+
+| Field | Formula |
+|-------|---------|
+| `intrinsic_value` | Graham per-share V |
+| `market_price` | `pe × eps` |
+| `margin_of_safety` | `(V − P) / V` |
+| `stars` | 1–5: ≥40% → 5 · ≥30% → 4 · ≥15% → 3 · ≥0% → 2 · &lt;0% → 1 |
+| `rating` | Excellent ≥ 30% · Good ≥ 15% · Fair ≥ 0% · Poor &lt; 0% (same labels as T1) |
+
+**Net Asset Intelligence (PRD §5.4.6):**
+
+| Piece | Formula |
+|-------|---------|
+| Asset lines | `cash` ← `total_cash`; `other_assets` ← `total_assets − cash` when both known; receivables / inventory / factories / land / investments / patents → always `null` |
+| Liability lines | `total_debt`; `other_liabilities` ← `total_liabilities − total_debt` when both known; lease → always `null` |
+| `adjusted_net_assets` | `total_assets − total_liabilities` (`null` if either missing) |
+| `difference_pct` | `(market_cap − adjusted) / adjusted` (PRD −21% example) |
+| `verdict` | Possible Undervaluation if difference &lt; −5% · Fair if \|difference\| ≤ 5% · Possible Overvaluation if difference &gt; 5%; empty when adjusted or market missing |
+
 ### Engineering invariants (restated for this track)
 
 - **Deterministic math first:** every framework formula, valuation, and the OS Score composite is a pure-Python service with unit tests **before** any agent consumes it. LLMs never perform score/valuation arithmetic.
@@ -911,7 +983,8 @@ Shared composite rule (both frameworks): each check yields **points 0–100 or `
 
 | Date | Change |
 |------|--------|
-| 2026-08-07 | Thesis T1 shipped: Graham + Financial Strength formula specs **locked** (spec tables above), `thesis` schemas, deterministic framework engine, `thesis_service`/`thesis_store`, `GET/POST /api/thesis*`, `ThesisPage` + nav; T2+ remain planned |
+| 2026-08-07 | Thesis T2 shipped: valuation / MoS / net-asset formula specs **locked**, `ValuationSet`/`MarginOfSafetyView`/`AssetBreakdown` on `ThesisTicker`, `thesis_valuations`/`thesis_net_assets`, UI ladder + MoS + asset breakdown; T3+ remain planned |
+| 2026-08-07 | Thesis T1 shipped: Graham + Financial Strength formula specs **locked** (spec tables above), `thesis` schemas, deterministic framework engine, `thesis_service`/`thesis_store`, `GET/POST /api/thesis*`, `ThesisPage` + nav |
 | 2026-08-06 | Align doc to Portfolio Intelligence platform (PRD 2026-08-05): reframed header/status, principles 6–7 (frameworks-as-lenses, Advisor-only directive guidance), platform-level six-engine map, Brief section refreshed to shipped triage dashboard (history/explain/insight modes) as Engine 1 surface, flexible intake section added, framework formula-spec lock placeholder (pre-T1 gate), six-engine target architecture replaces deferred cathedral north star |
 | 2026-08-05 | Portfolio Intelligence (planned): Thesis page section — engines 2–6 data flow, `app/schemas/thesis.py` contracts, `THESIS_*` settings, invariants; Brief preserved unchanged as Engine 1 surface |
 | 2026-08-03 | Daily Decision Brief Slice 1: schemas, classify, yahoo_history, generator, API, BriefPage; `history_closes` on Yahoo cache |

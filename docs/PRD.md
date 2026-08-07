@@ -2,9 +2,9 @@
 
 **Product:** FolioTracker — **Portfolio Intelligence**: an AI Investment Operating System on [Google ADK](https://adk.dev/)  
 **Tagline:** *Evidence-based investing for busy professionals.* (alternate: *The investment copilot that monitors your portfolio using the world's best investing frameworks.*)  
-**Status:** Thin Phase 2 + **2C done**; watchlist + Risk v2 shipped; **Daily Decision Brief Slice 1 + triage dashboard shipped**; **flexible ticker intake shipped**; **Portfolio Intelligence vision adopted — Thesis landing page (Engines 2–6) planned**  
+**Status:** Thin Phase 2 + **2C done**; watchlist + Risk v2 shipped; **Daily Decision Brief Slice 1 + triage dashboard shipped**; **flexible ticker intake shipped**; **Thesis T1 + T2 shipped** (Framework Engine + Valuation Engine / Net Assets / MoS)  
 **Audience:** Executives (vision, roadmap, risk) and engineers (contracts, acceptance criteria, phase boundaries)  
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-07
 
 **Related:** [architecture.md](architecture.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -68,8 +68,8 @@ flowchart TD
 |--------|---------|-----------------|--------|
 | 1. Market Intelligence | "What changed that matters?" (not a news feed) | **Brief page — shipped, preserved unchanged**; event enrichment (impact, confidence, affected frameworks, thesis impact) is additive Brief E1 | Shipped (E1 planned) |
 | 2. Fundamental Engine | Is the company becoming stronger or weaker? | Thesis landing page | Planned (T1+) |
-| 3. Valuation Engine | Am I paying too much? Multiple simultaneous valuations | Thesis landing page | Planned (T2) |
-| 4. Investment Framework Engine | How does each philosophy score this stock? | Thesis landing page | Planned (T1) |
+| 3. Valuation Engine | Am I paying too much? Multiple simultaneous valuations | Thesis landing page | **Shipped (T2)** |
+| 4. Investment Framework Engine | How does each philosophy score this stock? | Thesis landing page | **Shipped (T1)** |
 | 5. Thesis Monitoring | Has my thesis changed? (monitor thesis, not price) | Thesis landing page | Planned (T3) |
 | 6. AI Portfolio Advisor | Buy more, hold, trim, or research further — with reasoning + confidence | Thesis landing page | Planned (T4) |
 
@@ -83,7 +83,7 @@ Today the product ships locally via `adk web` / `adk run app`. The user asks to 
 
 **What exists now (Phase 0–2C):** single-ticker research from enriched Yahoo Finance fundamentals (profile, returns, BS/CF, trailing/forward P/E), Google News RSS headlines, SEC EDGAR filing metadata + XBRL companyfacts, and optional Alpha Vantage OVERVIEW fill-gaps for forward/market fields when keyed. Evidence aggregator surfaces `evidence.conflicts`; `scorecard` + `fundamentals` on `Phase0Result`. Dual cache: whole-result TTL plus per-source TTL/quota. Yahoo failure softens to `partial` when merged fundamentals pass the min field checklist.
 
-**What comes next:** Brief dogfood Assignment (≤30m); Thesis T1 (landing page shell + Framework Engine v1); then Phase 3 evidence deepen or Brief Slice 1b/2. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
+**What comes next:** Brief dogfood Assignment (≤30m); Thesis T3 (Thesis Monitoring); then Phase 3 evidence deepen or Brief Slice 1b/2. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
 
 How the system is built lives in [architecture.md](architecture.md). What is implemented vs stub lives in [implementation-status.md](implementation-status.md). Deferred work lives in [TODOS.md](../TODOS.md).
 
@@ -217,11 +217,11 @@ Replaces the current embedded thesis surface (Watchlist one-liner + detail-panel
 
 | Feature | What the user gets | Slice | Status |
 |---------|--------------------|-------|--------|
-| Framework score table | Every stock scored against multiple investment philosophies at a glance | T1 | Planned |
-| Framework scorecards | Per-framework drill-down with named checks (PASS / value / rating) | T1 | Planned |
-| Valuation ladder | Six values per company instead of one P/E | T2 | Planned |
-| Net Asset Intelligence | Asset breakdown → Adjusted Net Assets vs market cap | T2 | Planned |
-| Margin of Safety visualization | Intrinsic vs price with % and star rating | T2 | Planned |
+| Framework score table | Every stock scored against multiple investment philosophies at a glance | T1 | **Shipped** |
+| Framework scorecards | Per-framework drill-down with named checks (PASS / value / rating) | T1 | **Shipped** |
+| Valuation ladder | Six values per company instead of one P/E | T2 | **Shipped** |
+| Net Asset Intelligence | Asset breakdown → Adjusted Net Assets vs market cap | T2 | **Shipped** |
+| Margin of Safety visualization | Intrinsic vs price with % and star rating | T2 | **Shipped** |
 | Thesis monitoring | Quarterly thesis-change verdicts per holding | T3 | Planned |
 | AI Portfolio Advisor | Directive insight (buy more / hold / trim / research) with reasoning + confidence | T4 | Planned |
 | AI Research button | One-click framework questions per stock | T4 | Planned |
@@ -525,10 +525,10 @@ Follows the Brief architectural template: Pydantic schemas → deterministic ser
 
 | Feature | Role | Slice | Status |
 |---------|------|-------|--------|
-| `app/schemas/thesis.py` contracts | `FrameworkScorecard`, `FrameworkCheck`, `ValuationSet`, `AssetBreakdown`, `ThesisSnapshot`, `ThesisChange`, `AdvisorInsight`, `InvestmentOSScore`, `ThesisDashboard` | T1–T5 | Planned |
-| Framework engine service | Deterministic per-framework scoring from merged fundamentals (Yahoo + SEC XBRL); Graham + Financial Strength first; remaining frameworks phased | T1+ | Planned |
-| Valuation service | NCAV / net-net / intrinsic / liquidation / adjusted book; owner earnings / FCF yield; DCF / reverse DCF / EV multiples / PEG / historical bands | T2 | Planned |
-| Net asset service | Asset breakdown → Adjusted Net Assets vs market cap | T2 | Planned |
+| `app/schemas/thesis.py` contracts | `FrameworkScorecard`, `FrameworkCheck`, `ValuationSet`, `AssetBreakdown`, `MarginOfSafetyView`, `ThesisDashboard` (T1–T2); `ThesisSnapshot`, `AdvisorInsight`, `InvestmentOSScore` (T3–T5) | T1–T5 | **T1–T2 shipped**; T3–T5 planned |
+| Framework engine service | Deterministic per-framework scoring from merged fundamentals (Yahoo + SEC XBRL); Graham + Financial Strength first; remaining frameworks phased | T1+ | **Shipped (T1)** |
+| Valuation service | NCAV / net-net / intrinsic / liquidation / adjusted book; owner earnings / FCF yield; DCF / reverse DCF / EV multiples / PEG / historical bands | T2 | **Shipped** (honest nulls for ROIC, bands, sector, Replacement) |
+| Net asset service | Asset breakdown → Adjusted Net Assets vs market cap | T2 | **Shipped** |
 | Thesis snapshot store | Per-ticker ring store (like `brief_store`); quarterly diff → change verdict | T3 | Planned |
 | Advisor + explain service | `THESIS_INSIGHT_MODE=deterministic\|canned\|llm` fail-closed (mirrors `brief_insight`); provider label on every insight | T4 | Planned |
 | Investment OS Score service | Deterministic composite from locked weight table | T5 | Planned |
@@ -678,8 +678,8 @@ Shipped Brief milestones above stay queued unchanged; Thesis slices are independ
 | Order | Item | Effort | Status |
 |-------|------|--------|--------|
 | Docs | PRD / TODOS / architecture / DESIGN adopt Portfolio Intelligence vision | S | **Done** (2026-08-05) |
-| **T1** | Thesis landing page shell + Framework Engine v1 (Graham + Financial Strength from merged fundamentals) | M | Queued |
-| **T2** | Valuation Engine + Net Asset Intelligence + Margin of Safety visualization | L | Queued |
+| **T1** | Thesis landing page shell + Framework Engine v1 (Graham + Financial Strength from merged fundamentals) | M | **Done** (2026-08-07) |
+| **T2** | Valuation Engine + Net Asset Intelligence + Margin of Safety visualization | L | **Done** (2026-08-07) |
 | **T3** | Thesis Monitoring (snapshot store + quarterly change verdicts) | M | Queued |
 | **T4** | AI Portfolio Advisor + AI Research button | M | Queued |
 | **T5** | Investment OS Score + Portfolio dashboard rollup | M | Queued |
@@ -780,6 +780,8 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, Brief
 
 | Date | Change |
 |------|--------|
+| 2026-08-07 | Thesis T2 shipped: Valuation Engine + Net Asset Intelligence + Margin of Safety; T1/T2 roadmap rows Done |
+| 2026-08-07 | Thesis T1 shipped: Framework Engine v1 + Thesis landing page shell |
 | 2026-08-05 | Adopt **Portfolio Intelligence** umbrella vision: six-engine architecture, Thesis landing page (Engines 2–6) with normative examples, T1–T5 + E1 roadmap, advice stance rescoped to Advisor-only; shipped Brief preserved unchanged as Engine 1 surface |
 | 2026-08-03 | Flexible ticker intake shipped (CSV / paste / speech / screenshot OCR + membership dedupe) |
 | 2026-08-03 | Daily Decision Brief Slice 1 shipped (generator, API, BriefPage, yahoo_history) |

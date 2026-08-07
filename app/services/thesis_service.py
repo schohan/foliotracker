@@ -1,9 +1,10 @@
-"""Thesis page generator (T1 — framework score table).
+"""Thesis page generator (T1 frameworks + T2 valuation / net assets / MoS).
 
 Cache-first fan-out over Held ∪ Watched: merged fundamentals (Yahoo +
 SEC XBRL + optional Alpha Vantage via ``cached_fetch`` + ``merge_fundamentals``)
-→ deterministic framework scorecards. Does **not** call
-``run_phase0_research``. Brief is untouched (Engine 1 preserved).
+→ deterministic framework scorecards + valuation set + asset breakdown.
+Does **not** call ``run_phase0_research``. Brief is untouched (Engine 1
+preserved).
 """
 
 from __future__ import annotations
@@ -33,6 +34,8 @@ from app.services.source_registry import (
     SOURCE_YAHOO,
 )
 from app.services.thesis_frameworks import scorecards_for
+from app.services.thesis_net_assets import asset_breakdown_for
+from app.services.thesis_valuations import margin_of_safety_for, valuation_set_for
 from app.tools.filings.sec_xbrl import fetch_sec_xbrl_fundamentals
 from app.tools.finance.alpha_vantage import fetch_alpha_vantage_fundamentals
 from app.tools.finance.yahoo_finance import fetch_financial_metrics
@@ -109,7 +112,7 @@ def build_thesis_ticker(
     app_settings: Settings,
     force_refresh: bool = False,
 ) -> ThesisTicker:
-    """One score-table row: merged fundamentals → framework scorecards."""
+    """One row: merged fundamentals → frameworks + valuation + assets."""
     merged, sources_used, gaps = _merged_fundamentals(
         ticker,
         app_settings=app_settings,
@@ -122,6 +125,9 @@ def build_thesis_ticker(
         name=profile.name if profile is not None else None,
         sector=profile.sector if profile is not None else None,
         frameworks=scorecards_for(merged),
+        valuation=valuation_set_for(merged),
+        margin_of_safety=margin_of_safety_for(merged),
+        assets=asset_breakdown_for(merged),
         sources_used=sources_used,
         gaps=gaps,
     )

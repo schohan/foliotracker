@@ -2,11 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   checkStatusLabel,
+  formatAssetVerdict,
   formatCheckResult,
   formatCheckValue,
+  formatDifferencePct,
   formatFrameworkScore,
+  formatMoney,
+  formatMosStars,
+  formatValuationValue,
 } from "./thesisFormat";
-import type { FrameworkCheck } from "./types";
+import type { FrameworkCheck, ValuationMethod } from "./types";
 
 function check(overrides: Partial<FrameworkCheck>): FrameworkCheck {
   return {
@@ -16,6 +21,19 @@ function check(overrides: Partial<FrameworkCheck>): FrameworkCheck {
     rating: "",
     points: 100,
     weight: 10,
+    inputs: [],
+    detail: "",
+    ...overrides,
+  };
+}
+
+function method(overrides: Partial<ValuationMethod>): ValuationMethod {
+  return {
+    id: "x",
+    label: "X",
+    school: "graham",
+    value: null,
+    unit: "currency",
     inputs: [],
     detail: "",
     ...overrides,
@@ -66,5 +84,59 @@ describe("formatCheckValue", () => {
   it("keeps ratios readable", () => {
     expect(formatCheckValue(2.8)).toBe("2.80");
     expect(formatCheckValue(150)).toBe("150");
+  });
+});
+
+describe("formatMoney", () => {
+  it("null → dash", () => {
+    expect(formatMoney(null)).toBe("—");
+  });
+  it("abbreviates", () => {
+    expect(formatMoney(61_000_000_000)).toBe("61.0B");
+  });
+});
+
+describe("formatValuationValue", () => {
+  it("null → dash", () => {
+    expect(formatValuationValue(method({}))).toBe("—");
+  });
+  it("percent as %", () => {
+    expect(
+      formatValuationValue(method({ value: 0.29, unit: "percent" })),
+    ).toBe("29.0%");
+  });
+  it("ratio 2dp", () => {
+    expect(
+      formatValuationValue(method({ value: 1.5, unit: "ratio" })),
+    ).toBe("1.50");
+  });
+});
+
+describe("formatMosStars", () => {
+  it("null → dash", () => {
+    expect(formatMosStars(null)).toBe("—");
+  });
+  it("fills then empties", () => {
+    expect(formatMosStars(5)).toBe("★★★★★");
+    expect(formatMosStars(3)).toBe("★★★☆☆");
+    expect(formatMosStars(1)).toBe("★☆☆☆☆");
+  });
+});
+
+describe("formatAssetVerdict", () => {
+  it("maps closed set", () => {
+    expect(formatAssetVerdict("possible_undervaluation")).toBe(
+      "Possible Undervaluation",
+    );
+    expect(formatAssetVerdict("fair")).toBe("Fair");
+    expect(formatAssetVerdict(null)).toBe("—");
+  });
+});
+
+describe("formatDifferencePct", () => {
+  it("formats signed percent", () => {
+    expect(formatDifferencePct(-0.213)).toBe("-21%");
+    expect(formatDifferencePct(0.1)).toBe("+10%");
+    expect(formatDifferencePct(null)).toBe("—");
   });
 });
