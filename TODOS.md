@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). **Thesis T1 shipped** (2026-08-07). **Thesis T2 shipped** (2026-08-07). Next: Thesis T3 (Thesis Monitoring), orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). **Thesis T1 shipped** (2026-08-07). **Thesis T2 shipped** (2026-08-07). **Thesis T3 shipped** (2026-08-07). Next: Thesis T4 (AI Portfolio Advisor), orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
 
 **Portfolio Intelligence (2026-08-05):** Umbrella vision in [docs/PRD.md](docs/PRD.md) §1: six engines; shipped Brief = Engine 1 surface (**preserved unchanged**); new Thesis landing page hosts Engines 2–6. Directive guidance only from the AI Portfolio Advisor. Thesis slices T1–T5 + Brief E1 below.
 
@@ -13,16 +13,6 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
 
 ## Next milestones (queued)
-
-### Thesis T3 — Thesis Monitoring
-
-**What:** Per-ticker thesis snapshot ring store (like `brief_store`). Quarterly change assessment → closed verdict set `No change | Strengthened | Slightly weaker | Broken` with cited evidence. `thesis/ThesisTimeline` UI. LLM narrative behind `THESIS_INSIGHT_MODE=deterministic|canned|llm`, fail-closed like `brief_insight`.
-
-**Why:** Engine 5 (PRD §5.4.4): monitor thesis, not price — the core long-term-investor value.
-
-**Effort:** M  
-**Priority:** P2  
-**Depends on:** T1; existing `InvestmentThesis` from Phase 0 seeds the original thesis
 
 ### Thesis T4 — AI Portfolio Advisor + AI Research button
 
@@ -229,6 +219,18 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Risk v2 dogfood; product call on local store shape
 
 ## Completed
+
+### Thesis T3 — Thesis Monitoring (2026-08-07)
+
+- Verdict / quarter-gate / insight-mode specs **locked** in architecture.md
+- Schemas: `ThesisSignalVector` / `ThesisChange` / `ThesisSnapshot` / `ThesisMonitoring` on `ThesisTicker`
+- `thesis_monitor`: deterministic Broken / Slightly weaker / Strengthened / No change with cited deltas; baseline on first snapshot
+- `thesis_insight`: `THESIS_INSIGHT_MODE=deterministic|canned|llm` (fail-closed; no directive phrasing)
+- `thesis_store`: per-ticker snapshot rings beside dashboard ring; `THESIS_SNAPSHOT_RING_SIZE=8`, `THESIS_QUARTER_DAYS=90`
+- Generate path attaches monitoring; appends snapshot on first / ≥90d / force_refresh
+- Original thesis seed: prior → Phase0 cache (stale OK) → synthesized scores line
+- UI: `thesis/ThesisTimeline` on ticker drill-down
+- Tests: monitor/insight/store/service green; Brief untouched
 
 ### Thesis T2 — Valuation Engine + Net Asset Intelligence + Margin of Safety (2026-08-07)
 

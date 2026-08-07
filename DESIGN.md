@@ -50,7 +50,7 @@ Do not use Inter, Roboto, Arial, or system-ui as the primary stack. Two typeface
 
 ## Layout & chrome
 
-- **Primary workspace:** Held / Watched tables (Held first). Text nav `Watchlist | Risk | Brief | Thesis` (Brief = daily material-event triage; Thesis = multi-framework + valuation Portfolio Intelligence page, T1–T2 shipped 2026-08-07).
+- **Primary workspace:** Held / Watched tables (Held first). Text nav `Watchlist | Risk | Brief | Thesis` (Brief = daily material-event triage; Thesis = frameworks + valuation + monitoring, T1–T3 shipped 2026-08-07).
 - **Secondary context:** Right detail panel on row select (Watchlist). Brief uses a **StockDrawer** (same fixed-panel pattern) for event + insight drill-down — no full-page navigation away from the triage dashboard.
 - **First-run (0 tickers):** Collapsed composition — brand, one line, add form only. No empty section shells. Brief with empty universe: calm “Add tickers on Watchlist to generate a Brief.”
 - **Cards:** Default none. Tables, list rows, and the detail panel are the interaction surfaces. No dashboard card mosaic. Brief uses **expandable inbox rows** (Linear-style) plus a portfolio summary strip — not a card grid.
@@ -77,13 +77,13 @@ Reuse before inventing:
 | `brief/HeatMap` | Compact Held/Watched impact grid |
 | `brief/TimelineRail` | Brief history browse (ring-14) |
 | `brief/StockDrawer` | Side panel for ticker events + insight + research |
-| `ThesisPage` | Portfolio Intelligence landing page (T1–T2 shipped) — framework score table + per-ticker scorecards + valuation ladder / MoS / net assets; monitoring / advisor planned |
+| `ThesisPage` | Portfolio Intelligence landing page (T1–T3 shipped) — framework score table + valuation + thesis timeline; advisor planned |
 | `thesis/FrameworkScoreTable` | Per-stock scores across investment philosophies (T1 shipped: Graham + Financial Strength) |
 | `thesis/FrameworkScorecard` | Single-framework drill-down: named checks, PASS/value/rating (T1 shipped) |
 | `thesis/ValuationLadder` | Six-value ladder: market / intrinsic / liquidation / replacement / enterprise / expected fair (T2 shipped) |
 | `thesis/MarginOfSafety` | Intrinsic vs price, % + star rating (T2 shipped) |
 | `thesis/AssetBreakdown` | Net Asset Intelligence: assets − liabilities → adjusted net assets vs market cap (T2 shipped) |
-| `thesis/ThesisTimeline` | Quarterly thesis-change verdicts with evidence (planned) |
+| `thesis/ThesisTimeline` | Quarterly thesis-change verdicts with evidence (T3 shipped) |
 | `thesis/AdvisorInsight` | Advisor reasoning + directive conclusion + confidence + provider label (planned) |
 | `thesis/ResearchButton` | One-click framework questions per stock (planned) |
 | `AddTickerForm` | Primary add action |

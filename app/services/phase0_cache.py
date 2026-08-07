@@ -38,6 +38,30 @@ def cache_lookup(
     ttl_seconds: int | None = None,
 ) -> Phase0Result | None:
     """Return cached Phase0Result if fresh; else None (miss/expired/corrupt)."""
+    return _lookup(
+        ticker,
+        cache_dir=cache_dir,
+        ttl_seconds=ttl_seconds,
+        allow_stale=False,
+    )
+
+
+def cache_lookup_stale(
+    ticker: str,
+    *,
+    cache_dir: Path | None = None,
+) -> Phase0Result | None:
+    """Return cached Phase0Result even if TTL expired (thesis seed); else None."""
+    return _lookup(ticker, cache_dir=cache_dir, ttl_seconds=None, allow_stale=True)
+
+
+def _lookup(
+    ticker: str,
+    *,
+    cache_dir: Path | None,
+    ttl_seconds: int | None,
+    allow_stale: bool,
+) -> Phase0Result | None:
     directory = Path(cache_dir) if cache_dir is not None else settings.phase0_cache_dir
     ttl = settings.phase0_cache_ttl_seconds if ttl_seconds is None else int(ttl_seconds)
     path = _cache_path(ticker, directory)
@@ -55,7 +79,7 @@ def cache_lookup(
         if cached_at.tzinfo is None:
             cached_at = cached_at.replace(tzinfo=timezone.utc)
         age = (datetime.now(timezone.utc) - cached_at).total_seconds()
-        if age >= ttl or ttl <= 0:
+        if not allow_stale and (age >= ttl or ttl <= 0):
             logger.info(
                 "cache_miss ticker=%s reason=expired age_s=%.1f ttl=%s",
                 ticker.upper(),
@@ -76,9 +100,10 @@ def cache_lookup(
         }
     )
     logger.info(
-        "cache_hit ticker=%s age_s=%.1f request_id=%s",
+        "cache_hit ticker=%s age_s=%.1f stale=%s request_id=%s",
         ticker.upper(),
         age,
+        allow_stale and age >= ttl,
         served.request_id,
     )
     return served

@@ -2,7 +2,7 @@
 
 **Product:** FolioTracker — **Portfolio Intelligence**: an AI Investment Operating System on [Google ADK](https://adk.dev/)  
 **Tagline:** *Evidence-based investing for busy professionals.* (alternate: *The investment copilot that monitors your portfolio using the world's best investing frameworks.*)  
-**Status:** Thin Phase 2 + **2C done**; watchlist + Risk v2 shipped; **Daily Decision Brief Slice 1 + triage dashboard shipped**; **flexible ticker intake shipped**; **Thesis T1 + T2 shipped** (Framework Engine + Valuation Engine / Net Assets / MoS)  
+**Status:** Thin Phase 2 + **2C done**; watchlist + Risk v2 shipped; **Daily Decision Brief Slice 1 + triage dashboard shipped**; **flexible ticker intake shipped**; **Thesis T1–T3 shipped** (Framework + Valuation + Monitoring)  
 **Audience:** Executives (vision, roadmap, risk) and engineers (contracts, acceptance criteria, phase boundaries)  
 **Last updated:** 2026-08-07
 
@@ -70,7 +70,7 @@ flowchart TD
 | 2. Fundamental Engine | Is the company becoming stronger or weaker? | Thesis landing page | Planned (T1+) |
 | 3. Valuation Engine | Am I paying too much? Multiple simultaneous valuations | Thesis landing page | **Shipped (T2)** |
 | 4. Investment Framework Engine | How does each philosophy score this stock? | Thesis landing page | **Shipped (T1)** |
-| 5. Thesis Monitoring | Has my thesis changed? (monitor thesis, not price) | Thesis landing page | Planned (T3) |
+| 5. Thesis Monitoring | Has my thesis changed? (monitor thesis, not price) | Thesis landing page | **Shipped (T3)** |
 | 6. AI Portfolio Advisor | Buy more, hold, trim, or research further — with reasoning + confidence | Thesis landing page | Planned (T4) |
 
 The shipped **Daily Decision Brief is carried into this structure unchanged** as the Engine 1 surface: its contracts, generator, triage dashboard, and acceptance criteria in [5.2](#52-planned--daily-decision-brief-approach-b-office-hours-2026-07-31) remain authoritative. The new **Thesis landing page** ([5.4](#54-planned--thesis-landing-page-portfolio-intelligence-engines-26)) replaces the current embedded thesis surface and hosts Engines 2–6; slices are sequenced in the [Roadmap](#10-roadmap).
@@ -83,7 +83,7 @@ Today the product ships locally via `adk web` / `adk run app`. The user asks to 
 
 **What exists now (Phase 0–2C):** single-ticker research from enriched Yahoo Finance fundamentals (profile, returns, BS/CF, trailing/forward P/E), Google News RSS headlines, SEC EDGAR filing metadata + XBRL companyfacts, and optional Alpha Vantage OVERVIEW fill-gaps for forward/market fields when keyed. Evidence aggregator surfaces `evidence.conflicts`; `scorecard` + `fundamentals` on `Phase0Result`. Dual cache: whole-result TTL plus per-source TTL/quota. Yahoo failure softens to `partial` when merged fundamentals pass the min field checklist.
 
-**What comes next:** Brief dogfood Assignment (≤30m); Thesis T3 (Thesis Monitoring); then Phase 3 evidence deepen or Brief Slice 1b/2. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
+**What comes next:** Brief dogfood Assignment (≤30m); Thesis T4 (AI Portfolio Advisor); then Phase 3 evidence deepen or Brief Slice 1b/2. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
 
 How the system is built lives in [architecture.md](architecture.md). What is implemented vs stub lives in [implementation-status.md](implementation-status.md). Deferred work lives in [TODOS.md](../TODOS.md).
 
@@ -222,7 +222,7 @@ Replaces the current embedded thesis surface (Watchlist one-liner + detail-panel
 | Valuation ladder | Six values per company instead of one P/E | T2 | **Shipped** |
 | Net Asset Intelligence | Asset breakdown → Adjusted Net Assets vs market cap | T2 | **Shipped** |
 | Margin of Safety visualization | Intrinsic vs price with % and star rating | T2 | **Shipped** |
-| Thesis monitoring | Quarterly thesis-change verdicts per holding | T3 | Planned |
+| Thesis monitoring | Quarterly thesis-change verdicts per holding | T3 | **Shipped** |
 | AI Portfolio Advisor | Directive insight (buy more / hold / trim / research) with reasoning + confidence | T4 | Planned |
 | AI Research button | One-click framework questions per stock | T4 | Planned |
 | Investment OS Score | Proprietary composite blending multiple disciplines | T5 | Planned |
@@ -525,12 +525,12 @@ Follows the Brief architectural template: Pydantic schemas → deterministic ser
 
 | Feature | Role | Slice | Status |
 |---------|------|-------|--------|
-| `app/schemas/thesis.py` contracts | `FrameworkScorecard`, `FrameworkCheck`, `ValuationSet`, `AssetBreakdown`, `MarginOfSafetyView`, `ThesisDashboard` (T1–T2); `ThesisSnapshot`, `AdvisorInsight`, `InvestmentOSScore` (T3–T5) | T1–T5 | **T1–T2 shipped**; T3–T5 planned |
+| `app/schemas/thesis.py` contracts | `FrameworkScorecard`, `FrameworkCheck`, `ValuationSet`, `AssetBreakdown`, `MarginOfSafetyView`, `ThesisSnapshot`, `ThesisChange`, `ThesisMonitoring`, `ThesisDashboard` (T1–T3); `AdvisorInsight`, `InvestmentOSScore` (T4–T5) | T1–T5 | **T1–T3 shipped**; T4–T5 planned |
 | Framework engine service | Deterministic per-framework scoring from merged fundamentals (Yahoo + SEC XBRL); Graham + Financial Strength first; remaining frameworks phased | T1+ | **Shipped (T1)** |
 | Valuation service | NCAV / net-net / intrinsic / liquidation / adjusted book; owner earnings / FCF yield; DCF / reverse DCF / EV multiples / PEG / historical bands | T2 | **Shipped** (honest nulls for ROIC, bands, sector, Replacement) |
 | Net asset service | Asset breakdown → Adjusted Net Assets vs market cap | T2 | **Shipped** |
-| Thesis snapshot store | Per-ticker ring store (like `brief_store`); quarterly diff → change verdict | T3 | Planned |
-| Advisor + explain service | `THESIS_INSIGHT_MODE=deterministic\|canned\|llm` fail-closed (mirrors `brief_insight`); provider label on every insight | T4 | Planned |
+| Thesis snapshot store | Per-ticker ring store (like `brief_store`); quarterly diff → change verdict | T3 | **Shipped** |
+| Advisor + explain service | Directive advisor + `POST /api/thesis/explain`; reuses `THESIS_INSIGHT_MODE` (change narrative shipped T3) | T4 | Planned |
 | Investment OS Score service | Deterministic composite from locked weight table | T5 | Planned |
 | Thesis HTTP API + page | `GET /api/thesis`, `POST /api/thesis/generate`, `POST /api/thesis/explain`; `ThesisPage` + `thesis/*` components; `PrimaryNav` adds Thesis | T1+ | Planned |
 | Brief E1 enrichment | **Additive optional** `BriefBullet` fields (impact, confidence, affected_frameworks, thesis_impact) + morning count strip; backwards-compatible; after T3 | E1 | Planned |
@@ -680,7 +680,7 @@ Shipped Brief milestones above stay queued unchanged; Thesis slices are independ
 | Docs | PRD / TODOS / architecture / DESIGN adopt Portfolio Intelligence vision | S | **Done** (2026-08-05) |
 | **T1** | Thesis landing page shell + Framework Engine v1 (Graham + Financial Strength from merged fundamentals) | M | **Done** (2026-08-07) |
 | **T2** | Valuation Engine + Net Asset Intelligence + Margin of Safety visualization | L | **Done** (2026-08-07) |
-| **T3** | Thesis Monitoring (snapshot store + quarterly change verdicts) | M | Queued |
+| **T3** | Thesis Monitoring (snapshot store + quarterly change verdicts) | M | **Done** (2026-08-07) |
 | **T4** | AI Portfolio Advisor + AI Research button | M | Queued |
 | **T5** | Investment OS Score + Portfolio dashboard rollup | M | Queued |
 | **E1** | Brief event enrichment + morning count strip (additive; after T3) | S–M | Queued |
@@ -780,6 +780,7 @@ North-star (12-month ideal): full evidence graph, portfolio risk, scoring, Brief
 
 | Date | Change |
 |------|--------|
+| 2026-08-07 | Thesis T3 shipped: Thesis Monitoring (snapshot ring, locked verdicts, ThesisTimeline) |
 | 2026-08-07 | Thesis T2 shipped: Valuation Engine + Net Asset Intelligence + Margin of Safety; T1/T2 roadmap rows Done |
 | 2026-08-07 | Thesis T1 shipped: Framework Engine v1 + Thesis landing page shell |
 | 2026-08-05 | Adopt **Portfolio Intelligence** umbrella vision: six-engine architecture, Thesis landing page (Engines 2–6) with normative examples, T1–T5 + E1 roadmap, advice stance rescoped to Advisor-only; shipped Brief preserved unchanged as Engine 1 surface |

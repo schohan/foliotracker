@@ -257,6 +257,12 @@ export type AssetVerdict =
   | "possible_undervaluation"
   | "fair"
   | "possible_overvaluation";
+export type ThesisVerdict =
+  | "no_change"
+  | "strengthened"
+  | "slightly_weaker"
+  | "broken";
+export type ThesisInsightMode = "deterministic" | "canned" | "llm";
 
 export interface FrameworkCheck {
   name: string;
@@ -327,6 +333,20 @@ export interface AssetBreakdown {
   detail: string;
 }
 
+export interface ThesisChange {
+  verdict: ThesisVerdict;
+  as_of: string;
+  evidence: string[];
+  narrative: string;
+  insight_mode: string;
+}
+
+export interface ThesisMonitoring {
+  original_thesis: string;
+  current: ThesisChange | null;
+  timeline: ThesisChange[];
+}
+
 export interface ThesisTicker {
   ticker: string;
   list_kind: ListKind;
@@ -336,6 +356,7 @@ export interface ThesisTicker {
   valuation: ValuationSet | null;
   margin_of_safety: MarginOfSafetyView | null;
   assets: AssetBreakdown | null;
+  monitoring: ThesisMonitoring | null;
   sources_used: string[];
   gaps: string[];
 }

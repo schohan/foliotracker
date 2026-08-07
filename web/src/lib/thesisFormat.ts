@@ -2,6 +2,7 @@ import type {
   AssetVerdict,
   CheckStatus,
   FrameworkCheck,
+  ThesisVerdict,
   ValuationMethod,
   ValuationUnit,
 } from "./types";
@@ -86,4 +87,14 @@ export function formatDifferencePct(pct: number | null): string {
   const rounded = Math.round(signed);
   if (rounded > 0) return `+${rounded}%`;
   return `${rounded}%`;
+}
+
+/** Closed thesis-change verdict → PRD label. */
+export function formatThesisVerdict(verdict: ThesisVerdict | null | undefined): string {
+  if (verdict == null) return "—";
+  if (verdict === "no_change") return "No change";
+  if (verdict === "strengthened") return "Strengthened";
+  if (verdict === "slightly_weaker") return "Slightly weaker";
+  if (verdict === "broken") return "Broken";
+  return "—";
 }

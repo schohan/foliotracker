@@ -9,9 +9,10 @@ import {
   formatFrameworkScore,
   formatMoney,
   formatMosStars,
+  formatThesisVerdict,
   formatValuationValue,
 } from "./thesisFormat";
-import type { FrameworkCheck, ValuationMethod } from "./types";
+import type { FrameworkCheck, ThesisVerdict, ValuationMethod } from "./types";
 
 function check(overrides: Partial<FrameworkCheck>): FrameworkCheck {
   return {
@@ -138,5 +139,20 @@ describe("formatDifferencePct", () => {
     expect(formatDifferencePct(-0.213)).toBe("-21%");
     expect(formatDifferencePct(0.1)).toBe("+10%");
     expect(formatDifferencePct(null)).toBe("—");
+  });
+});
+
+describe("formatThesisVerdict", () => {
+  it("maps closed set", () => {
+    const cases: [ThesisVerdict, string][] = [
+      ["no_change", "No change"],
+      ["strengthened", "Strengthened"],
+      ["slightly_weaker", "Slightly weaker"],
+      ["broken", "Broken"],
+    ];
+    for (const [v, label] of cases) {
+      expect(formatThesisVerdict(v)).toBe(label);
+    }
+    expect(formatThesisVerdict(null)).toBe("—");
   });
 });

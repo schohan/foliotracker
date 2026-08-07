@@ -1,22 +1,25 @@
-"""Thesis dashboard generator (T1 — injected workers, no network)."""
+"""Thesis dashboard generator (T1–T3 — injected workers, no network)."""
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from app.configs.settings import Settings
-from app.schemas.financials import FinancialMetrics
+from app.schemas.financials import FinancialMetrics, StatementSummary
 from app.schemas.thesis import (
     FrameworkId,
     ThesisGenerationStatus,
     ThesisTicker,
+    ThesisVerdict,
 )
 from app.schemas.watchlist import ListKind
 from app.services import thesis_store, watchlist_store as store
 from app.services.thesis_frameworks import scorecards_for
 from app.services.thesis_service import (
     EMPTY_UNIVERSE_MSG,
+    build_thesis_ticker,
     generate_thesis_dashboard,
 )
 
@@ -29,6 +32,9 @@ def _settings(tmp_path: Path) -> Settings:
         source_cache_dir=tmp_path / "sources",
         phase0_cache_dir=tmp_path / "phase0",
         thesis_store_path=tmp_path / "thesis.json",
+        thesis_insight_mode="deterministic",
+        thesis_quarter_days=90,
+        thesis_snapshot_ring_size=8,
     )
 
 
@@ -39,6 +45,25 @@ def _row(ticker: str, kind: ListKind, **metric_overrides) -> ThesisTicker:
         list_kind=kind.value,  # type: ignore[arg-type]
         frameworks=scorecards_for(metrics),
         sources_used=["yahoo"],
+    )
+
+
+def _rich_metrics() -> FinancialMetrics:
+    return FinancialMetrics(
+        ticker="NVDA",
+        eps_trailing=5.0,
+        trailing_pe=10.0,
+        earnings_growth=0.10,
+        total_cash=200.0,
+        total_debt=80.0,
+        market_cap=100.0,
+        current_ratio=2.8,
+        debt_to_equity=0.4,
+        free_cash_flow=10.0,
+        profit_margin=0.2,
+        return_on_equity=0.18,
+        balance_sheet=StatementSummary(total_liabilities=50.0),
+        cash_flow=StatementSummary(operating_cashflow=20.0),
     )
 
 
@@ -66,7 +91,6 @@ def test_generate_builds_rows_held_first(tmp_path: Path) -> None:
     assert dash.tickers[0].list_kind == "held"
     assert dash.frameworks == [FrameworkId.GRAHAM, FrameworkId.FINANCIAL_STRENGTH]
     assert dash.generation_status == ThesisGenerationStatus.COMPLETE
-    # Persisted for GET.
     latest = thesis_store.get_latest_dashboard(s)
     assert latest is not None
     assert latest.universe_count == 3
@@ -106,7 +130,7 @@ def test_no_fundamentals_row_has_null_scores(tmp_path: Path) -> None:
     store.put_membership(["NVDA"], [], s)
 
     def worker(ticker: str, kind: ListKind) -> ThesisTicker:
-        return _row(ticker, kind)  # empty metrics
+        return _row(ticker, kind)
 
     dash = generate_thesis_dashboard(app_settings=s, worker_fn=worker, now=NOW)
     row = dash.tickers[0]
@@ -118,3 +142,51 @@ def test_dashboard_always_carries_disclaimer(tmp_path: Path) -> None:
     store.put_membership([], [], s)
     dash = generate_thesis_dashboard(app_settings=s, now=NOW)
     assert dash.disclaimer
+
+
+def test_build_ticker_attaches_monitoring_and_baseline_snapshot(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    with patch(
+        "app.services.thesis_service._merged_fundamentals",
+        return_value=(_rich_metrics(), ["yahoo"], []),
+    ):
+        row = build_thesis_ticker(
+            "NVDA",
+            ListKind.HELD,
+            app_settings=s,
+            force_refresh=False,
+            now=NOW,
+        )
+    assert row.monitoring is not None
+    assert row.monitoring.current is not None
+    assert row.monitoring.current.verdict == ThesisVerdict.NO_CHANGE
+    assert "baseline" in row.monitoring.current.evidence[0]
+    assert row.monitoring.current.narrative
+    assert thesis_store.get_latest_snapshot("NVDA", app_settings=s) is not None
+
+
+def test_force_refresh_appends_even_within_quarter(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    with patch(
+        "app.services.thesis_service._merged_fundamentals",
+        return_value=(_rich_metrics(), ["yahoo"], []),
+    ):
+        build_thesis_ticker(
+            "NVDA", ListKind.HELD, app_settings=s, force_refresh=False, now=NOW
+        )
+        build_thesis_ticker(
+            "NVDA",
+            ListKind.HELD,
+            app_settings=s,
+            force_refresh=False,
+            now=NOW + timedelta(days=1),
+        )
+        assert len(thesis_store.get_snapshots("NVDA", app_settings=s)) == 1
+        build_thesis_ticker(
+            "NVDA",
+            ListKind.HELD,
+            app_settings=s,
+            force_refresh=True,
+            now=NOW + timedelta(days=2),
+        )
+        assert len(thesis_store.get_snapshots("NVDA", app_settings=s)) == 2

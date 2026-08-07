@@ -8,6 +8,7 @@
   import FrameworkScorecard from "./thesis/FrameworkScorecard.svelte";
   import FrameworkScoreTable from "./thesis/FrameworkScoreTable.svelte";
   import MarginOfSafety from "./thesis/MarginOfSafety.svelte";
+  import ThesisTimeline from "./thesis/ThesisTimeline.svelte";
   import ValuationLadder from "./thesis/ValuationLadder.svelte";
   import { formatValuationValue } from "../thesisFormat";
 
@@ -86,8 +87,8 @@
     <p class="tag">
       Every holding through multiple investment lenses — deterministic Graham
       Deep Value and Financial Strength scorecards, multi-method valuations,
-      and net-asset intelligence from merged fundamentals. Gaps stay honest. Not
-      advice.
+      net-asset intelligence, and quarterly thesis monitoring. Gaps stay honest.
+      Not advice.
     </p>
   </header>
 
@@ -246,6 +247,17 @@
               {/each}
             </div>
           {/if}
+        </section>
+      {/if}
+
+      {#if selectedRow.monitoring}
+        <section class="block" aria-labelledby="monitoring-heading">
+          <h2 id="monitoring-heading">Thesis change</h2>
+          <p class="hint">
+            Monitor thesis, not price. Verdicts are a closed set — never free
+            prose ratings.
+          </p>
+          <ThesisTimeline monitoring={selectedRow.monitoring} />
         </section>
       {/if}
     {/if}

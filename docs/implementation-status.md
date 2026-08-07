@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface — preserved unchanged). **Flexible ticker intake shipped**. **Thesis T1 + T2 shipped (2026-08-07)** — Framework Engine v1 + Valuation Engine / Net Assets / MoS. **Next:** Brief dogfood Assignment, then Thesis T3 (Thesis Monitoring). See [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface — preserved unchanged). **Flexible ticker intake shipped**. **Thesis T1–T3 shipped (2026-08-07)** — Framework Engine + Valuation + Thesis Monitoring. **Next:** Brief dogfood Assignment, then Thesis T4 (Advisor). See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -110,7 +110,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `portfolio_risk_service` | Done (v2) — Held concentration + top pairwise correlations |
 | `yahoo_history` | Done — shared history parse + last-session daily % + move_score |
 | `brief_classify` / `brief_store` / `brief_service` / `brief_insight` | Done — insight provider fail-closed (`BRIEF_INSIGHT_MODE`) |
-| `thesis_frameworks` / `thesis_valuations` / `thesis_net_assets` / `thesis_service` / `thesis_store` | Done (T1–T2) — Graham + Financial Strength; valuation sets + MoS + net assets; cache-first merged-fundamentals fan-out; dashboard ring |
+| `thesis_frameworks` / `thesis_valuations` / `thesis_net_assets` / `thesis_monitor` / `thesis_insight` / `thesis_service` / `thesis_store` | Done (T1–T3) — frameworks + valuation + monitoring; cache-first fan-out; dashboard + per-ticker snapshot rings |
 | `source_registry` / `source_cache` / `source_fetch` | Done (2C.1; registry includes `sec_xbrl`, `alpha_vantage`; `force_refresh`) |
 | `merge_fundamentals` | Done (2C.3) |
 | `valuation` / `financial_math` / `ranking` / `normalization` | Todo |
@@ -132,7 +132,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `watchlist` | Done | Membership + ticker summaries for dashboard |
 | `portfolio` | Done (v2) | `PortfolioRiskSnapshot` + `PairCorrelation` |
 | `brief` | Done | `DailyBrief` / `BriefTicker` / `BriefBullet` / `BriefInsight`; triage fields (`impact_score`, priority, `insight_mode` provider label) |
-| `thesis` | Done (T1–T2) | Framework + `ValuationSet` / `MarginOfSafetyView` / `AssetBreakdown` on `ThesisTicker`; T3+ contracts pending |
+| `thesis` | Done (T1–T3) | Framework + valuation + `ThesisMonitoring` / snapshots; T4+ contracts pending |
 | `financials.history_closes` | Done | Yahoo daily closes on source-cache payload (Risk + Brief) |
 
 ---
@@ -153,15 +153,16 @@ Contracts and slices: [architecture.md](architecture.md) "Portfolio Intelligence
 |------|--------|-------|
 | Framework formula spec tables (architecture.md) | Done (T1) | Graham + Financial Strength formulas/thresholds **locked 2026-08-07** in architecture.md "Framework formula specs" |
 | Valuation / net-asset formula spec tables (architecture.md) | Done (T2) | Graham / Buffett / Modern + ladder + MoS stars + asset verdicts **locked 2026-08-07** |
-| `app/schemas/thesis.py` | Done (T1–T2) | Frameworks + `ValuationSet` / `MarginOfSafetyView` / `AssetBreakdown`; T3+ (`ThesisSnapshot`, `AdvisorInsight`, `InvestmentOSScore`) still Todo |
+| Thesis monitoring verdict specs (architecture.md) | Done (T3) | Signal vector + Broken/weaker/strengthened/no-change + quarter gate **locked 2026-08-07** |
+| `app/schemas/thesis.py` | Done (T1–T3) | Frameworks + valuation + `ThesisSnapshot`/`ThesisChange`/`ThesisMonitoring`; T4+ (`AdvisorInsight`, `InvestmentOSScore`) still Todo |
 | Framework engine service (Graham + Financial Strength first) | Done (T1) | `thesis_frameworks` — deterministic; unit tests with the spec lock |
 | Valuation service (Graham / Buffett / Modern sets, six-value ladder) | Done (T2) | `thesis_valuations`; Replacement / ROIC / historical bands / sector relative stay `null` |
 | Net asset service (Adjusted Net Assets vs market cap) | Done (T2) | `thesis_net_assets` |
-| Thesis snapshot store + change verdicts | Partial | T1 ships `thesis_store` dashboard ring; per-ticker snapshots + quarterly verdicts are T3 |
-| Advisor + explain service (`THESIS_INSIGHT_MODE`, fail-closed) | Todo | T4; only surface allowed directive phrasing |
+| Thesis snapshot store + change verdicts | Done (T3) | Per-ticker ring in `thesis_store`; `thesis_monitor` + `thesis_insight` (`THESIS_INSIGHT_MODE`) |
+| Advisor + explain service (`THESIS_INSIGHT_MODE`, fail-closed) | Todo | T4; only surface allowed directive phrasing; reuses insight mode env from T3 |
 | Investment OS Score composite | Todo | T5; locked weight table in PRD §5.4.11 |
-| Thesis HTTP API (`GET /api/thesis`, `POST /api/thesis/generate`) | Done (T1) | Same routes carry T2 fields; `POST /api/thesis/explain` is T4 |
-| `ThesisPage` + `thesis/*` UI; `PrimaryNav` adds Thesis | Done (T1–T2) | Score table + scorecards + ValuationLadder / MarginOfSafety / AssetBreakdown; nav `Watchlist \| Risk \| Brief \| Thesis` |
+| Thesis HTTP API (`GET /api/thesis`, `POST /api/thesis/generate`) | Done (T1) | Same routes carry T2–T3 fields; `POST /api/thesis/explain` is T4 |
+| `ThesisPage` + `thesis/*` UI; `PrimaryNav` adds Thesis | Done (T1–T3) | Score table + valuation + `ThesisTimeline`; nav `Watchlist \| Risk \| Brief \| Thesis` |
 | Brief E1 enrichment (optional `BriefBullet` fields + morning counts) | Todo | Additive, backwards-compatible; after T3 |
 
 ---
@@ -169,7 +170,7 @@ Contracts and slices: [architecture.md](architecture.md) "Portfolio Intelligence
 ## Suggested next milestones
 
 1. Dogfood Brief Slice 1 (Assignment timing ≤30m) + founder miss log
-2. Thesis T3: Thesis Monitoring (snapshot ring + quarterly change verdicts)
+2. Thesis T4: AI Portfolio Advisor + AI Research button
 3. Phase 3 evidence deepen in detail panel (claim↔evidence; design 8A)
 4. Phase0 server single-flight if concurrent refresh still burns cost
 
@@ -179,6 +180,7 @@ Contracts and slices: [architecture.md](architecture.md) "Portfolio Intelligence
 
 | Date | Change |
 |------|--------|
+| 2026-08-07 | Thesis T3 shipped: monitoring verdict specs locked, per-ticker snapshots, `thesis_monitor`/`thesis_insight`, `ThesisTimeline` UI |
 | 2026-08-07 | Thesis T2 shipped: valuation/MoS/net-asset formula specs locked, `thesis_valuations` + `thesis_net_assets`, schemas on `ThesisTicker`, UI ladder + MoS + asset breakdown |
 | 2026-08-07 | Thesis T1 shipped: locked formula specs, `thesis` schemas, `thesis_frameworks` engine, `thesis_service` + `thesis_store`, `GET/POST /api/thesis*`, `ThesisPage` + `thesis/*` UI, nav adds Thesis |
 | 2026-08-06 | Align to Portfolio Intelligence docs: Brief rows updated to shipped triage dashboard (2026-08-04 — `brief_insight`, `BriefInsight`, history/explain API, `brief/*` UI components); pre-T1 framework formula-lock gate row added; scope line reflects Brief dogfood → Thesis T1 sequence |

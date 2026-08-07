@@ -1,10 +1,8 @@
-"""Thesis page generator (T1 frameworks + T2 valuation / net assets / MoS).
+"""Thesis page generator (T1–T3: frameworks + valuation + monitoring).
 
-Cache-first fan-out over Held ∪ Watched: merged fundamentals (Yahoo +
-SEC XBRL + optional Alpha Vantage via ``cached_fetch`` + ``merge_fundamentals``)
-→ deterministic framework scorecards + valuation set + asset breakdown.
-Does **not** call ``run_phase0_research``. Brief is untouched (Engine 1
-preserved).
+Cache-first fan-out over Held ∪ Watched: merged fundamentals → framework
+scorecards + valuation + asset breakdown + thesis monitoring (quarterly
+verdicts). Does **not** call ``run_phase0_research``. Brief is untouched.
 """
 
 from __future__ import annotations
@@ -22,11 +20,14 @@ from app.schemas.thesis import (
     FrameworkId,
     ThesisDashboard,
     ThesisGenerationStatus,
+    ThesisMonitoring,
+    ThesisSnapshot,
     ThesisTicker,
 )
 from app.schemas.watchlist import ListKind
 from app.services import thesis_store, watchlist_store as store
 from app.services.merge_fundamentals import ProviderSnapshot, merge_fundamentals
+from app.services.phase0_cache import cache_lookup_stale
 from app.services.source_fetch import cached_fetch
 from app.services.source_registry import (
     SOURCE_ALPHA_VANTAGE,
@@ -34,6 +35,13 @@ from app.services.source_registry import (
     SOURCE_YAHOO,
 )
 from app.services.thesis_frameworks import scorecards_for
+from app.services.thesis_insight import narrate_change
+from app.services.thesis_monitor import (
+    assess_change,
+    should_append_snapshot,
+    signals_from,
+    synthesize_original_thesis,
+)
 from app.services.thesis_net_assets import asset_breakdown_for
 from app.services.thesis_valuations import margin_of_safety_for, valuation_set_for
 from app.tools.filings.sec_xbrl import fetch_sec_xbrl_fundamentals
@@ -68,11 +76,7 @@ def _merged_fundamentals(
     app_settings: Settings,
     force_refresh: bool,
 ) -> tuple[FinancialMetrics, list[str], list[str]]:
-    """Cache-first Yahoo + SEC XBRL (+ AV when keyed) → merged snapshot.
-
-    Returns (merged snapshot, sources_used, gaps). Per-source failure is a
-    gap, never fatal — an empty merge yields all-unknown scorecards.
-    """
+    """Cache-first Yahoo + SEC XBRL (+ AV when keyed) → merged snapshot."""
     gaps: list[str] = []
     providers: list[ProviderSnapshot] = []
 
@@ -105,29 +109,106 @@ def _merged_fundamentals(
     return merge_result.snapshot, merge_result.sources_used, gaps
 
 
+def _seed_original_thesis(
+    ticker: str,
+    *,
+    prior: ThesisSnapshot | None,
+    signals,
+    app_settings: Settings,
+) -> str:
+    if prior is not None and prior.original_thesis.strip():
+        return prior.original_thesis
+    cached = cache_lookup_stale(ticker, cache_dir=app_settings.phase0_cache_dir)
+    if cached is not None and cached.thesis is not None and cached.thesis.thesis.strip():
+        return cached.thesis.thesis.strip()
+    return synthesize_original_thesis(
+        graham_score=signals.graham_score,
+        fs_score=signals.fs_score,
+        mos=signals.mos,
+    )
+
+
 def build_thesis_ticker(
     ticker: str,
     list_kind: ListKind,
     *,
     app_settings: Settings,
     force_refresh: bool = False,
+    now: datetime | None = None,
 ) -> ThesisTicker:
-    """One row: merged fundamentals → frameworks + valuation + assets."""
+    """One row: merged fundamentals → frameworks + valuation + monitoring."""
+    clock = now or datetime.now(timezone.utc)
+    if clock.tzinfo is None:
+        clock = clock.replace(tzinfo=timezone.utc)
+
     merged, sources_used, gaps = _merged_fundamentals(
         ticker,
         app_settings=app_settings,
         force_refresh=force_refresh,
     )
+    frameworks = scorecards_for(merged)
+    mos_view = margin_of_safety_for(merged)
+    valuation = valuation_set_for(merged)
+    assets = asset_breakdown_for(merged)
+
+    current_signals = signals_from(
+        frameworks=frameworks,
+        mos_view=mos_view,
+        metrics=merged,
+    )
+    prior = thesis_store.get_latest_snapshot(ticker, app_settings=app_settings)
+    original = _seed_original_thesis(
+        ticker,
+        prior=prior,
+        signals=current_signals,
+        app_settings=app_settings,
+    )
+    prior_signals = prior.signals if prior is not None else None
+    change = assess_change(prior_signals, current_signals, as_of=clock)
+    change = narrate_change(
+        change,
+        ticker=ticker,
+        original_thesis=original,
+        app_settings=app_settings,
+    )
+
+    framework_scores = {c.framework.value: c.score for c in frameworks}
+    if should_append_snapshot(
+        prior.as_of if prior is not None else None,
+        now=clock,
+        quarter_days=int(getattr(app_settings, "thesis_quarter_days", 90)),
+        force_refresh=force_refresh,
+    ):
+        snap = ThesisSnapshot(
+            ticker=ticker.upper(),
+            as_of=clock,
+            original_thesis=original,
+            signals=current_signals,
+            change=change,
+            framework_scores=framework_scores,
+        )
+        thesis_store.append_snapshot(snap, app_settings=app_settings)
+
+    snaps = thesis_store.get_snapshots(ticker, app_settings=app_settings)
+    timeline = [s.change for s in snaps]
+    # Prefer freshly computed current even if ring was not appended.
+    monitoring = ThesisMonitoring(
+        original_thesis=original,
+        current=change,
+        timeline=timeline if timeline else [change],
+    )
+
     profile = merged.profile
     return ThesisTicker(
         ticker=ticker,
         list_kind=list_kind.value,  # type: ignore[arg-type]
         name=profile.name if profile is not None else None,
         sector=profile.sector if profile is not None else None,
-        frameworks=scorecards_for(merged),
-        valuation=valuation_set_for(merged),
-        margin_of_safety=margin_of_safety_for(merged),
-        assets=asset_breakdown_for(merged),
+        frameworks=frameworks,
+        valuation=valuation,
+        margin_of_safety=mos_view,
+        assets=assets,
+        monitoring=monitoring,
         sources_used=sources_used,
         gaps=gaps,
     )
@@ -171,6 +252,7 @@ def generate_thesis_dashboard(
             list_kind,
             app_settings=s,
             force_refresh=force_refresh,
+            now=clock,
         )
 
     worker = worker_fn or default_worker
@@ -210,7 +292,6 @@ def generate_thesis_dashboard(
     for row in rows:
         gaps.extend(row.gaps)
 
-    # Held first, then alphabetical (stable, scan-friendly table).
     rows.sort(key=lambda r: (r.list_kind != "held", r.ticker))
 
     status = (

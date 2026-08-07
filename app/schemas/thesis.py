@@ -1,7 +1,7 @@
-"""Thesis page contracts — T1 frameworks + T2 valuation / net assets / MoS.
+"""Thesis page contracts — T1 frameworks + T2 valuation + T3 monitoring.
 
-Formulas and thresholds are locked in architecture.md "Framework formula
-specs" (T1) and "Valuation / net-asset formula specs" (T2) before any
+Formulas and thresholds are locked in architecture.md framework (T1),
+valuation/net-asset (T2), and thesis monitoring (T3) specs before any
 agent consumes these values (2B invariant).
 """
 
@@ -57,6 +57,27 @@ class AssetVerdict(str, Enum):
     POSSIBLE_UNDERVALUATION = "possible_undervaluation"
     FAIR = "fair"
     POSSIBLE_OVERVALUATION = "possible_overvaluation"
+
+
+class ThesisVerdict(str, Enum):
+    NO_CHANGE = "no_change"
+    STRENGTHENED = "strengthened"
+    SLIGHTLY_WEAKER = "slightly_weaker"
+    BROKEN = "broken"
+
+
+THESIS_VERDICT_LABELS: dict[ThesisVerdict, str] = {
+    ThesisVerdict.NO_CHANGE: "No change",
+    ThesisVerdict.STRENGTHENED: "Strengthened",
+    ThesisVerdict.SLIGHTLY_WEAKER: "Slightly weaker",
+    ThesisVerdict.BROKEN: "Broken",
+}
+
+
+class ThesisInsightMode(str, Enum):
+    DETERMINISTIC = "deterministic"
+    CANNED = "canned"
+    LLM = "llm"
 
 
 class FrameworkCheck(BaseModel):
@@ -150,8 +171,48 @@ class AssetBreakdown(BaseModel):
     detail: str = ""
 
 
+class ThesisSignalVector(BaseModel):
+    """Comparable signals for quarterly thesis change assessment."""
+
+    graham_score: float | None = None
+    fs_score: float | None = None
+    mos: float | None = None
+    net_cash_ok: bool | None = None
+    current_ratio: float | None = None
+    fcf_positive: bool | None = None
+
+
+class ThesisChange(BaseModel):
+    """One quarterly change assessment (closed verdict set)."""
+
+    verdict: ThesisVerdict
+    as_of: datetime
+    evidence: list[str] = Field(default_factory=list)
+    narrative: str = ""
+    insight_mode: str = ThesisInsightMode.DETERMINISTIC.value
+
+
+class ThesisSnapshot(BaseModel):
+    """Point-in-time thesis monitoring snapshot (per-ticker ring entry)."""
+
+    ticker: str
+    as_of: datetime
+    original_thesis: str
+    signals: ThesisSignalVector
+    change: ThesisChange
+    framework_scores: dict[str, float | None] = Field(default_factory=dict)
+
+
+class ThesisMonitoring(BaseModel):
+    """Monitoring payload attached to a ThesisTicker row."""
+
+    original_thesis: str
+    current: ThesisChange | None = None
+    timeline: list[ThesisChange] = Field(default_factory=list)
+
+
 class ThesisTicker(BaseModel):
-    """One row of the per-stock framework + valuation table."""
+    """One row of the per-stock framework + valuation + monitoring table."""
 
     ticker: str
     list_kind: Literal["held", "watched"]
@@ -161,13 +222,14 @@ class ThesisTicker(BaseModel):
     valuation: ValuationSet | None = None
     margin_of_safety: MarginOfSafetyView | None = None
     assets: AssetBreakdown | None = None
+    monitoring: ThesisMonitoring | None = None
     # Sources that contributed to the merged snapshot (honest provenance).
     sources_used: list[str] = Field(default_factory=list)
     gaps: list[str] = Field(default_factory=list)
 
 
 class ThesisDashboard(BaseModel):
-    """Thesis landing page payload (framework + valuation, T1–T2)."""
+    """Thesis landing page payload (framework + valuation + monitoring)."""
 
     generated_at: datetime
     generation_status: ThesisGenerationStatus = ThesisGenerationStatus.COMPLETE
