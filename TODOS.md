@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). **Thesis T1–T5 shipped** (2026-08-07). **Brief E1 shipped** (2026-08-07). Next: orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Watchlist collections (1A) shipped** (2026-08-07). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). **Thesis T1–T5 shipped** (2026-08-07). **Brief E1 shipped** (2026-08-07). Next: Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
 
 **Portfolio Intelligence (2026-08-05):** Umbrella vision in [docs/PRD.md](docs/PRD.md) §1: six engines; shipped Brief = Engine 1 surface (**preserved**; E1 additive enrichment shipped); new Thesis landing page hosts Engines 2–6. Directive guidance only from the AI Portfolio Advisor. Thesis slices T1–T5 complete; Brief E1 below.
 
@@ -23,16 +23,6 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Effort:** L (per module S–M)  
 **Priority:** P3  
 **Depends on:** T1 framework engine pattern proven
-
-### Watchlist collections (orthogonal overlays — 1A)
-
-**What:** User-defined named collections (Yahoo-style groups) as overlays on Held/Watched membership. Create/rename/delete; add/remove selected tickers; filter watchlist by collection. Risk/Brief stay Held∪Watched (unchanged).
-
-**Why:** Bulk membership ops shipped; organize ~40 names without replacing capital-vs-curiosity lists.
-
-**Effort:** M  
-**Priority:** P2  
-**Depends on:** Bulk ops shipped (2026-08-03)
 
 ### Daily Decision Brief — insight mode dogfood (LLM staging)
 
@@ -192,6 +182,15 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 
 ## Completed
 
+### Watchlist collections — orthogonal overlays 1A (2026-08-07)
+
+- Named collections as overlays on Held/Watched (ticker may be in 0+ collections)
+- Store: `collections[]` in watchlist JSON; preserve across membership/summary writes; prune on remove
+- API: `POST/PATCH/DELETE /api/watchlist/collections`, `POST .../tickers` (add|remove)
+- UI: CollectionsBar filter chips + create/rename/delete; bulk Add to / Remove from collection
+- Risk / Brief / Thesis unchanged (still Held or Held∪Watched)
+- Tests: store + API units green
+
 ### Brief E1 — event enrichment + morning counts (2026-08-07)
 
 - E1 enrichment specs **locked** in architecture.md (category→frameworks map; morning count + opportunity bands)
@@ -261,7 +260,7 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 - Bulk bar: Move to Held / Move to Watched / Remove / Clear (membership-only; no research; no confirm)
 - API: `POST /api/watchlist/bulk` (`remove` | `move_to_held` | `move_to_watched`)
 - Store: `bulk_remove` / `bulk_move` with `affected` / `skipped_not_found` / `skipped_noop`
-- Collections (1A overlays) deferred — see queued milestone above
+- Collections (1A overlays) **shipped** (2026-08-07) — see Completed above
 
 ### Flexible ticker intake (2026-08-03)
 

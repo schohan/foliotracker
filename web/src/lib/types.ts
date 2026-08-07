@@ -1,6 +1,7 @@
 export type Phase0Status = "ok" | "partial" | "error";
 export type ListKind = "held" | "watched";
 export type BulkAction = "remove" | "move_to_held" | "move_to_watched";
+export type CollectionMemberAction = "add" | "remove";
 export type AppView = "watchlist" | "risk" | "brief" | "thesis";
 export type BriefGenerationStatus = "complete" | "stale" | "partial";
 export type BriefTickerStatus = "ok" | "partial" | "unavailable";
@@ -138,6 +139,12 @@ export interface WatchlistMembership {
   watched: string[];
 }
 
+export interface WatchlistCollection {
+  id: string;
+  name: string;
+  tickers: string[];
+}
+
 export interface WatchlistTickerSummary {
   ticker: string;
   list_kind: ListKind;
@@ -159,6 +166,7 @@ export interface WatchlistTickerSummary {
 export interface WatchlistState {
   membership: WatchlistMembership;
   summaries: WatchlistTickerSummary[];
+  collections: WatchlistCollection[];
   disclaimer: string;
 }
 
@@ -472,6 +480,18 @@ export interface WatchlistBulkResponse {
   affected_count: number;
   skipped_not_found_count: number;
   skipped_noop_count: number;
+  state: WatchlistState;
+  disclaimer: string;
+}
+
+export interface CollectionMembersResponse {
+  affected: string[];
+  skipped_not_found: string[];
+  skipped_noop: string[];
+  affected_count: number;
+  skipped_not_found_count: number;
+  skipped_noop_count: number;
+  collection: WatchlistCollection;
   state: WatchlistState;
   disclaimer: string;
 }

@@ -28,11 +28,17 @@ from app.schemas.watchlist import (
     BatchRefreshRequest,
     BatchRefreshResponse,
     BulkAction,
+    CollectionCreateRequest,
+    CollectionMemberAction,
+    CollectionMembersRequest,
+    CollectionMembersResponse,
+    CollectionRenameRequest,
     ListKind,
     ResearchResponse,
     WatchlistAddRequest,
     WatchlistBulkRequest,
     WatchlistBulkResponse,
+    WatchlistCollection,
     WatchlistIntakeRequest,
     WatchlistIntakeResponse,
     WatchlistPutRequest,
@@ -40,6 +46,10 @@ from app.schemas.watchlist import (
     WatchlistTickerSummary,
 )
 from app.services import brief_store, watchlist_store as store
+from app.services.watchlist_store import (
+    CollectionNameError,
+    CollectionNotFoundError,
+)
 from app.services.brief_service import (
     explain_event,
     generate_daily_brief,
@@ -226,6 +236,75 @@ def create_app(
             affected_count=len(result.affected),
             skipped_not_found_count=len(result.skipped_not_found),
             skipped_noop_count=len(result.skipped_noop),
+            state=state,
+        )
+
+    @app.post("/api/watchlist/collections", response_model=WatchlistState)
+    def create_watchlist_collection(body: CollectionCreateRequest) -> WatchlistState:
+        """Create a named collection overlay (Held/Watched unchanged)."""
+        try:
+            store.create_collection(body.name, s)
+        except CollectionNameError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return get_watchlist_state(s)
+
+    @app.patch(
+        "/api/watchlist/collections/{collection_id}",
+        response_model=WatchlistCollection,
+    )
+    def rename_watchlist_collection(
+        collection_id: str,
+        body: CollectionRenameRequest,
+    ) -> WatchlistCollection:
+        try:
+            return store.rename_collection(collection_id, body.name, s)
+        except CollectionNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except CollectionNameError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.delete(
+        "/api/watchlist/collections/{collection_id}",
+        response_model=WatchlistState,
+    )
+    def delete_watchlist_collection(collection_id: str) -> WatchlistState:
+        try:
+            store.delete_collection(collection_id, s)
+        except CollectionNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return get_watchlist_state(s)
+
+    @app.post(
+        "/api/watchlist/collections/{collection_id}/tickers",
+        response_model=CollectionMembersResponse,
+    )
+    def collection_members(
+        collection_id: str,
+        body: CollectionMembersRequest,
+    ) -> CollectionMembersResponse:
+        """Add/remove tickers on a collection overlay (no membership change)."""
+        try:
+            if body.action == CollectionMemberAction.ADD:
+                result = store.collection_add_tickers(
+                    collection_id, body.tickers, s
+                )
+            else:
+                result = store.collection_remove_tickers(
+                    collection_id, body.tickers, s
+                )
+        except CollectionNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except InvalidTickerError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        state = get_watchlist_state(s)
+        return CollectionMembersResponse(
+            affected=result.affected,
+            skipped_not_found=result.skipped_not_found,
+            skipped_noop=result.skipped_noop,
+            affected_count=len(result.affected),
+            skipped_not_found_count=len(result.skipped_not_found),
+            skipped_noop_count=len(result.skipped_noop),
+            collection=result.collection,
             state=state,
         )
 

@@ -197,6 +197,70 @@ def test_bulk_invalid_ticker_400(tmp_path: Path) -> None:
     assert r.status_code == 400
 
 
+def test_collections_crud_and_members(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    client.put(
+        "/api/watchlist",
+        json={"held": ["NVDA"], "watched": ["AAPL", "MSFT"]},
+    )
+    r = client.post("/api/watchlist/collections", json={"name": "Semis"})
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["collections"]) == 1
+    col_id = body["collections"][0]["id"]
+    assert body["collections"][0]["name"] == "Semis"
+    assert body["collections"][0]["tickers"] == []
+
+    r = client.patch(
+        f"/api/watchlist/collections/{col_id}",
+        json={"name": "AI Semis"},
+    )
+    assert r.status_code == 200
+    assert r.json()["name"] == "AI Semis"
+
+    r = client.post(
+        f"/api/watchlist/collections/{col_id}/tickers",
+        json={"tickers": ["NVDA", "AAPL", "ZZZZ"], "action": "add"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert set(body["affected"]) == {"NVDA", "AAPL"}
+    assert body["skipped_not_found"] == ["ZZZZ"]
+    assert set(body["collection"]["tickers"]) == {"NVDA", "AAPL"}
+    assert len(body["state"]["collections"]) == 1
+
+    r = client.post(
+        f"/api/watchlist/collections/{col_id}/tickers",
+        json={"tickers": ["AAPL"], "action": "remove"},
+    )
+    assert r.status_code == 200
+    assert r.json()["affected"] == ["AAPL"]
+    assert r.json()["collection"]["tickers"] == ["NVDA"]
+
+    r = client.delete(f"/api/watchlist/collections/{col_id}")
+    assert r.status_code == 200
+    assert r.json()["collections"] == []
+
+
+def test_collections_404_and_duplicate_400(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    client.post("/api/watchlist/collections", json={"name": "Semis"})
+    r = client.post("/api/watchlist/collections", json={"name": "semis"})
+    assert r.status_code == 400
+    r = client.patch(
+        "/api/watchlist/collections/c_missing",
+        json={"name": "X"},
+    )
+    assert r.status_code == 404
+    r = client.delete("/api/watchlist/collections/c_missing")
+    assert r.status_code == 404
+    r = client.post(
+        "/api/watchlist/collections/c_missing/tickers",
+        json={"tickers": ["NVDA"], "action": "add"},
+    )
+    assert r.status_code == 404
+
+
 def test_get_risk_empty_held(tmp_path: Path) -> None:
     client = _client(tmp_path)
     client.put("/api/watchlist", json={"held": [], "watched": ["AAPL"]})

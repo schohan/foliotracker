@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface). **Brief E1 shipped (2026-08-07)** — morning counts + bullet thesis linkage. **Flexible ticker intake shipped**. **Thesis T1–T5 shipped (2026-08-07)**. **Next:** Brief dogfood Assignment or watchlist collections (1A). See [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface). **Brief E1 shipped (2026-08-07)** — morning counts + bullet thesis linkage. **Flexible ticker intake shipped**. **Watchlist collections (1A) shipped (2026-08-07)**. **Thesis T1–T5 shipped (2026-08-07)**. **Next:** Brief dogfood Assignment. See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -172,9 +172,8 @@ Contracts and slices: [architecture.md](architecture.md) "Portfolio Intelligence
 ## Suggested next milestones
 
 1. Dogfood Brief Slice 1 (Assignment timing ≤30m) + founder miss log
-2. Watchlist collections (1A overlays)
-3. Phase 3 evidence deepen in detail panel (claim↔evidence; design 8A)
-4. Phase0 server single-flight if concurrent refresh still burns cost
+2. Phase 3 evidence deepen in detail panel (claim↔evidence; design 8A)
+3. Phase0 server single-flight if concurrent refresh still burns cost
 
 ---
 
@@ -182,6 +181,7 @@ Contracts and slices: [architecture.md](architecture.md) "Portfolio Intelligence
 
 | Date | Change |
 |------|--------|
+| 2026-08-07 | Watchlist collections (1A): orthogonal overlays — CRUD + members API, CollectionsBar filter/manage, prune on membership remove |
 | 2026-08-07 | Brief E1 shipped: enrichment specs locked, `BriefMorningCounts`, `brief_e1`, MorningCounts UI + bullet thesis linkage |
 | 2026-08-07 | Thesis T5 shipped: OS Score specs locked, `thesis_os_score`, PortfolioHealth + OSScorecard UI; Thesis T1–T5 complete |
 | 2026-08-07 | Thesis T4 shipped: advisor conclusion specs locked, `thesis_advisor`, `AdvisorInsight`, `POST /api/thesis/explain`, AdvisorInsight + ResearchButton UI |

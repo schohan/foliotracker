@@ -2,7 +2,7 @@
 
 **Portfolio Intelligence** — an AI Investment Operating System on [Google ADK](https://adk.dev/). Six AI engines compose over one shared **evidence spine** (fetch → evidence → cite → score); see [Platform shape](#platform-shape--six-engines-one-evidence-spine) below and [PRD §1](PRD.md).
 
-**Status:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface — preserved unchanged). **Flexible ticker intake shipped.** **Thesis T1–T3 shipped** (Framework + Valuation + Monitoring). **Next:** Brief dogfood Assignment, then Thesis T4. See [TODOS.md](../TODOS.md).
+**Status:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface — preserved unchanged). **Flexible ticker intake + collections (1A) shipped.** **Thesis T1–T5 + Brief E1 shipped.** **Next:** Brief dogfood Assignment. See [TODOS.md](../TODOS.md).
 
 **Related:** [PRD.md](PRD.md) · [implementation-status.md](implementation-status.md) · [TODOS.md](../TODOS.md)
 
@@ -815,6 +815,19 @@ Bulk membership intake without one-by-one typing: CSV / free-text paste / screen
 
 ---
 
+## Watchlist collections — orthogonal overlays (shipped 2026-08-07)
+
+Yahoo-style named groups as **overlays** on Held/Watched membership. A ticker may belong to 0+ collections. **Risk / Brief / Thesis stay Held or Held∪Watched** — collections are watchlist organize/filter only; no research on collection ops.
+
+| Piece | Role |
+|-------|------|
+| Store | `collections[]` beside `held`/`watched`/`summaries` in watchlist JSON; preserve on membership/summary writes; prune tickers when they leave Held∪Watched |
+| `WatchlistCollection` | `id` (`c_` + 8 hex), `name` (1–40, unique case-insensitive), `tickers` |
+| API | `POST/PATCH/DELETE /api/watchlist/collections`; `POST .../tickers` with `action=add|remove` |
+| UI | `CollectionsBar` filter chips + create/rename/delete; bulk bar Add to / Remove from collection |
+
+---
+
 ## Portfolio Intelligence — Thesis page (Engines 2–6; T1–T3 shipped)
 
 Docs locked 2026-08-05. Product frame: [PRD](PRD.md) §1 (six engines) and §5.4 (Thesis landing page, normative examples). Slices T1–T5 + Brief E1 sequenced in [TODOS.md](../TODOS.md).
@@ -1142,6 +1155,7 @@ UI: "Today's Portfolio" strip beside the existing PortfolioSummary digest — do
 
 | Date | Change |
 |------|--------|
+| 2026-08-07 | Watchlist collections (1A): orthogonal overlays — `WatchlistCollection`, CRUD + members API, CollectionsBar; Risk/Brief/Thesis membership unchanged |
 | 2026-08-07 | Brief E1 shipped: enrichment specs **locked**, `BriefMorningCounts`, `brief_e1`, MorningCounts UI + bullet thesis linkage |
 | 2026-08-07 | Thesis T5 shipped: OS Score dimension specs **locked**, `InvestmentOSScore` + `PortfolioHealthRollup`, `thesis_os_score`, PortfolioHealth + OSScorecard UI; Thesis T1–T5 complete |
 | 2026-08-07 | Thesis T4 shipped: advisor conclusion specs **locked**, `AdvisorInsight` on `ThesisTicker`, `thesis_advisor` + `POST /api/thesis/explain`, UI AdvisorInsight + ResearchButton; T5 remains planned |

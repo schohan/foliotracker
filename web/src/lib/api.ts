@@ -1,6 +1,8 @@
 import type {
   BriefInsight,
   BulkAction,
+  CollectionMemberAction,
+  CollectionMembersResponse,
   DailyBrief,
   ListKind,
   PortfolioRiskSnapshot,
@@ -8,6 +10,7 @@ import type {
   ThesisDashboard,
   ThesisExplainAnswer,
   WatchlistBulkResponse,
+  WatchlistCollection,
   WatchlistIntakeResponse,
   WatchlistState,
   WatchlistTickerSummary,
@@ -66,6 +69,43 @@ export function bulkWatchlistTickers(
     method: "POST",
     body: JSON.stringify({ tickers, action }),
   });
+}
+
+export function createCollection(name: string): Promise<WatchlistState> {
+  return request("/api/watchlist/collections", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function renameCollection(
+  id: string,
+  name: string,
+): Promise<WatchlistCollection> {
+  return request(`/api/watchlist/collections/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function deleteCollection(id: string): Promise<WatchlistState> {
+  return request(`/api/watchlist/collections/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export function collectionMembers(
+  id: string,
+  tickers: string[],
+  action: CollectionMemberAction,
+): Promise<CollectionMembersResponse> {
+  return request(
+    `/api/watchlist/collections/${encodeURIComponent(id)}/tickers`,
+    {
+      method: "POST",
+      body: JSON.stringify({ tickers, action }),
+    },
+  );
 }
 
 export function refreshTicker(ticker: string): Promise<WatchlistTickerSummary> {

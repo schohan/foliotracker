@@ -79,6 +79,98 @@ def test_bulk_remove_invalid_ticker_raises(tmp_path: Path) -> None:
         pass
 
 
+def test_create_rename_delete_collection(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    store.put_membership(["NVDA"], ["AAPL"], s)
+    col = store.create_collection("  Semis  ", s)
+    assert col.id.startswith("c_")
+    assert col.name == "Semis"
+    assert col.tickers == []
+    cols = store.list_collections(s)
+    assert len(cols) == 1
+    assert cols[0].name == "Semis"
+
+    renamed = store.rename_collection(col.id, "AI Semis", s)
+    assert renamed.name == "AI Semis"
+    store.delete_collection(col.id, s)
+    assert store.list_collections(s) == []
+
+
+def test_collection_duplicate_and_invalid_name(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    store.create_collection("Semis", s)
+    try:
+        store.create_collection("semis", s)
+        raise AssertionError("expected CollectionNameError")
+    except store.CollectionNameError:
+        pass
+    try:
+        store.create_collection("", s)
+        raise AssertionError("expected CollectionNameError")
+    except store.CollectionNameError:
+        pass
+    try:
+        store.create_collection("bad@name!", s)
+        raise AssertionError("expected CollectionNameError")
+    except store.CollectionNameError:
+        pass
+
+
+def test_collection_add_remove_and_prune(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    store.put_membership(["NVDA", "AAPL"], ["MSFT"], s)
+    col = store.create_collection("Core", s)
+    added = store.collection_add_tickers(
+        col.id, ["nvda", "MSFT", "ZZZZ", "NVDA"], s
+    )
+    assert added.affected == ["NVDA", "MSFT"]
+    assert added.skipped_not_found == ["ZZZZ"]
+    assert added.skipped_noop == []
+    assert set(added.collection.tickers) == {"NVDA", "MSFT"}
+
+    noop = store.collection_add_tickers(col.id, ["NVDA"], s)
+    assert noop.affected == []
+    assert noop.skipped_noop == ["NVDA"]
+
+    removed = store.collection_remove_tickers(col.id, ["MSFT", "GONE"], s)
+    assert removed.affected == ["MSFT"]
+    assert removed.skipped_not_found == ["GONE"]
+    assert removed.collection.tickers == ["NVDA"]
+
+    store.bulk_remove(["NVDA"], s)
+    cols = store.list_collections(s)
+    assert cols[0].tickers == []
+
+
+def test_collections_preserved_across_upsert_summary(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    store.put_membership(["NVDA"], [], s)
+    col = store.create_collection("Semis", s)
+    store.collection_add_tickers(col.id, ["NVDA"], s)
+    result = Phase0Result(
+        ticker="NVDA",
+        status=Phase0Status.OK,
+        evidence=None,
+        thesis=None,
+        cache_hit=True,
+        request_id="r-preserve",
+    )
+    summary = summary_from_phase0(result, list_kind=ListKind.HELD)
+    store.upsert_summary(summary, s)
+    cols = store.list_collections(s)
+    assert len(cols) == 1
+    assert cols[0].tickers == ["NVDA"]
+
+
+def test_collection_not_found(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    try:
+        store.rename_collection("c_missing", "X", s)
+        raise AssertionError("expected CollectionNotFoundError")
+    except store.CollectionNotFoundError:
+        pass
+
+
 def test_summary_from_phase0_maps_fields() -> None:
     result = Phase0Result(
         ticker="NVDA",

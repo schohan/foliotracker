@@ -83,7 +83,7 @@ Today the product ships locally via `adk web` / `adk run app`. The user asks to 
 
 **What exists now (Phase 0–2C):** single-ticker research from enriched Yahoo Finance fundamentals (profile, returns, BS/CF, trailing/forward P/E), Google News RSS headlines, SEC EDGAR filing metadata + XBRL companyfacts, and optional Alpha Vantage OVERVIEW fill-gaps for forward/market fields when keyed. Evidence aggregator surfaces `evidence.conflicts`; `scorecard` + `fundamentals` on `Phase0Result`. Dual cache: whole-result TTL plus per-source TTL/quota. Yahoo failure softens to `partial` when merged fundamentals pass the min field checklist.
 
-**What comes next:** Brief dogfood Assignment (≤30m); watchlist collections (1A); then Phase 3 evidence deepen or Brief Slice 1b/2. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
+**What comes next:** Brief dogfood Assignment (≤30m); then Phase 3 evidence deepen or Brief Slice 1b/2. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
 
 How the system is built lives in [architecture.md](architecture.md). What is implemented vs stub lives in [implementation-status.md](implementation-status.md). Deferred work lives in [TODOS.md](../TODOS.md).
 

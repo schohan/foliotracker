@@ -22,6 +22,14 @@ class WatchlistMembership(BaseModel):
     watched: list[str] = Field(default_factory=list)
 
 
+class WatchlistCollection(BaseModel):
+    """Named overlay group — orthogonal to Held/Watched membership."""
+
+    id: str
+    name: str
+    tickers: list[str] = Field(default_factory=list)
+
+
 class WatchlistTickerSummary(BaseModel):
     """Row-level summary derived from Phase0Result — never invents metrics."""
 
@@ -47,6 +55,7 @@ class WatchlistState(BaseModel):
 
     membership: WatchlistMembership
     summaries: list[WatchlistTickerSummary] = Field(default_factory=list)
+    collections: list[WatchlistCollection] = Field(default_factory=list)
     disclaimer: str = Field(default=PHASE0_DISCLAIMER)
 
 
@@ -109,6 +118,46 @@ class WatchlistBulkResponse(BaseModel):
     affected_count: int = 0
     skipped_not_found_count: int = 0
     skipped_noop_count: int = 0
+    state: WatchlistState
+    disclaimer: str = Field(default=PHASE0_DISCLAIMER)
+
+
+class CollectionCreateRequest(BaseModel):
+    """Create a named collection overlay."""
+
+    name: str = Field(..., min_length=1, max_length=40)
+
+
+class CollectionRenameRequest(BaseModel):
+    """Rename an existing collection."""
+
+    name: str = Field(..., min_length=1, max_length=40)
+
+
+class CollectionMemberAction(str, Enum):
+    """Add or remove tickers from a collection (membership unchanged)."""
+
+    ADD = "add"
+    REMOVE = "remove"
+
+
+class CollectionMembersRequest(BaseModel):
+    """Bulk add/remove tickers on a collection overlay."""
+
+    tickers: list[str] = Field(..., min_length=1, max_length=200)
+    action: CollectionMemberAction
+
+
+class CollectionMembersResponse(BaseModel):
+    """Result of collection member mutation."""
+
+    affected: list[str] = Field(default_factory=list)
+    skipped_not_found: list[str] = Field(default_factory=list)
+    skipped_noop: list[str] = Field(default_factory=list)
+    affected_count: int = 0
+    skipped_not_found_count: int = 0
+    skipped_noop_count: int = 0
+    collection: WatchlistCollection
     state: WatchlistState
     disclaimer: str = Field(default=PHASE0_DISCLAIMER)
 

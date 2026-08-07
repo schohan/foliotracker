@@ -29,6 +29,7 @@ def get_watchlist_state(app_settings: Settings | None = None) -> WatchlistState:
     return WatchlistState(
         membership=store.get_membership(s),
         summaries=store.get_summaries(s),
+        collections=store.list_collections(s),
         disclaimer=PHASE0_DISCLAIMER,
     )
 

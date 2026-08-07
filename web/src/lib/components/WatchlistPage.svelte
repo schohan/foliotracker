@@ -3,12 +3,16 @@
   import {
     addTicker,
     bulkWatchlistTickers,
+    collectionMembers,
+    createCollection,
+    deleteCollection,
     fetchResearch,
     fetchWatchlist,
     intakeTickers,
     refreshAll,
     refreshTicker,
     removeTicker,
+    renameCollection,
   } from "../api";
   import { rowFocusId } from "../focusHelpers";
   import {
@@ -20,6 +24,7 @@
     BulkAction,
     ListKind,
     Phase0Result,
+    WatchlistCollection,
     WatchlistIntakeResponse,
     WatchlistState,
     WatchlistTickerSummary,
@@ -30,6 +35,7 @@
   import TickerDetailPanel from "./TickerDetailPanel.svelte";
   import TickerIntakePanel from "./TickerIntakePanel.svelte";
   import TickerListSection from "./TickerListSection.svelte";
+  import CollectionsBar from "./watchlist/CollectionsBar.svelte";
 
   interface Props {
     view: AppView;
@@ -52,14 +58,37 @@
   let checkedTickers: string[] = $state([]);
   let bulkBusy = $state(false);
   let bulkStatus: string | null = $state(null);
+  let activeCollectionId: string | null = $state(null);
+  let collectionBusy = $state(false);
+  let addToCollectionId = $state("");
 
-  const held = $derived(
+  const collections = $derived(state?.collections ?? []);
+  const activeCollection = $derived(
+    activeCollectionId
+      ? (collections.find((c) => c.id === activeCollectionId) ?? null)
+      : null,
+  );
+  const collectionFilter = $derived(
+    activeCollection ? new Set(activeCollection.tickers) : null,
+  );
+
+  const heldAll = $derived(
     (state?.summaries ?? []).filter((r) => r.list_kind === "held"),
   );
-  const watched = $derived(
+  const watchedAll = $derived(
     (state?.summaries ?? []).filter((r) => r.list_kind === "watched"),
   );
-  const visibility = $derived(listVisibility(held.length, watched.length));
+  const held = $derived(
+    collectionFilter
+      ? heldAll.filter((r) => collectionFilter.has(r.ticker))
+      : heldAll,
+  );
+  const watched = $derived(
+    collectionFilter
+      ? watchedAll.filter((r) => collectionFilter.has(r.ticker))
+      : watchedAll,
+  );
+  const visibility = $derived(listVisibility(heldAll.length, watchedAll.length));
   const firstRun = $derived(visibility === "first-run");
   const showSections = $derived(showListSections(visibility));
   const tagline = $derived(
@@ -73,15 +102,33 @@
   const checkedCount = $derived(checkedTickers.length);
   const checkedSet: Set<string> = $derived(new Set(checkedTickers));
   const pageBusy = $derived(
-    adding || intakeBusy || refreshAllBusy || bulkBusy,
+    adding || intakeBusy || refreshAllBusy || bulkBusy || collectionBusy,
+  );
+  const filterEmpty = $derived(
+    !!collectionFilter && held.length === 0 && watched.length === 0,
   );
 
   async function load() {
     loadError = null;
     try {
       state = await fetchWatchlist();
+      syncActiveCollection(state.collections);
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  function syncActiveCollection(cols: WatchlistCollection[]) {
+    if (activeCollectionId && !cols.some((c) => c.id === activeCollectionId)) {
+      activeCollectionId = null;
+    }
+    if (
+      addToCollectionId &&
+      !cols.some((c) => c.id === addToCollectionId)
+    ) {
+      addToCollectionId = cols[0]?.id ?? "";
+    } else if (!addToCollectionId && cols.length > 0) {
+      addToCollectionId = cols[0].id;
     }
   }
 
@@ -109,6 +156,7 @@
     try {
       const res = await intakeTickers(text, listKind);
       state = res.state;
+      syncActiveCollection(res.state.collections);
       return res;
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
@@ -124,6 +172,7 @@
     loadError = null;
     try {
       state = await addTicker(ticker, listKind);
+      syncActiveCollection(state.collections);
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
       adding = false;
@@ -134,6 +183,7 @@
     try {
       await refreshTicker(ticker);
       state = await fetchWatchlist();
+      syncActiveCollection(state.collections);
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
@@ -150,6 +200,7 @@
     try {
       await refreshTicker(ticker);
       state = await fetchWatchlist();
+      syncActiveCollection(state.collections);
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
@@ -169,6 +220,7 @@
     try {
       await refreshAll();
       state = await fetchWatchlist();
+      syncActiveCollection(state.collections);
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
@@ -184,6 +236,7 @@
     loadError = null;
     try {
       state = await removeTicker(ticker);
+      syncActiveCollection(state.collections);
       checkedTickers = checkedTickers.filter((t) => t !== ticker);
       if (selected === ticker) {
         selected = null;
@@ -232,6 +285,7 @@
     try {
       const res = await bulkWatchlistTickers(tickers, action);
       state = res.state;
+      syncActiveCollection(res.state.collections);
       const parts = [
         `${res.affected_count} ${action === "remove" ? "removed" : "moved"}`,
       ];
@@ -255,6 +309,109 @@
         detail = null;
         detailError = null;
       }
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
+    } finally {
+      bulkBusy = false;
+    }
+  }
+
+  async function onCreateCollection(name: string) {
+    collectionBusy = true;
+    loadError = null;
+    try {
+      state = await createCollection(name);
+      const created = state.collections.find(
+        (c) => c.name.toLowerCase() === name.trim().toLowerCase(),
+      );
+      if (created) {
+        activeCollectionId = created.id;
+        addToCollectionId = created.id;
+      }
+      syncActiveCollection(state.collections);
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
+    } finally {
+      collectionBusy = false;
+    }
+  }
+
+  async function onRenameCollection(id: string, name: string) {
+    collectionBusy = true;
+    loadError = null;
+    try {
+      await renameCollection(id, name);
+      state = await fetchWatchlist();
+      syncActiveCollection(state.collections);
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
+    } finally {
+      collectionBusy = false;
+    }
+  }
+
+  async function onDeleteCollection(id: string) {
+    collectionBusy = true;
+    loadError = null;
+    try {
+      state = await deleteCollection(id);
+      if (activeCollectionId === id) activeCollectionId = null;
+      syncActiveCollection(state.collections);
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
+    } finally {
+      collectionBusy = false;
+    }
+  }
+
+  async function onAddToCollection() {
+    const tickers = [...checkedTickers];
+    const id = addToCollectionId;
+    if (!id || tickers.length === 0 || bulkBusy) return;
+    bulkBusy = true;
+    loadError = null;
+    bulkStatus = null;
+    try {
+      const res = await collectionMembers(id, tickers, "add");
+      state = res.state;
+      syncActiveCollection(res.state.collections);
+      const name =
+        res.collection.name ||
+        collections.find((c) => c.id === id)?.name ||
+        "collection";
+      const parts = [`${res.affected_count} added to ${name}`];
+      if (res.skipped_noop_count) {
+        parts.push(`${res.skipped_noop_count} already in`);
+      }
+      if (res.skipped_not_found_count) {
+        parts.push(`${res.skipped_not_found_count} not on watchlist`);
+      }
+      bulkStatus = parts.join(" · ");
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
+    } finally {
+      bulkBusy = false;
+    }
+  }
+
+  async function onRemoveFromCollection() {
+    const tickers = [...checkedTickers];
+    const col = activeCollection;
+    if (!col || tickers.length === 0 || bulkBusy) return;
+    bulkBusy = true;
+    loadError = null;
+    bulkStatus = null;
+    try {
+      const res = await collectionMembers(col.id, tickers, "remove");
+      state = res.state;
+      syncActiveCollection(res.state.collections);
+      const parts = [`${res.affected_count} removed from ${col.name}`];
+      if (res.skipped_not_found_count) {
+        parts.push(`${res.skipped_not_found_count} not in collection`);
+      }
+      bulkStatus = parts.join(" · ");
+      const drop = new Set(res.affected);
+      checkedTickers = checkedTickers.filter((t) => !drop.has(t));
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
@@ -346,6 +503,20 @@
     onintake={onIntake}
   />
 
+  {#if !firstRun}
+    <CollectionsBar
+      {collections}
+      activeId={activeCollectionId}
+      busy={pageBusy}
+      onselect={(id) => {
+        activeCollectionId = id;
+      }}
+      oncreate={onCreateCollection}
+      onrename={onRenameCollection}
+      ondelete={onDeleteCollection}
+    />
+  {/if}
+
   {#if checkedCount > 0}
     <div class="bulk-bar" role="region" aria-label="Bulk ticker actions">
       <span class="bulk-count">{checkedCount} selected</span>
@@ -365,6 +536,38 @@
       >
         Move to Watched
       </button>
+      {#if collections.length > 0}
+        <label class="add-to">
+          <span class="sr-only">Add to collection</span>
+          <select
+            bind:value={addToCollectionId}
+            disabled={bulkBusy}
+            aria-label="Collection to add to"
+          >
+            {#each collections as c (c.id)}
+              <option value={c.id}>{c.name}</option>
+            {/each}
+          </select>
+          <button
+            type="button"
+            class="bulk-btn"
+            disabled={bulkBusy || !addToCollectionId}
+            onclick={() => void onAddToCollection()}
+          >
+            Add to collection
+          </button>
+        </label>
+      {/if}
+      {#if activeCollection}
+        <button
+          type="button"
+          class="bulk-btn"
+          disabled={bulkBusy}
+          onclick={() => void onRemoveFromCollection()}
+        >
+          Remove from {activeCollection.name}
+        </button>
+      {/if}
       <button
         type="button"
         class="bulk-btn danger"
@@ -399,6 +602,12 @@
   {#if !state}
     <p class="muted">Loading watchlist…</p>
   {:else if showSections}
+    {#if filterEmpty}
+      <p class="muted filter-empty">
+        No tickers in {activeCollection?.name ?? "this collection"} yet. Select
+        rows and use Add to collection.
+      </p>
+    {/if}
     <TickerListSection
       kind="held"
       rows={held}
@@ -492,6 +701,10 @@
   .muted {
     color: var(--ink-soft);
   }
+  .filter-empty {
+    margin: 0 0 0.85rem;
+    font-size: 0.95rem;
+  }
   .banner {
     display: flex;
     flex-wrap: wrap;
@@ -555,6 +768,32 @@
   .bulk-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+  .add-to {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    align-items: center;
+  }
+  .add-to select {
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 0.45rem 0.55rem;
+    min-height: 44px;
+    background: white;
+    color: var(--ink);
+    font: inherit;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
   .bulk-status {
     margin: 0 0 0.85rem;
