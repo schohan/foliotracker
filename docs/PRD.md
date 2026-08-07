@@ -2,7 +2,7 @@
 
 **Product:** FolioTracker — **Portfolio Intelligence**: an AI Investment Operating System on [Google ADK](https://adk.dev/)  
 **Tagline:** *Evidence-based investing for busy professionals.* (alternate: *The investment copilot that monitors your portfolio using the world's best investing frameworks.*)  
-**Status:** Thin Phase 2 + **2C done**; watchlist + Risk v2 shipped; **Daily Decision Brief Slice 1 + triage dashboard shipped**; **flexible ticker intake shipped**; **Thesis T1–T3 shipped** (Framework + Valuation + Monitoring)  
+**Status:** Thin Phase 2 + **2C done**; watchlist + Risk v2 shipped; **Daily Decision Brief Slice 1 + triage + E1 shipped**; **flexible ticker intake shipped**; **Thesis T1–T5 shipped** (Frameworks → OS Score)  
 **Audience:** Executives (vision, roadmap, risk) and engineers (contracts, acceptance criteria, phase boundaries)  
 **Last updated:** 2026-08-07
 
@@ -66,7 +66,7 @@ flowchart TD
 
 | Engine | Answers | Product surface | Status |
 |--------|---------|-----------------|--------|
-| 1. Market Intelligence | "What changed that matters?" (not a news feed) | **Brief page — shipped, preserved unchanged**; event enrichment (impact, confidence, affected frameworks, thesis impact) is additive Brief E1 | Shipped (E1 planned) |
+| 1. Market Intelligence | "What changed that matters?" (not a news feed) | **Brief page — shipped**; E1 morning counts + bullet thesis linkage (additive) | **Shipped (E1 2026-08-07)** |
 | 2. Fundamental Engine | Is the company becoming stronger or weaker? | Thesis landing page | Planned (T1+) |
 | 3. Valuation Engine | Am I paying too much? Multiple simultaneous valuations | Thesis landing page | **Shipped (T2)** |
 | 4. Investment Framework Engine | How does each philosophy score this stock? | Thesis landing page | **Shipped (T1)** |
@@ -83,7 +83,7 @@ Today the product ships locally via `adk web` / `adk run app`. The user asks to 
 
 **What exists now (Phase 0–2C):** single-ticker research from enriched Yahoo Finance fundamentals (profile, returns, BS/CF, trailing/forward P/E), Google News RSS headlines, SEC EDGAR filing metadata + XBRL companyfacts, and optional Alpha Vantage OVERVIEW fill-gaps for forward/market fields when keyed. Evidence aggregator surfaces `evidence.conflicts`; `scorecard` + `fundamentals` on `Phase0Result`. Dual cache: whole-result TTL plus per-source TTL/quota. Yahoo failure softens to `partial` when merged fundamentals pass the min field checklist.
 
-**What comes next:** Brief E1 (morning counts); Brief dogfood Assignment (≤30m); then Phase 3 evidence deepen or Brief Slice 1b/2. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
+**What comes next:** Brief dogfood Assignment (≤30m); watchlist collections (1A); then Phase 3 evidence deepen or Brief Slice 1b/2. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
 
 How the system is built lives in [architecture.md](architecture.md). What is implemented vs stub lives in [implementation-status.md](implementation-status.md). Deferred work lives in [TODOS.md](../TODOS.md).
 
@@ -534,7 +534,7 @@ Follows the Brief architectural template: Pydantic schemas → deterministic ser
 | Advisor + explain service | Directive advisor + `POST /api/thesis/explain`; reuses `THESIS_INSIGHT_MODE` | T4 | **Shipped** |
 | Investment OS Score service | Deterministic composite from locked weight table + portfolio rollup | T5 | **Shipped** |
 | Thesis HTTP API + page | `GET /api/thesis`, `POST /api/thesis/generate`, `POST /api/thesis/explain`; `ThesisPage` + `thesis/*` components; `PrimaryNav` adds Thesis | T1+ | Planned |
-| Brief E1 enrichment | **Additive optional** `BriefBullet` fields (impact, confidence, affected_frameworks, thesis_impact) + morning count strip; backwards-compatible; after T3 | E1 | Planned |
+| Brief E1 enrichment | **Additive optional** `BriefBullet.affected_frameworks` / `thesis_impact` + `DailyBrief.morning` count strip; triage `impact_score`/`confidence` already shipped; backwards-compatible | E1 | **Shipped (2026-08-07)** |
 
 ### 6.5 Planned (deferred / Phase 3)
 
@@ -684,7 +684,7 @@ Shipped Brief milestones above stay queued unchanged; Thesis slices are independ
 | **T3** | Thesis Monitoring (snapshot store + quarterly change verdicts) | M | **Done** (2026-08-07) |
 | **T4** | AI Portfolio Advisor + AI Research button | M | **Shipped** |
 | **T5** | Investment OS Score + Portfolio dashboard rollup | M | **Shipped** |
-| **E1** | Brief event enrichment + morning count strip (additive; after T3) | S–M | Queued |
+| **E1** | Brief event enrichment + morning count strip (additive; after T3) | S–M | **Done** (2026-08-07) |
 | Later | Remaining frameworks (Lynch, Greenblatt, Quality, GARP, Dividend, Momentum); then future modules (Marks, Munger, Mauboussin, Fama-French, Behavioral Finance, Macro Overlay) | L | Phase-next |
 
 ### Phase 3 backlog (planned)

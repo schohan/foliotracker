@@ -252,7 +252,7 @@ What the user **sees** (not backend behavior).
 
 ### Component vocabulary (shipped — reuse)
 
-`WatchlistPage` · `AddTickerForm` · `TickerListSection` · `TickerRow` · `ScoreStrip` · `TickerDetailPanel` · `ConflictsList` · `TickerIntakePanel` · `DisclaimerBar` · `PrimaryNav` · `RiskPage` · `BriefPage` + `brief/*` (`PrioritySection`, `EventRow`, `FilterBar`, `PortfolioSummary`, `TimelineRail`, `HeatMap`, `StockDrawer`, `SourceList`)
+`WatchlistPage` · `AddTickerForm` · `TickerListSection` · `TickerRow` · `ScoreStrip` · `TickerDetailPanel` · `ConflictsList` · `TickerIntakePanel` · `DisclaimerBar` · `PrimaryNav` · `RiskPage` · `BriefPage` + `brief/*` (`PrioritySection`, `EventRow`, `FilterBar`, `PortfolioSummary`, `MorningCounts`, `TimelineRail`, `HeatMap`, `StockDrawer`, `SourceList`)
 
 The planned `ThesisPage` + `thesis/*` components must extend this vocabulary and the same visual language — not invent a second one. Shipped `brief/*` components are the Engine 1 surface and stay unchanged.
 
@@ -375,7 +375,7 @@ Risk nav scaffold + correlation table shipped (Risk v2, 2026-07-31). **Daily Dec
 
 ### Brief surface (office-hours 2026-07-31 — Approach B; triage dashboard shipped 2026-08-04)
 
-**This is the Engine 1 (Market Intelligence) surface of Portfolio Intelligence — preserved unchanged** ([PRD §1.2](PRD.md)). Shipped beyond Slice 1: High/Medium/Quiet priority sections with Impact Score, filters, morning digest strip, history timeline, heat map, stock drawer, and provider-labeled insight blocks (`BRIEF_INSIGHT_MODE`). The only queued visual change is the additive Brief E1 morning count strip (after Thesis T3).
+**This is the Engine 1 (Market Intelligence) surface of Portfolio Intelligence** ([PRD §1.2](PRD.md)). Shipped beyond Slice 1: High/Medium/Quiet priority sections with Impact Score, filters, morning digest strip, **E1 Today's Portfolio counts** (thesis-backed), history timeline, heat map, stock drawer, and provider-labeled insight blocks (`BRIEF_INSIGHT_MODE`).
 
 Constraint worship — if the user can only notice **3 things** on Brief:
 

@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface — preserved unchanged). **Flexible ticker intake shipped**. **Thesis T1–T5 shipped (2026-08-07)** — Frameworks + Valuation + Monitoring + Advisor + Investment OS Score. **Next:** Brief E1 or Brief dogfood Assignment. See [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface). **Brief E1 shipped (2026-08-07)** — morning counts + bullet thesis linkage. **Flexible ticker intake shipped**. **Thesis T1–T5 shipped (2026-08-07)**. **Next:** Brief dogfood Assignment or watchlist collections (1A). See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -40,8 +40,8 @@ Update this file whenever a module moves from stub → working.
 | Ticker intake service / API / UI | Done | `ticker_intake` + `POST /api/watchlist/intake` + `TickerIntakePanel` |
 | Portfolio risk service | Done (v2) | Held equal-weight concentration + pairwise corr from Yahoo source-cache history |
 | Risk UI (`RiskPage` + `PrimaryNav`) | Done (v2) | `Watchlist \| Risk \| Brief \| Thesis`; sector + names + top correlations tables |
-| Brief service / store / classify / insight | Done | Gate/rank Generate; Impact Score + priority; insight provider (`BRIEF_INSIGHT_MODE` deterministic/canned/llm, fail-closed); ring-14 + history browse + miss log; no Phase0 research |
-| Brief UI (`BriefPage` triage dashboard) | Done | High/Medium/Quiet sections, filters, morning digest strip, history timeline, heat map, stock drawer, miss log (`brief/*` components) |
+| Brief service / store / classify / insight | Done | Gate/rank Generate; Impact Score + priority; insight provider (`BRIEF_INSIGHT_MODE` deterministic/canned/llm, fail-closed); ring-14 + history browse + miss log; E1 morning counts + thesis bullet linkage; no Phase0 research |
+| Brief UI (`BriefPage` triage dashboard) | Done | High/Medium/Quiet sections, filters, morning digest strip, E1 Today's Portfolio counts, history timeline, heat map, stock drawer, miss log (`brief/*` components) |
 
 ---
 
@@ -109,7 +109,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `scoring` | Done (2B) — `score_from_metrics` (consumes merged snapshot) |
 | `portfolio_risk_service` | Done (v2) — Held concentration + top pairwise correlations |
 | `yahoo_history` | Done — shared history parse + last-session daily % + move_score |
-| `brief_classify` / `brief_store` / `brief_service` / `brief_insight` | Done — insight provider fail-closed (`BRIEF_INSIGHT_MODE`) |
+| `brief_classify` / `brief_store` / `brief_service` / `brief_insight` / `brief_e1` | Done — insight provider fail-closed; E1 morning counts + thesis bullet linkage |
 | `thesis_frameworks` / `thesis_valuations` / `thesis_net_assets` / `thesis_monitor` / `thesis_insight` / `thesis_advisor` / `thesis_os_score` / `thesis_service` / `thesis_store` | Done (T1–T5) — full Thesis page engines; cache-first fan-out; dashboard + per-ticker snapshot rings |
 | `source_registry` / `source_cache` / `source_fetch` | Done (2C.1; registry includes `sec_xbrl`, `alpha_vantage`; `force_refresh`) |
 | `merge_fundamentals` | Done (2C.3) |
@@ -131,7 +131,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `fundamentals_minimum` | Done | Editable min field paths for soften Yahoo-fatal (2C.3 gate) |
 | `watchlist` | Done | Membership + ticker summaries for dashboard |
 | `portfolio` | Done (v2) | `PortfolioRiskSnapshot` + `PairCorrelation` |
-| `brief` | Done | `DailyBrief` / `BriefTicker` / `BriefBullet` / `BriefInsight`; triage fields (`impact_score`, priority, `insight_mode` provider label) |
+| `brief` | Done | `DailyBrief` / `BriefTicker` / `BriefBullet` / `BriefInsight` / `BriefMorningCounts`; triage + E1 fields |
 | `thesis` | Done (T1–T3) | Framework + valuation + `ThesisMonitoring` / snapshots; T4+ contracts pending |
 | `financials.history_closes` | Done | Yahoo daily closes on source-cache payload (Risk + Brief) |
 
@@ -165,14 +165,14 @@ Contracts and slices: [architecture.md](architecture.md) "Portfolio Intelligence
 | Investment OS Score composite | Done (T5) | `thesis_os_score`; portfolio health rollup on dashboard |
 | Thesis HTTP API (`GET /api/thesis`, `POST /api/thesis/generate`, `POST /api/thesis/explain`) | Done (T1+T4) | Generate carries T2–T5 fields; explain uses latest dashboard row |
 | `ThesisPage` + `thesis/*` UI; `PrimaryNav` adds Thesis | Done (T1–T5) | Score table + OS + PortfolioHealth + valuation + timeline + advisor |
-| Brief E1 enrichment (optional `BriefBullet` fields + morning counts) | Todo | Additive, backwards-compatible; after T3 |
+| Brief E1 enrichment (optional `BriefBullet` fields + morning counts) | Done (E1) | Specs locked; `brief_e1`; MorningCounts UI; after T3 |
 
 ---
 
 ## Suggested next milestones
 
-1. Brief E1: optional bullet enrichment + morning portfolio counts
-2. Dogfood Brief Slice 1 (Assignment timing ≤30m) + founder miss log
+1. Dogfood Brief Slice 1 (Assignment timing ≤30m) + founder miss log
+2. Watchlist collections (1A overlays)
 3. Phase 3 evidence deepen in detail panel (claim↔evidence; design 8A)
 4. Phase0 server single-flight if concurrent refresh still burns cost
 
@@ -182,6 +182,7 @@ Contracts and slices: [architecture.md](architecture.md) "Portfolio Intelligence
 
 | Date | Change |
 |------|--------|
+| 2026-08-07 | Brief E1 shipped: enrichment specs locked, `BriefMorningCounts`, `brief_e1`, MorningCounts UI + bullet thesis linkage |
 | 2026-08-07 | Thesis T5 shipped: OS Score specs locked, `thesis_os_score`, PortfolioHealth + OSScorecard UI; Thesis T1–T5 complete |
 | 2026-08-07 | Thesis T4 shipped: advisor conclusion specs locked, `thesis_advisor`, `AdvisorInsight`, `POST /api/thesis/explain`, AdvisorInsight + ResearchButton UI |
 | 2026-08-07 | Thesis T3 shipped: monitoring verdict specs locked, per-ticker snapshots, `thesis_monitor`/`thesis_insight`, `ThesisTimeline` UI |

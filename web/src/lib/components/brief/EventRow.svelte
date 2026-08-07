@@ -68,6 +68,14 @@
             {/each}
           </ul>
           <p class="pi">{bullet.portfolio_impact}</p>
+          {#if bullet.affected_frameworks && bullet.affected_frameworks.length > 0}
+            <p class="fw">
+              Frameworks · {bullet.affected_frameworks.join(" · ")}
+            </p>
+          {/if}
+          {#if bullet.thesis_impact}
+            <p class="ti">{bullet.thesis_impact}</p>
+          {/if}
         </div>
         <div>
           <h4>Suggested action</h4>

@@ -1,4 +1,8 @@
-"""Daily Decision Brief contracts (triage-first intelligence dashboard)."""
+"""Daily Decision Brief contracts (triage-first intelligence dashboard).
+
+E1 (2026-08-07): optional bullet thesis linkage + morning count strip —
+see architecture.md "Brief E1 enrichment specs".
+"""
 
 from __future__ import annotations
 
@@ -77,6 +81,14 @@ class BriefInsight(BaseModel):
     provider: BriefInsightMode
 
 
+class BriefOpportunityScore(str, Enum):
+    """Morning opportunity band (PRD §5.4.9 / E1 specs)."""
+
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
 class BriefBullet(BaseModel):
     """One citeable material-event bullet with triage fields."""
 
@@ -99,6 +111,21 @@ class BriefBullet(BaseModel):
     confidence: int = Field(default=50, ge=0, le=100)
     sources: list[BriefSource] = Field(default_factory=list)
     insight: BriefInsight | None = None
+    # E1 — thesis linkage (optional / additive)
+    affected_frameworks: list[str] = Field(default_factory=list)
+    thesis_impact: str | None = None
+
+
+class BriefMorningCounts(BaseModel):
+    """Today's Portfolio strip (PRD §5.4.9) — Thesis-backed morning counts."""
+
+    thesis_changed: int = 0
+    valuation_improved: int = 0
+    mos_increased: int = 0
+    balance_sheet_weakened: int = 0
+    risk_increased: int = 0
+    opportunity_score: BriefOpportunityScore | None = None
+    thesis_available: bool = False
 
 
 class QuietTicker(BaseModel):
@@ -161,6 +188,7 @@ class DailyBrief(BaseModel):
     tickers: list[BriefTicker] = Field(default_factory=list)
     quiet_tickers: list[QuietTicker] = Field(default_factory=list)
     summary: BriefSummary | None = None
+    morning: BriefMorningCounts | None = None
     insight_mode: BriefInsightMode = BriefInsightMode.DETERMINISTIC
     gaps: list[str] = Field(default_factory=list)
     empty_message: str | None = None

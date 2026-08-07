@@ -26,7 +26,7 @@ Portfolio Intelligence is six AI engines composing over the same evidence spine 
 
 | Engine | Answers | System components | Surface | Status |
 |--------|---------|-------------------|---------|--------|
-| 1. Market Intelligence | "What changed that matters?" | `brief_classify`, `yahoo_history`, `brief_service`, `brief_insight`, `brief_store`, `/api/brief*` | **Brief page — shipped, preserved unchanged** (E1 enrichment additive, after T3) | **Shipped** |
+| 1. Market Intelligence | "What changed that matters?" | `brief_classify`, `yahoo_history`, `brief_service`, `brief_insight`, `brief_e1`, `brief_store`, `/api/brief*` | **Brief page — shipped** (E1 morning counts + thesis linkage additive) | **Shipped** |
 | 2. Fundamental Engine | Stronger or weaker? | Merged fundamentals (Yahoo + SEC XBRL) → metric services incl. Altman Z / Piotroski F / Beneish M where computable | Thesis page | Planned (T1+) |
 | 3. Valuation Engine | Am I paying too much? | Valuation service (Graham / Buffett / Modern sets → six-value ladder) + net asset service | Thesis page | **Shipped (T2)** |
 | 4. Investment Framework Engine | How does each philosophy score this? | Framework engine service → `FrameworkScorecard` per philosophy | Thesis page | **Shipped (T1)** |
@@ -760,7 +760,7 @@ COVERAGE: 2C.1–2C.2 unit-covered; 2C.3 + cache-interaction paths remain GAPs
 
 ## Engine 1 — Daily Decision Brief (shipped)
 
-Portfolio-scoped material-event triage over **Held ∪ Watched** (Held wins duplicates). Slice 1 shipped 2026-08-03; triage dashboard shipped 2026-08-04. **This is the Engine 1 (Market Intelligence) surface of Portfolio Intelligence — its contracts, generator, and UI are preserved unchanged.** The only queued change is the additive, backwards-compatible Brief E1 enrichment (after Thesis T3).
+Portfolio-scoped material-event triage over **Held ∪ Watched** (Held wins duplicates). Slice 1 shipped 2026-08-03; triage dashboard shipped 2026-08-04; **Brief E1 morning counts + thesis bullet linkage shipped 2026-08-07**. **This is the Engine 1 (Market Intelligence) surface of Portfolio Intelligence** — triage contracts stay stable; E1 fields are additive/optional.
 
 ### Data flow
 
@@ -783,14 +783,14 @@ membership snapshot
 
 | Piece | Role |
 |-------|------|
-| `DailyBrief` / `BriefTicker` / `BriefBullet` / `BriefInsight` | `app/schemas/brief.py` — triage fields (`impact_score` 0–100, priority, category, severity), structured insight (what happened / why / market reaction / should long-term care), `insight_mode` provider label |
+| `DailyBrief` / `BriefTicker` / `BriefBullet` / `BriefInsight` / `BriefMorningCounts` | `app/schemas/brief.py` — triage fields + E1 morning strip / thesis linkage |
 | `yahoo_history` | Shared parse + last-session daily % + `move_score` (Risk + Brief) |
 | `brief_classify` | Keyword + SEC form heuristics → category/severity |
-| `brief_service.generate_daily_brief` | Sync Generate; ~60s wall → `generation_status` complete/stale/partial |
+| `brief_service.generate_daily_brief` | Sync Generate; ~60s wall → `generation_status` complete/stale/partial; E1 attaches `morning` + bullet thesis fields from Thesis store (read-only) |
 | `brief_insight` | Insight provider: `BRIEF_INSIGHT_MODE=deterministic` (default) \| `canned` \| `llm`; llm fails closed to deterministic; provider label always on payload |
 | `brief_store` | Ring-14 JSON (history browse) + miss-log JSONL |
 | API | `GET /api/brief`, `GET /api/brief/history`, `POST /api/brief/generate`, `POST /api/brief/miss`, `POST /api/brief/explain` |
-| UI | `BriefPage` triage dashboard — High/Medium/Quiet inbox rows, filters, quiet list, morning digest strip, history timeline, heat map, stock drawer, miss log |
+| UI | `BriefPage` triage dashboard — High/Medium/Quiet inbox rows, filters, quiet list, morning digest + E1 Today's Portfolio strip, history timeline, heat map, stock drawer, miss log |
 
 ### Yahoo `history_closes`
 
@@ -798,7 +798,7 @@ membership snapshot
 
 ### Out of current Brief scope
 
-Scheduled generation, social display-only section, earnings-call digests, dissemination adapters (email / messaging / audio / MCP — recorded, not built until the website Brief is trusted). Brief E1 enrichment (optional `BriefBullet` fields + morning count strip) is queued **after** Thesis T3 and must stay backwards-compatible.
+Scheduled generation, social display-only section, earnings-call digests, dissemination adapters (email / messaging / audio / MCP — recorded, not built until the website Brief is trusted). Brief E1 enrichment (optional `BriefBullet.affected_frameworks` / `thesis_impact` + `DailyBrief.morning`) **shipped 2026-08-07**.
 
 ---
 
@@ -827,7 +827,9 @@ Docs locked 2026-08-05. Product frame: [PRD](PRD.md) §1 (six engines) and §5.4
 
 **T4 shipped (2026-08-07):** AI Portfolio Advisor + AI Research button — locked conclusion priority table, `AdvisorInsight` on `ThesisTicker`, `thesis_advisor` (`THESIS_INSIGHT_MODE`, fail-closed; directive phrasing allowed here only), `POST /api/thesis/explain`, UI `thesis/AdvisorInsight` + `thesis/ResearchButton`.
 
-**T5 shipped (2026-08-07):** Investment OS Score + Portfolio Health rollup — locked dimension weight/formula table, `InvestmentOSScore` on `ThesisTicker`, `PortfolioHealthRollup` on `ThesisDashboard`, `thesis_os_score`, UI `thesis/PortfolioHealth` + `thesis/OSScorecard` + OS column on score table. Thesis T1–T5 complete; Brief E1 remains planned.
+**T5 shipped (2026-08-07):** Investment OS Score + Portfolio Health rollup — locked dimension weight/formula table, `InvestmentOSScore` on `ThesisTicker`, `PortfolioHealthRollup` on `ThesisDashboard`, `thesis_os_score`, UI `thesis/PortfolioHealth` + `thesis/OSScorecard` + OS column on score table. Thesis T1–T5 complete.
+
+**Brief E1 shipped (2026-08-07):** Additive morning count strip + bullet thesis linkage — locked E1 specs, `BriefMorningCounts` on `DailyBrief.morning`, optional `BriefBullet.affected_frameworks` / `thesis_impact`, `brief_e1` (read-only Thesis store), UI `brief/MorningCounts`.
 
 **Engine → surface mapping:** Engine 1 (Market Intelligence) = the shipped Brief, **unchanged** — everything in the "Engine 1 — Daily Decision Brief" section above remains authoritative. Engines 2–6 (Fundamental, Valuation, Framework, Thesis Monitoring, Advisor) = the new Thesis page, built on the same evidence spine and the Brief architectural template (schemas → deterministic services → ring store → HTTP API → Svelte page).
 
@@ -1079,13 +1081,60 @@ Deterministic composite (PRD §5.4.11). Same coverage rule as frameworks: weight
 
 Buckets are independent (a ticker may count in more than one).
 
+### Brief E1 enrichment specs (LOCKED 2026-08-07)
+
+Additive Engine 1 extension (PRD §5.4.9). **Backwards-compatible:** optional fields only; shipped triage Brief behavior unchanged when Thesis data is absent.
+
+**`BriefBullet` additive fields** (triage `impact_score` + `confidence` already shipped — those are the E1 "impact" / "confidence" in the original writeup; do not duplicate):
+
+| Field | Type | Rule |
+|-------|------|------|
+| `affected_frameworks` | `list[str]` (FrameworkId values) | Deterministic category → frameworks map (below). Empty list when none apply. |
+| `thesis_impact` | `str \| null` | From latest Thesis dashboard monitoring for that ticker: `"{Verdict label}: {first evidence line}"` (narrative fallback). `null` when no Thesis row / no current change. |
+
+**Category → `affected_frameworks` map:**
+
+| Category | Frameworks |
+|----------|------------|
+| `earnings_guidance` | graham, financial_strength |
+| `security_breach` | financial_strength |
+| `contracts_won_lost` | graham |
+| `regulatory_material` | financial_strength |
+| `analyst_rating` | graham, financial_strength |
+| `product_announcement` | graham |
+| `price_move` | graham |
+| `other_material` | _(empty)_ |
+
+**`BriefMorningCounts`** on `DailyBrief.morning` (optional; always attached on Generate — zeros + `opportunity_score=null` when no Thesis dashboard):
+
+Read-only from latest `ThesisDashboard` + per-ticker snapshot rings (never calls Thesis Generate / Phase0). Thresholds match thesis monitor where noted.
+
+| Field | Rule (count of tickers) |
+|-------|-------------------------|
+| `thesis_changed` | monitoring verdict ∈ {strengthened, slightly_weaker, broken} |
+| `valuation_improved` | prior+current graham scores known and rise ≥ 10 |
+| `mos_increased` | prior+current mos known and rise ≥ 0.10 |
+| `balance_sheet_weakened` | prior+current fs scores known and drop ≥ 10 |
+| `risk_increased` | monitoring verdict ∈ {slightly_weaker, broken} |
+| `opportunity_score` | `high` / `medium` / `low` / `null` — see bands |
+
+**Opportunity score bands** (when a Thesis dashboard exists; else `null`):
+
+- Let `opp = valuation_improved + mos_increased + count(strengthened)`
+- Let `risk = balance_sheet_weakened + risk_increased`
+- `high` if `opp ≥ 3` and `opp > risk`
+- `low` if `risk > opp` and `risk ≥ 1`
+- `medium` otherwise (including quiet thesis day)
+
+UI: "Today's Portfolio" strip beside the existing PortfolioSummary digest — does not replace High/Medium/Quiet triage counts.
+
 ### Engineering invariants (restated for this track)
 
 - **Deterministic math first:** every framework formula, valuation, and the OS Score composite is a pure-Python service with unit tests **before** any agent consumes it. LLMs never perform score/valuation arithmetic.
 - **LLM scope:** thesis-change narrative, advisor reasoning, and research-button answers only — structured output, fail-closed, provider label always on the payload (same pattern as `brief_insight`).
 - **Honest gaps:** unsupported metrics/valuations are `null` with an "insufficient data" label; Replacement Value ships `null` until a method is locked (PRD open question).
 - **Advice stance ripple:** directive phrasing (buy more / hold / trim / research / wait) is allowed **only** in `AdvisorInsight`. Brief, Watchlist, and Risk stay non-directive; the fixed disclaimer remains on every result and surface.
-- **Brief preservation:** no shipped Brief schema/service/API/UI contract changes. Brief E1 adds **optional** `BriefBullet` fields (impact, confidence, affected_frameworks, thesis_impact) + a morning count strip — backwards-compatible, sequenced after T3.
+- **Brief preservation:** shipped Brief triage contracts stay stable. Brief E1 adds **optional** `BriefBullet.affected_frameworks` / `thesis_impact` + `DailyBrief.morning` count strip — backwards-compatible; reads Thesis store only.
 
 ---
 
@@ -1093,6 +1142,7 @@ Buckets are independent (a ticker may count in more than one).
 
 | Date | Change |
 |------|--------|
+| 2026-08-07 | Brief E1 shipped: enrichment specs **locked**, `BriefMorningCounts`, `brief_e1`, MorningCounts UI + bullet thesis linkage |
 | 2026-08-07 | Thesis T5 shipped: OS Score dimension specs **locked**, `InvestmentOSScore` + `PortfolioHealthRollup`, `thesis_os_score`, PortfolioHealth + OSScorecard UI; Thesis T1–T5 complete |
 | 2026-08-07 | Thesis T4 shipped: advisor conclusion specs **locked**, `AdvisorInsight` on `ThesisTicker`, `thesis_advisor` + `POST /api/thesis/explain`, UI AdvisorInsight + ResearchButton; T5 remains planned |
 | 2026-08-07 | Thesis T3 shipped: monitoring verdict / quarter-gate specs **locked**, per-ticker snapshot ring, `thesis_monitor`/`thesis_insight`, `ThesisMonitoring` + `ThesisTimeline`; T4+ remain planned |

@@ -1,8 +1,8 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). **Thesis T1–T5 shipped** (2026-08-07). Next: Brief E1 (morning counts), orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). **Thesis T1–T5 shipped** (2026-08-07). **Brief E1 shipped** (2026-08-07). Next: orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
 
-**Portfolio Intelligence (2026-08-05):** Umbrella vision in [docs/PRD.md](docs/PRD.md) §1: six engines; shipped Brief = Engine 1 surface (**preserved unchanged**); new Thesis landing page hosts Engines 2–6. Directive guidance only from the AI Portfolio Advisor. Thesis slices T1–T5 + Brief E1 below.
+**Portfolio Intelligence (2026-08-05):** Umbrella vision in [docs/PRD.md](docs/PRD.md) §1: six engines; shipped Brief = Engine 1 surface (**preserved**; E1 additive enrichment shipped); new Thesis landing page hosts Engines 2–6. Directive guidance only from the AI Portfolio Advisor. Thesis slices T1–T5 complete; Brief E1 below.
 
 **Design:** [DESIGN.md](DESIGN.md) · living UX plan [docs/design-plan.md](docs/design-plan.md) (`/plan-design-review` 2026-07-28). Brief design: `~/.gstack/projects/schohan-foliotracker/shailenderchohan-main-design-20260731-024904.md`.
 
@@ -13,16 +13,6 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
 
 ## Next milestones (queued)
-
-### Brief E1 — event enrichment + morning counts (additive)
-
-**What:** **Additive optional** `BriefBullet` fields: impact, confidence, affected frameworks, thesis impact. Morning count strip (thesis changed / valuation improved / MoS increased / balance sheet weakened / risk increased / opportunity score, PRD §5.4.9).
-
-**Why:** Engine 1 extension of the shipped Brief. Backwards-compatible by contract: optional fields only; Brief behavior unchanged until this ships; **no shipped Brief acceptance criteria change**. Existing Brief milestones (insight-mode dogfood, Slice 2 polish, E2E smoke, near-miss log) stay queued unchanged.
-
-**Effort:** S–M  
-**Priority:** P3  
-**Depends on:** Thesis T3 (verdict + valuation-delta signals)
 
 ### Thesis — Phase-next frameworks (recorded)
 
@@ -201,6 +191,16 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Risk v2 dogfood; product call on local store shape
 
 ## Completed
+
+### Brief E1 — event enrichment + morning counts (2026-08-07)
+
+- E1 enrichment specs **locked** in architecture.md (category→frameworks map; morning count + opportunity bands)
+- Schemas: optional `BriefBullet.affected_frameworks` / `thesis_impact`; `BriefMorningCounts` on `DailyBrief.morning`
+- `brief_e1`: read-only Thesis dashboard + snapshot rings (no Thesis/Phase0 regenerate)
+- Generate path attaches morning strip + per-bullet thesis linkage
+- UI: `brief/MorningCounts` ("Today's Portfolio"); EventRow shows frameworks + thesis impact when present
+- Tests: `test_brief_e1` + brief service regression; triage Brief behavior unchanged when Thesis absent
+- Triage `impact_score` / `confidence` remain the shipped E1 "impact"/"confidence" (not duplicated)
 
 ### Thesis T5 — Investment OS Score + Portfolio dashboard (2026-08-07)
 

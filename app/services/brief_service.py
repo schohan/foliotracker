@@ -19,6 +19,7 @@ from app.schemas.brief import (
     BriefGenerationStatus,
     BriefInsightMode,
     BriefMarketRisk,
+    BriefMorningCounts,
     BriefPriority,
     BriefSentiment,
     BriefSummary,
@@ -27,14 +28,20 @@ from app.schemas.brief import (
     DailyBrief,
     QuietTicker,
 )
+from app.schemas.thesis import ThesisTicker as ThesisRow
 from app.schemas.evidence import Evidence
 from app.schemas.filings import SecFilingsBatch
 from app.schemas.financials import FinancialMetrics
 from app.schemas.news import NewsBatch
 from app.schemas.phase0 import PHASE0_DISCLAIMER, Phase0Result
 from app.schemas.watchlist import ListKind
-from app.services import brief_store, watchlist_store as store
+from app.services import brief_store, thesis_store, watchlist_store as store
 from app.services.brief_classify import ClassifiedEvent, classify_evidence
+from app.services.brief_e1 import (
+    affected_frameworks_for,
+    build_morning_counts,
+    thesis_impact_line,
+)
 from app.services.brief_impact import (
     category_headline,
     event_key,
@@ -244,6 +251,7 @@ def _enrich_bullet(
     held_count: int,
     insight_mode: BriefInsightMode,
     app_settings: Settings,
+    thesis_row: ThesisRow | None = None,
 ) -> BriefBullet:
     impact = impact_from_category(
         category,
@@ -304,6 +312,8 @@ def _enrich_bullet(
             evidence_ids=evidence_ids,
         ),
         insight=insight,
+        affected_frameworks=affected_frameworks_for(category),
+        thesis_impact=thesis_impact_line(thesis_row),
     )
 
 
@@ -318,6 +328,7 @@ def _bullets_from_events(
     held_count: int,
     insight_mode: BriefInsightMode,
     app_settings: Settings,
+    thesis_row: ThesisRow | None = None,
 ) -> list[BriefBullet]:
     bullets: list[BriefBullet] = []
     for ev in events:
@@ -340,6 +351,7 @@ def _bullets_from_events(
                 held_count=held_count,
                 insight_mode=insight_mode,
                 app_settings=app_settings,
+                thesis_row=thesis_row,
             )
         )
     return bullets
@@ -354,6 +366,7 @@ def _price_move_bullet(
     held_count: int,
     insight_mode: BriefInsightMode,
     app_settings: Settings,
+    thesis_row: ThesisRow | None = None,
 ) -> BriefBullet:
     pct = daily_return * 100
     sign = "+" if pct > 0 else ""
@@ -371,6 +384,7 @@ def _price_move_bullet(
         held_count=held_count,
         insight_mode=insight_mode,
         app_settings=app_settings,
+        thesis_row=thesis_row,
     )
 
 
@@ -412,6 +426,7 @@ def build_ticker_row(
     held_count: int = 0,
     insight_mode: BriefInsightMode | None = None,
     app_settings: Settings | None = None,
+    thesis_row: ThesisRow | None = None,
 ) -> BriefTicker | None:
     """Apply material gate; return row or None for quiet names."""
     s = app_settings if app_settings is not None else default_settings
@@ -428,6 +443,7 @@ def build_ticker_row(
         held_count=held_count,
         insight_mode=mode,
         app_settings=s,
+        thesis_row=thesis_row,
     )
     move_ok = passes_move_gate(work.daily_return)
     event_ok = len(bullets) > 0
@@ -461,6 +477,7 @@ def build_ticker_row(
                 held_count=held_count,
                 insight_mode=mode,
                 app_settings=s,
+                thesis_row=thesis_row,
             )
         ]
 
@@ -595,12 +612,19 @@ def generate_daily_brief(
             tickers=[],
             quiet_tickers=[],
             summary=BriefSummary(holdings_count=0),
+            morning=BriefMorningCounts(thesis_available=False),
             insight_mode=insight_mode,
             empty_message=EMPTY_UNIVERSE_MSG,
             disclaimer=PHASE0_DISCLAIMER,
         )
         brief_store.save_brief(brief, app_settings=s)
         return brief
+
+    # E1: read-only Thesis snapshot for bullet linkage + morning counts.
+    thesis_dashboard = thesis_store.get_latest_dashboard(s)
+    thesis_by_ticker = {
+        t.ticker.upper(): t for t in (thesis_dashboard.tickers if thesis_dashboard else [])
+    }
 
     wall = float(s.brief_generate_budget_seconds)
     workers = max(1, min(int(s.brief_max_workers), 8))
@@ -662,6 +686,7 @@ def generate_daily_brief(
             held_count=held_count,
             insight_mode=insight_mode,
             app_settings=s,
+            thesis_row=thesis_by_ticker.get(work.ticker.upper()),
         )
         if row is None:
             quiet.append(
@@ -715,6 +740,7 @@ def generate_daily_brief(
         material=capped,
         quiet=quiet,
     )
+    morning = build_morning_counts(thesis_dashboard, app_settings=s)
 
     brief = DailyBrief(
         generated_at=clock,
@@ -725,6 +751,7 @@ def generate_daily_brief(
         tickers=capped,
         quiet_tickers=quiet,
         summary=summary,
+        morning=morning,
         insight_mode=insight_mode,
         gaps=gaps,
         empty_message=empty_message,

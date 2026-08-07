@@ -21,6 +21,7 @@
   import FilterBar from "./brief/FilterBar.svelte";
   import HeatMap from "./brief/HeatMap.svelte";
   import PortfolioSummary from "./brief/PortfolioSummary.svelte";
+  import MorningCounts from "./brief/MorningCounts.svelte";
   import PrioritySection from "./brief/PrioritySection.svelte";
   import StockDrawer from "./brief/StockDrawer.svelte";
   import TimelineRail from "./brief/TimelineRail.svelte";
@@ -338,6 +339,10 @@
           insightMode={brief.insight_mode ?? "deterministic"}
           generationStatus={brief.generation_status}
         />
+
+        {#if brief.morning}
+          <MorningCounts morning={brief.morning} />
+        {/if}
 
         <FilterBar active={filter} onchange={(f) => (filter = f)} />
 

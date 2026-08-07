@@ -70,6 +70,7 @@ Reuse before inventing:
 | `RiskPage` | Held equal-weight concentration + top pairwise correlations (tables; no charts) |
 | `BriefPage` | Daily Decision Brief — triage dashboard (summary, filters, High/Medium/Quiet, miss log) |
 | `brief/PortfolioSummary` | Holdings counts, themes, morning digest strip |
+| `brief/MorningCounts` | E1 Today's Portfolio strip (thesis-backed counts) |
 | `brief/FilterBar` | Gmail-like triage filters |
 | `brief/EventRow` | Expandable impact-ranked event row |
 | `brief/PrioritySection` | High / Medium / Quiet sections |

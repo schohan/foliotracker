@@ -57,11 +57,27 @@ export interface BriefBullet {
   confidence: number;
   sources: BriefSource[];
   insight: BriefInsight | null;
+  /** E1 — frameworks linked to this event */
+  affected_frameworks?: string[];
+  /** E1 — thesis monitoring line when Thesis data exists */
+  thesis_impact?: string | null;
 }
 
 export interface QuietTicker {
   ticker: string;
   list_kind: ListKind;
+}
+
+export type BriefOpportunityScore = "high" | "medium" | "low";
+
+export interface BriefMorningCounts {
+  thesis_changed: number;
+  valuation_improved: number;
+  mos_increased: number;
+  balance_sheet_weakened: number;
+  risk_increased: number;
+  opportunity_score: BriefOpportunityScore | null;
+  thesis_available: boolean;
 }
 
 export interface BriefSummary {
@@ -110,6 +126,7 @@ export interface DailyBrief {
   tickers: BriefTicker[];
   quiet_tickers: QuietTicker[];
   summary: BriefSummary | null;
+  morning?: BriefMorningCounts | null;
   insight_mode: BriefInsightMode;
   gaps: string[];
   empty_message: string | null;
