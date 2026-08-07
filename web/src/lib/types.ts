@@ -1,7 +1,7 @@
 export type Phase0Status = "ok" | "partial" | "error";
 export type ListKind = "held" | "watched";
 export type BulkAction = "remove" | "move_to_held" | "move_to_watched";
-export type AppView = "watchlist" | "risk" | "brief";
+export type AppView = "watchlist" | "risk" | "brief" | "thesis";
 export type BriefGenerationStatus = "complete" | "stale" | "partial";
 export type BriefTickerStatus = "ok" | "partial" | "unavailable";
 export type BriefInsightMode = "deterministic" | "canned" | "llm";
@@ -245,6 +245,51 @@ export interface PortfolioRiskSnapshot {
   avg_risk_score: number | null;
   risk_scores_known: number;
   gaps: string[];
+  disclaimer: string;
+}
+
+export type FrameworkId = "graham" | "financial_strength";
+export type CheckStatus = "pass" | "fail" | "unknown";
+export type ThesisGenerationStatus = "complete" | "partial";
+
+export interface FrameworkCheck {
+  name: string;
+  status: CheckStatus;
+  value: number | null;
+  rating: string;
+  points: number | null;
+  weight: number;
+  inputs: string[];
+  detail: string;
+}
+
+export interface FrameworkScorecard {
+  framework: FrameworkId;
+  label: string;
+  score: number | null;
+  checks: FrameworkCheck[];
+  coverage: number;
+}
+
+export interface ThesisTicker {
+  ticker: string;
+  list_kind: ListKind;
+  name: string | null;
+  sector: string | null;
+  frameworks: FrameworkScorecard[];
+  sources_used: string[];
+  gaps: string[];
+}
+
+export interface ThesisDashboard {
+  generated_at: string;
+  generation_status: ThesisGenerationStatus;
+  universe_count: number;
+  tickers_considered: number;
+  tickers: ThesisTicker[];
+  frameworks: FrameworkId[];
+  gaps: string[];
+  empty_message: string | null;
   disclaimer: string;
 }
 

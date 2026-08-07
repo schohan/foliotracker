@@ -50,7 +50,7 @@ Do not use Inter, Roboto, Arial, or system-ui as the primary stack. Two typeface
 
 ## Layout & chrome
 
-- **Primary workspace:** Held / Watched tables (Held first). Text nav `Watchlist | Risk | Brief | Thesis` (Brief = daily material-event triage; Thesis = multi-framework Portfolio Intelligence page, planned).
+- **Primary workspace:** Held / Watched tables (Held first). Text nav `Watchlist | Risk | Brief | Thesis` (Brief = daily material-event triage; Thesis = multi-framework Portfolio Intelligence page, T1 shipped 2026-08-07).
 - **Secondary context:** Right detail panel on row select (Watchlist). Brief uses a **StockDrawer** (same fixed-panel pattern) for event + insight drill-down — no full-page navigation away from the triage dashboard.
 - **First-run (0 tickers):** Collapsed composition — brand, one line, add form only. No empty section shells. Brief with empty universe: calm “Add tickers on Watchlist to generate a Brief.”
 - **Cards:** Default none. Tables, list rows, and the detail panel are the interaction surfaces. No dashboard card mosaic. Brief uses **expandable inbox rows** (Linear-style) plus a portfolio summary strip — not a card grid.
@@ -66,7 +66,7 @@ Reuse before inventing:
 | Component | Job |
 |-----------|-----|
 | `WatchlistPage` | Page shell, lists, first-run |
-| `PrimaryNav` | Text nav `Watchlist \| Risk \| Brief \| Thesis` (Thesis planned) |
+| `PrimaryNav` | Text nav `Watchlist \| Risk \| Brief \| Thesis` |
 | `RiskPage` | Held equal-weight concentration + top pairwise correlations (tables; no charts) |
 | `BriefPage` | Daily Decision Brief — triage dashboard (summary, filters, High/Medium/Quiet, miss log) |
 | `brief/PortfolioSummary` | Holdings counts, themes, morning digest strip |
@@ -77,9 +77,9 @@ Reuse before inventing:
 | `brief/HeatMap` | Compact Held/Watched impact grid |
 | `brief/TimelineRail` | Brief history browse (ring-14) |
 | `brief/StockDrawer` | Side panel for ticker events + insight + research |
-| `ThesisPage` | Portfolio Intelligence landing page (planned) — framework scores, valuations, thesis monitoring, advisor |
-| `thesis/FrameworkScoreTable` | Per-stock scores across investment philosophies (planned) |
-| `thesis/FrameworkScorecard` | Single-framework drill-down: named checks, PASS/value/rating (planned) |
+| `ThesisPage` | Portfolio Intelligence landing page (T1 shipped) — framework score table + per-ticker scorecards; valuations / monitoring / advisor planned |
+| `thesis/FrameworkScoreTable` | Per-stock scores across investment philosophies (T1 shipped: Graham + Financial Strength) |
+| `thesis/FrameworkScorecard` | Single-framework drill-down: named checks, PASS/value/rating (T1 shipped) |
 | `thesis/ValuationLadder` | Six-value ladder: market / intrinsic / liquidation / replacement / enterprise / expected fair (planned) |
 | `thesis/MarginOfSafety` | Intrinsic vs price, % + star rating (planned) |
 | `thesis/AssetBreakdown` | Net Asset Intelligence: assets − liabilities → adjusted net assets vs market cap (planned) |

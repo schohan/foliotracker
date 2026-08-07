@@ -16,6 +16,7 @@ from app.schemas.brief import (
     DailyBrief,
 )
 from app.schemas.phase0 import Phase0Result
+from app.schemas.thesis import ThesisDashboard, ThesisGenerateRequest
 from app.schemas.ticker import InvalidTickerError, normalize_ticker
 from app.schemas.portfolio import PortfolioRiskSnapshot
 from app.schemas.watchlist import (
@@ -41,6 +42,10 @@ from app.services.brief_service import (
 )
 from app.services.phase0_pipeline import run_phase0_research
 from app.services.portfolio_risk_service import build_portfolio_risk
+from app.services.thesis_service import (
+    generate_thesis_dashboard,
+    get_latest_dashboard as get_latest_thesis_dashboard,
+)
 from app.services.ticker_intake import QuoteChecker, apply_intake
 from app.services.watchlist_service import (
     get_watchlist_state,
@@ -54,12 +59,14 @@ def create_app(
     app_settings: Settings | None = None,
     research_fn: Callable[..., Phase0Result] | None = None,
     brief_generate_fn: Callable[..., DailyBrief] | None = None,
+    thesis_generate_fn: Callable[..., ThesisDashboard] | None = None,
     intake_quote_checker: QuoteChecker | None = None,
 ) -> FastAPI:
     """Build the API app (injectable settings + research for tests)."""
     s = app_settings if app_settings is not None else default_settings
     fn = research_fn or run_phase0_research
     brief_fn = brief_generate_fn or generate_daily_brief
+    thesis_fn = thesis_generate_fn or generate_thesis_dashboard
     quote_checker = intake_quote_checker
 
     app = FastAPI(title="FolioTracker", version="0.1.0")
@@ -125,6 +132,19 @@ def create_app(
             list_kind=body.list_kind,
             app_settings=s,
         )
+
+    @app.get("/api/thesis", response_model=ThesisDashboard | None)
+    def get_thesis() -> ThesisDashboard | None:
+        """Latest persisted ThesisDashboard (null when none generated yet)."""
+        return get_latest_thesis_dashboard(app_settings=s)
+
+    @app.post("/api/thesis/generate", response_model=ThesisDashboard)
+    def post_thesis_generate(
+        body: ThesisGenerateRequest | None = None,
+    ) -> ThesisDashboard:
+        """Sync Generate framework score table (cache-first; wall budget)."""
+        req = body or ThesisGenerateRequest()
+        return thesis_fn(app_settings=s, force_refresh=req.force_refresh)
 
     @app.put("/api/watchlist", response_model=WatchlistState)
     def put_watchlist(body: WatchlistPutRequest) -> WatchlistState:

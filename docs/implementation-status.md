@@ -2,7 +2,7 @@
 
 Tracks what exists vs. what is still scaffold-only, relative to [architecture.md](architecture.md).
 
-**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface — preserved unchanged). **Flexible ticker intake shipped**. **Portfolio Intelligence vision adopted — Thesis page (Engines 2–6) planned (docs 2026-08-05)**. **Next:** Brief dogfood Assignment, then Thesis T1. See [TODOS.md](../TODOS.md).
+**Active scope:** Thin Phase 2 + **2C done**. Watchlist + Risk v2 **shipped**. **Daily Decision Brief Slice 1 + triage dashboard shipped** (Engine 1 surface — preserved unchanged). **Flexible ticker intake shipped**. **Thesis T1 shipped (2026-08-07)** — landing page shell + Framework Engine v1 (Graham + Financial Strength). **Next:** Brief dogfood Assignment, then Thesis T2 (valuation engine). See [TODOS.md](../TODOS.md).
 
 **Legend**
 
@@ -34,7 +34,7 @@ Update this file whenever a module moves from stub → working.
 | Min fundamentals checklist (`fundamentals_minimum`) | Done | Editable `MINIMUM_FUNDAMENTALS_FIELD_PATHS`; gate for soften Yahoo-fatal |
 | Evaluations framework | Done | Cases + rubric + `python -m evaluations.phase0.run` |
 | Prompts library | Todo | Thesis prompt inline in thesis_agent |
-| Watchlist HTTP API (`app/api`) | Done | FastAPI: membership, intake, refresh, research GET, risk, brief (get/history/generate/miss/explain) |
+| Watchlist HTTP API (`app/api`) | Done | FastAPI: membership, intake, refresh, research GET, risk, brief (get/history/generate/miss/explain), thesis (get/generate) |
 | Watchlist store / service | Done | Local JSON + `Phase0Result` → summary |
 | Watchlist UI (`web/`) | Done | Svelte 5 dashboard (held/watched, detail panel, flexible intake) |
 | Ticker intake service / API / UI | Done | `ticker_intake` + `POST /api/watchlist/intake` + `TickerIntakePanel` |
@@ -110,6 +110,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `portfolio_risk_service` | Done (v2) — Held concentration + top pairwise correlations |
 | `yahoo_history` | Done — shared history parse + last-session daily % + move_score |
 | `brief_classify` / `brief_store` / `brief_service` / `brief_insight` | Done — insight provider fail-closed (`BRIEF_INSIGHT_MODE`) |
+| `thesis_frameworks` / `thesis_service` / `thesis_store` | Done (T1) — deterministic Graham + Financial Strength; cache-first merged-fundamentals fan-out; dashboard ring |
 | `source_registry` / `source_cache` / `source_fetch` | Done (2C.1; registry includes `sec_xbrl`, `alpha_vantage`; `force_refresh`) |
 | `merge_fundamentals` | Done (2C.3) |
 | `valuation` / `financial_math` / `ranking` / `normalization` | Todo |
@@ -131,6 +132,7 @@ Phase 2C does **not** introduce a separate workflow engine. Ingestion = on-deman
 | `watchlist` | Done | Membership + ticker summaries for dashboard |
 | `portfolio` | Done (v2) | `PortfolioRiskSnapshot` + `PairCorrelation` |
 | `brief` | Done | `DailyBrief` / `BriefTicker` / `BriefBullet` / `BriefInsight`; triage fields (`impact_score`, priority, `insight_mode` provider label) |
+| `thesis` | Done (T1) | `FrameworkCheck` / `FrameworkScorecard` / `ThesisTicker` / `ThesisDashboard`; T2+ contracts pending |
 | `financials.history_closes` | Done | Yahoo daily closes on source-cache payload (Risk + Brief) |
 
 ---
@@ -149,16 +151,16 @@ Contracts and slices: [architecture.md](architecture.md) "Portfolio Intelligence
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Framework formula spec tables (architecture.md) | Todo | **Pre-T1 gate:** Graham + Financial Strength formulas/thresholds locked in architecture.md "Framework formula specs" before implementation |
-| `app/schemas/thesis.py` (`FrameworkScorecard`, `ValuationSet`, `AssetBreakdown`, `ThesisSnapshot`, `AdvisorInsight`, `InvestmentOSScore`, `ThesisDashboard`) | Todo | T1–T5 |
-| Framework engine service (Graham + Financial Strength first) | Todo | T1; deterministic, unit tests before agent use |
+| Framework formula spec tables (architecture.md) | Done (T1) | Graham + Financial Strength formulas/thresholds **locked 2026-08-07** in architecture.md "Framework formula specs" |
+| `app/schemas/thesis.py` (T1: `FrameworkCheck`, `FrameworkScorecard`, `ThesisTicker`, `ThesisDashboard`) | Done (T1) | T2+ contracts (`ValuationSet`, `AssetBreakdown`, `ThesisSnapshot`, `AdvisorInsight`, `InvestmentOSScore`) still Todo |
+| Framework engine service (Graham + Financial Strength first) | Done (T1) | `thesis_frameworks` — deterministic; 22 unit tests landed with the spec lock |
 | Valuation service (Graham / Buffett / Modern sets, six-value ladder) | Todo | T2; Replacement Value `null` until method locked |
 | Net asset service (Adjusted Net Assets vs market cap) | Todo | T2 |
-| Thesis snapshot store + change verdicts | Todo | T3; ring store like `brief_store` |
+| Thesis snapshot store + change verdicts | Partial | T1 ships `thesis_store` dashboard ring; per-ticker snapshots + quarterly verdicts are T3 |
 | Advisor + explain service (`THESIS_INSIGHT_MODE`, fail-closed) | Todo | T4; only surface allowed directive phrasing |
 | Investment OS Score composite | Todo | T5; locked weight table in PRD §5.4.11 |
-| Thesis HTTP API (`GET /api/thesis`, `POST /api/thesis/generate`, `POST /api/thesis/explain`) | Todo | T1+ |
-| `ThesisPage` + `thesis/*` UI; `PrimaryNav` adds Thesis | Todo | T1+; vocabulary in [DESIGN.md](../DESIGN.md) |
+| Thesis HTTP API (`GET /api/thesis`, `POST /api/thesis/generate`) | Done (T1) | `POST /api/thesis/explain` is T4 |
+| `ThesisPage` + `thesis/*` UI; `PrimaryNav` adds Thesis | Done (T1) | Score table + per-ticker check scorecards; nav `Watchlist \| Risk \| Brief \| Thesis` |
 | Brief E1 enrichment (optional `BriefBullet` fields + morning counts) | Todo | Additive, backwards-compatible; after T3 |
 
 ---
@@ -166,7 +168,7 @@ Contracts and slices: [architecture.md](architecture.md) "Portfolio Intelligence
 ## Suggested next milestones
 
 1. Dogfood Brief Slice 1 (Assignment timing ≤30m) + founder miss log
-2. Thesis T1: landing page shell + Framework Engine v1 (Graham + Financial Strength)
+2. Thesis T2: Valuation Engine + Net Asset Intelligence + Margin of Safety
 3. Phase 3 evidence deepen in detail panel (claim↔evidence; design 8A)
 4. Phase0 server single-flight if concurrent refresh still burns cost
 
@@ -176,6 +178,7 @@ Contracts and slices: [architecture.md](architecture.md) "Portfolio Intelligence
 
 | Date | Change |
 |------|--------|
+| 2026-08-07 | Thesis T1 shipped: locked formula specs, `thesis` schemas, `thesis_frameworks` engine, `thesis_service` + `thesis_store`, `GET/POST /api/thesis*`, `ThesisPage` + `thesis/*` UI, nav adds Thesis |
 | 2026-08-06 | Align to Portfolio Intelligence docs: Brief rows updated to shipped triage dashboard (2026-08-04 — `brief_insight`, `BriefInsight`, history/explain API, `brief/*` UI components); pre-T1 framework formula-lock gate row added; scope line reflects Brief dogfood → Thesis T1 sequence |
 | 2026-08-05 | Portfolio Intelligence (Thesis page) planned rows added: schemas, framework/valuation/net-asset services, snapshot store, advisor, API, UI, Brief E1 |
 | 2026-08-03 | Flexible ticker intake: extract/dedupe, `/api/watchlist/intake`, CSV/paste/speech/OCR UI |

@@ -5,6 +5,7 @@ import type {
   ListKind,
   PortfolioRiskSnapshot,
   ResearchResponse,
+  ThesisDashboard,
   WatchlistBulkResponse,
   WatchlistIntakeResponse,
   WatchlistState,
@@ -106,6 +107,17 @@ export function logBriefMiss(note: string): Promise<{ ts: string; note: string }
   return request("/api/brief/miss", {
     method: "POST",
     body: JSON.stringify({ note }),
+  });
+}
+
+export function fetchThesis(): Promise<ThesisDashboard | null> {
+  return request("/api/thesis");
+}
+
+export function generateThesis(force_refresh = false): Promise<ThesisDashboard> {
+  return request("/api/thesis/generate", {
+    method: "POST",
+    body: JSON.stringify({ force_refresh }),
   });
 }
 

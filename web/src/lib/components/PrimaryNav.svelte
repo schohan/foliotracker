@@ -39,6 +39,16 @@
   >
     Brief
   </button>
+  <span class="sep" aria-hidden="true">|</span>
+  <button
+    type="button"
+    class="link"
+    class:active={view === "thesis"}
+    aria-current={view === "thesis" ? "page" : undefined}
+    onclick={() => onnavigate("thesis")}
+  >
+    Thesis
+  </button>
 </nav>
 
 <style>

@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). Next: Thesis T1 (landing page shell + Framework Engine v1), orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). **Thesis T1 shipped** (2026-08-07). Next: Thesis T2 (Valuation Engine + Net Assets + Margin of Safety), orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
 
 **Portfolio Intelligence (2026-08-05):** Umbrella vision in [docs/PRD.md](docs/PRD.md) §1: six engines; shipped Brief = Engine 1 surface (**preserved unchanged**); new Thesis landing page hosts Engines 2–6. Directive guidance only from the AI Portfolio Advisor. Thesis slices T1–T5 + Brief E1 below.
 
@@ -13,18 +13,6 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
 
 ## Next milestones (queued)
-
-### Thesis T1 — landing page shell + Framework Engine v1
-
-**What:** Dedicated Thesis landing page (`PrimaryNav` → `Watchlist | Risk | Brief | Thesis`; `AppView` gains `thesis`). New `app/schemas/thesis.py` contracts (`FrameworkScorecard`, `FrameworkCheck`, per-stock framework score table). Deterministic Graham Deep Value + Financial Strength scorecards computed from existing merged fundamentals (Yahoo + SEC XBRL); honest `null` for unsupported checks. `GET /api/thesis` + `POST /api/thesis/generate`; `ThesisPage` + `thesis/FrameworkScoreTable` + `thesis/FrameworkScorecard`.
-
-**Why:** First slice of Portfolio Intelligence (PRD §5.4): replaces the embedded thesis one-liner with a multi-framework landing page. Graham + Financial Strength are computable from data we already fetch.
-
-**Context:** Follow the Brief template (schemas → deterministic services → ring store → API → page). Formulas + unit tests land **before** any agent consumes scores (2B invariant). Reference examples in PRD §5.4.3 are normative (Graham scorecard shape, score table shape). Brief is untouched.
-
-**Effort:** M  
-**Priority:** P1  
-**Depends on:** Docs locked (2026-08-05)
 
 ### Thesis T2 — Valuation Engine + Net Asset Intelligence + Margin of Safety
 
@@ -253,6 +241,17 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Risk v2 dogfood; product call on local store shape
 
 ## Completed
+
+### Thesis T1 — landing page shell + Framework Engine v1 (2026-08-07)
+
+- Pre-T1 gate cleared: Graham + Financial Strength formulas/thresholds **locked** in architecture.md "Framework formula specs" (weights, bands, coverage rule) with unit tests before anything consumes scores
+- Schemas: `FrameworkCheck` / `FrameworkScorecard` / `ThesisTicker` / `ThesisDashboard` (`app/schemas/thesis.py`)
+- `thesis_frameworks`: deterministic Graham Deep Value + Financial Strength; honest `null` checks (Dividend History has no source; Altman Z / Piotroski F excluded — inputs unavailable); score `null` below 50 weight coverage
+- `thesis_service.generate_thesis_dashboard`: cache-first Yahoo + SEC XBRL (+ AV when keyed) → `merge_fundamentals` → scorecards; wall budget + bounded pool; no `run_phase0_research`
+- `thesis_store`: dashboard ring (`THESIS_STORE_PATH`, ring 14); `THESIS_GENERATE_BUDGET_SECONDS` / `THESIS_MAX_WORKERS`
+- API: `GET /api/thesis`, `POST /api/thesis/generate`
+- UI: `ThesisPage` + `thesis/FrameworkScoreTable` + `thesis/FrameworkScorecard`; `PrimaryNav` → `Watchlist | Risk | Brief | Thesis`; `thesisFormat` helpers
+- Tests: 34 backend (formulas/store/service/API) + 12 Vitest format; full suites green; Brief untouched
 
 ### Watchlist bulk ops (2026-08-03)
 

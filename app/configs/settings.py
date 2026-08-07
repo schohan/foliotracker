@@ -56,6 +56,11 @@ class Settings:
     brief_max_workers: int = 6
     # Insight provider: deterministic | canned | llm (llm fail-closed)
     brief_insight_mode: str = "deterministic"
+    # Thesis page (T1)
+    thesis_store_path: Path = Path(".cache/foliotracker/thesis.json")
+    thesis_ring_size: int = 14
+    thesis_generate_budget_seconds: int = 60
+    thesis_max_workers: int = 6
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -162,6 +167,17 @@ class Settings:
                 os.getenv("BRIEF_INSIGHT_MODE", "deterministic").strip().lower()
                 or "deterministic"
             ),
+            thesis_store_path=Path(
+                os.getenv(
+                    "THESIS_STORE_PATH",
+                    ".cache/foliotracker/thesis.json",
+                )
+            ),
+            thesis_ring_size=int(os.getenv("THESIS_RING_SIZE", "14")),
+            thesis_generate_budget_seconds=int(
+                os.getenv("THESIS_GENERATE_BUDGET_SECONDS", "60")
+            ),
+            thesis_max_workers=int(os.getenv("THESIS_MAX_WORKERS", "6")),
         )
 
 

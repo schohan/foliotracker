@@ -815,9 +815,11 @@ Bulk membership intake without one-by-one typing: CSV / free-text paste / screen
 
 ---
 
-## Portfolio Intelligence — Thesis page (Engines 2–6, planned)
+## Portfolio Intelligence — Thesis page (Engines 2–6; T1 shipped 2026-08-07)
 
 Docs locked 2026-08-05. Product frame: [PRD](PRD.md) §1 (six engines) and §5.4 (Thesis landing page, normative examples). Slices T1–T5 + Brief E1 sequenced in [TODOS.md](../TODOS.md).
+
+**T1 shipped (2026-08-07):** `app/schemas/thesis.py` (`FrameworkCheck`, `FrameworkScorecard`, `ThesisTicker`, `ThesisDashboard`), deterministic Framework Engine v1 (`thesis_frameworks` — Graham Deep Value + Financial Strength per the locked spec below), `thesis_service` (cache-first merged-fundamentals fan-out; no `run_phase0_research`), `thesis_store` dashboard ring, `GET /api/thesis` + `POST /api/thesis/generate`, `ThesisPage` + `thesis/FrameworkScoreTable` + `thesis/FrameworkScorecard`, `PrimaryNav` → `Watchlist | Risk | Brief | Thesis`. T2+ pieces (valuation, net assets, per-ticker snapshot monitoring, advisor, OS Score, `/api/thesis/explain`) remain planned.
 
 **Engine → surface mapping:** Engine 1 (Market Intelligence) = the shipped Brief, **unchanged** — everything in the "Engine 1 — Daily Decision Brief" section above remains authoritative. Engines 2–6 (Fundamental, Valuation, Framework, Thesis Monitoring, Advisor) = the new Thesis page, built on the same evidence spine and the Brief architectural template (schemas → deterministic services → ring store → HTTP API → Svelte page).
 
@@ -858,24 +860,41 @@ Like Brief, Generate does **not** call `run_phase0_research`; it composes over c
 
 | Env | Purpose |
 |-----|---------|
-| `THESIS_INSIGHT_MODE` | `deterministic` (default) \| `canned` \| `llm`; llm fail-closed to deterministic |
-| `THESIS_STORE_PATH` | Snapshot ring store (default under `.cache/foliotracker/`) |
-| `THESIS_GENERATE_BUDGET_SECONDS` / `THESIS_MAX_WORKERS` | Wall budget + bounded pool |
+| `THESIS_INSIGHT_MODE` | *(T4, planned)* `deterministic` (default) \| `canned` \| `llm`; llm fail-closed to deterministic |
+| `THESIS_STORE_PATH` / `THESIS_RING_SIZE` | Dashboard ring store (shipped T1; default `.cache/foliotracker/thesis.json`, ring 14) |
+| `THESIS_GENERATE_BUDGET_SECONDS` / `THESIS_MAX_WORKERS` | Wall budget + bounded pool (shipped T1; 60s / 6) |
 
-### Framework formula specs (LOCK BEFORE T1 IMPLEMENTATION)
+### Framework formula specs (LOCKED 2026-08-07 — T1)
 
-Per [PRD open question 6](PRD.md) (default adopted): every framework's formulas and thresholds are locked **here** as a spec table — with unit tests — before any agent or service consumes its scores (same invariant as the 2B scoring service). T1 covers **Graham** and **Financial Strength**; remaining frameworks add their tables when their slice is designed.
+Per [PRD open question 6](PRD.md) (default adopted): every framework's formulas and thresholds are locked **here** as a spec table — with unit tests — before any agent or service consumes its scores (same invariant as the 2B scoring service). T1 locks **Graham Deep Value** and **Financial Strength**; remaining frameworks add their tables when their slice is designed.
 
-Table skeleton per framework (filled at T1 design; placeholders below are illustrative, not locked):
+Shared composite rule (both frameworks): each check yields **points 0–100 or `null`**. Framework score = weighted mean of non-null check points with weights renormalized over non-null checks; score is `null` when non-null weight coverage < 50 (below minimum check coverage). Checks never invent inputs: any missing required field → check `null` + "insufficient data: <fields>". All inputs come from the **merged** fundamentals snapshot (Yahoo + SEC XBRL + AV via `merge_fundamentals`).
 
-| Check | Input fields (merged fundamentals) | Formula / threshold | Result type | Missing-input behavior |
-|-------|------------------------------------|---------------------|-------------|------------------------|
-| e.g. Margin of Safety | intrinsic value, market price | *TBD at T1 design* | % + rating | `null` + "insufficient data" |
-| e.g. Current Ratio | `balance_sheet.*` | *TBD at T1 design* | value + PASS/FAIL | `null` |
-| **Framework score** | check results | weighted composite, 0–100 *(weights TBD)* | 0–100 or `null` | `null` when below minimum check coverage |
+**Graham Deep Value** (checks per PRD §5.4.3):
 
-- **Graham Deep Value** — checks per PRD §5.4.3 (Margin of Safety, Net-Net, Current Ratio, Debt, Earnings Stability, Dividend History): *table pending T1 design*
-- **Financial Strength** — checks TBD (candidates: leverage, coverage, liquidity, Altman Z / Piotroski F when computable): *table pending T1 design*
+| Check | Input fields (merged fundamentals) | Formula / threshold | Result type | Weight | Missing-input behavior |
+|-------|------------------------------------|---------------------|-------------|--------|------------------------|
+| Margin of Safety | `eps_trailing`, `trailing_pe` (fallback `pe_ratio`), `earnings_growth` | Graham intrinsic `V = eps × (8.5 + 2·g·100)` with `g = clamp(earnings_growth, 0, 0.15)` (missing growth → `g = 0`, no-growth value); implied price `P = pe × eps`; `MoS = (V − P) / V`. Points `= clamp(MoS / 0.50, 0, 1) × 100`. Rating: Excellent ≥ 30% · Good ≥ 15% · Fair ≥ 0% · Poor < 0% | % + rating | 30 | `null` when `eps_trailing ≤ 0` or no positive P/E |
+| Net-Net (cash proxy) | `total_cash`, `balance_sheet.total_liabilities`, `market_cap` | Conservative cash-based NCAV proxy: PASS iff `total_cash − total_liabilities ≥ market_cap` (points 100/0). Stricter than Graham's current-assets NCAV — sources lack a current-assets breakdown | PASS / FAIL | 10 | `null` |
+| Current Ratio | `current_ratio` | PASS iff `current_ratio ≥ 2.0` (Graham defensive threshold); points 100/0 | value + PASS/FAIL | 15 | `null` |
+| Debt | `debt_to_equity` | Low ≤ 0.5 (100) · Moderate ≤ 1.0 (50) · High > 1.0 (0). Yahoo D/E is reported in **percent**; values > 10 are treated as percent and divided by 100 | value + Low/Moderate/High | 15 | `null` |
+| Earnings Stability | `earnings_history` (quarterly net income) | PASS iff all known periods positive, requiring ≥ 4 known periods; points 100/0. Honest window: available quarters, not Graham's 10 years | PASS / FAIL | 20 | `null` (fewer than 4 known periods) |
+| Dividend History | — (no dividend fields in current sources) | Always `null` in T1 — honest gap until a dividend source lands | — | 10 | `null` + "insufficient data" |
+| **Graham score** | check results | weighted composite per shared rule | 0–100 or `null` | 100 | `null` when non-null weight < 50 |
+
+**Financial Strength** (leverage / liquidity / cash generation; Altman Z and Piotroski F are **excluded from T1** — inputs like current assets/liabilities breakdown, retained earnings, EBIT, and share count are not on the merged snapshot):
+
+| Check | Input fields (merged fundamentals) | Formula / threshold | Result type | Weight | Missing-input behavior |
+|-------|------------------------------------|---------------------|-------------|--------|------------------------|
+| Liquidity | `current_ratio` | PASS iff `≥ 1.5`; points 100/0 | value + PASS/FAIL | 20 | `null` |
+| Leverage | `debt_to_equity` (percent-normalized as above) | ≤ 0.5 → 100 · ≤ 1.0 → 60 · ≤ 2.0 → 30 · > 2.0 → 0; PASS iff ≤ 1.0 | value + PASS/FAIL | 20 | `null` |
+| Net cash position | `total_cash`, `total_debt` | PASS iff `total_cash ≥ total_debt`; points 100/0 | PASS / FAIL | 15 | `null` |
+| Free cash flow | `free_cash_flow` | PASS iff `> 0`; points 100/0 | value + PASS/FAIL | 15 | `null` |
+| Operating cash flow | `cash_flow.operating_cashflow` | PASS iff `> 0`; points 100/0 | value + PASS/FAIL | 10 | `null` |
+| Profitability | `profit_margin` (fallback `net_income_ttm`) | PASS iff `> 0`; points 100/0 | value + PASS/FAIL | 10 | `null` |
+| Return on equity | `return_on_equity` | ≥ 0.15 → 100 · ≥ 0.10 → 70 · ≥ 0 → 30 · < 0 → 0; PASS iff ≥ 0.10 | value + PASS/FAIL | 10 | `null` |
+| **Financial Strength score** | check results | weighted composite per shared rule | 0–100 or `null` | 100 | `null` when non-null weight < 50 |
+
 - Lynch, Greenblatt, Quality, GARP, Dividend, Momentum, Buffett: phase-next; tables land with their slices
 
 ### Engineering invariants (restated for this track)
@@ -892,6 +911,7 @@ Table skeleton per framework (filled at T1 design; placeholders below are illust
 
 | Date | Change |
 |------|--------|
+| 2026-08-07 | Thesis T1 shipped: Graham + Financial Strength formula specs **locked** (spec tables above), `thesis` schemas, deterministic framework engine, `thesis_service`/`thesis_store`, `GET/POST /api/thesis*`, `ThesisPage` + nav; T2+ remain planned |
 | 2026-08-06 | Align doc to Portfolio Intelligence platform (PRD 2026-08-05): reframed header/status, principles 6–7 (frameworks-as-lenses, Advisor-only directive guidance), platform-level six-engine map, Brief section refreshed to shipped triage dashboard (history/explain/insight modes) as Engine 1 surface, flexible intake section added, framework formula-spec lock placeholder (pre-T1 gate), six-engine target architecture replaces deferred cathedral north star |
 | 2026-08-05 | Portfolio Intelligence (planned): Thesis page section — engines 2–6 data flow, `app/schemas/thesis.py` contracts, `THESIS_*` settings, invariants; Brief preserved unchanged as Engine 1 surface |
 | 2026-08-03 | Daily Decision Brief Slice 1: schemas, classify, yahoo_history, generator, API, BriefPage; `history_closes` on Yahoo cache |
