@@ -264,8 +264,8 @@
     <p class="brand">FolioTracker</p>
     <PrimaryNav {view} {onnavigate} />
     <p class="tag">
-      Daily Decision Brief — what requires attention today. Triage, not a news
-      feed. Not advice.
+      What changed that matters? Daily Decision Brief — triage, not a news feed.
+      Not advice.
     </p>
   </header>
 

@@ -393,6 +393,7 @@ New landing page beside Brief (`PrimaryNav`: Watchlist | Risk | Brief | **Thesis
 
 1. **Same visual language** — navy/paper/copper, Fraunces + IBM Plex Sans, table-first density; `thesis/*` components extend the shipped vocabulary (no second design system).
 2. **Constraint worship (provisional 3 things):** framework score table (every holding × multiple philosophies) · thesis-change verdicts · Generate/refresh action. Secondary: valuation ladder, net-asset breakdown, Margin of Safety visualization, portfolio rollup, AI Research button.
+2b. **Decision Map (2026-08-07):** denselist strip of the six PRD questions with one-line answers + jump links; section `h2`s use the same question copy. Engine 2 Fundamentals stays Planned (honest placeholder). Not a six-card mosaic.
 3. **Honesty patterns reused:** `null`/"insufficient data" gaps rendered as "—" (never invented values); provider labels on every insight (`THESIS_INSIGHT_MODE` mirrors Brief); disclaimer always visible.
 4. **Directive phrasing is visually scoped:** buy/hold/trim/research language appears **only** inside the Advisor insight block (with reasoning + confidence) — no directive copy leaks into score tables, valuations, or rollups.
 5. **Verdict vocabulary is a closed set:** `No change | Strengthened | Slightly weaker | Broken` — styled as status labels (text + color, like ok/partial/error), not free prose.

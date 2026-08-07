@@ -78,7 +78,8 @@ Reuse before inventing:
 | `brief/HeatMap` | Compact Held/Watched impact grid |
 | `brief/TimelineRail` | Brief history browse (ring-14) |
 | `brief/StockDrawer` | Side panel for ticker events + insight + research |
-| `ThesisPage` | Portfolio Intelligence landing page (T1–T5 shipped) — frameworks + valuation + timeline + advisor + OS Score + portfolio health |
+| `ThesisPage` | Portfolio Intelligence landing page (T1–T5) — Decision Map + question-headed sections for Engines 2–6 + OS Score + portfolio health |
+| `thesis/DecisionMap` | Six PRD decision questions → one-line answers + jump links (Brief / section anchors); Engine 2 stays Planned |
 | `thesis/FrameworkScoreTable` | Per-stock scores across investment philosophies + OS Score column |
 | `thesis/FrameworkScorecard` | Single-framework drill-down: named checks, PASS/value/rating (T1 shipped) |
 | `thesis/ValuationLadder` | Six-value ladder: market / intrinsic / liquidation / replacement / enterprise / expected fair (T2 shipped) |
@@ -100,7 +101,7 @@ Portfolio / Brief / Phase 3 UI must extend this vocabulary and these tokens.
 
 **Brief trust rules (UI):** optional source links on bullets; never auto buy/trim (actions are Read / Review / Monitor); Phase-next social section (if shown) must be visually separate and labeled display-only / not used in scores. Insight `provider` (`deterministic` / `canned` / `llm`) is always visible.
 
-**Thesis trust rules (UI):** directive guidance appears only inside `thesis/AdvisorInsight` (T4), always with reasoning lines, confidence, provider label, and disclaimer. Framework scores and valuations show honest gaps (`null` / “insufficient data”) — never invented values. Thesis reuses the Brief patterns: expandable rows / drawer, no card mosaic, same tokens.
+**Thesis trust rules (UI):** directive guidance appears only inside `thesis/AdvisorInsight` (T4), always with reasoning lines, confidence, provider label, and disclaimer. Framework scores and valuations show honest gaps (`null` / “insufficient data”) — never invented values. Thesis reuses the Brief patterns: expandable rows / drawer, no card mosaic, same tokens. Section headings are the PRD decision questions (not “Engine N” chrome); `thesis/DecisionMap` is a denselist strip, not a card grid.
 
 ---
 

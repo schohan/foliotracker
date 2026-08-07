@@ -6,6 +6,7 @@
   import PrimaryNav from "./PrimaryNav.svelte";
   import AssetBreakdown from "./thesis/AssetBreakdown.svelte";
   import AdvisorInsightPanel from "./thesis/AdvisorInsight.svelte";
+  import DecisionMap from "./thesis/DecisionMap.svelte";
   import FrameworkScorecard from "./thesis/FrameworkScorecard.svelte";
   import FrameworkScoreTable from "./thesis/FrameworkScoreTable.svelte";
   import MarginOfSafety from "./thesis/MarginOfSafety.svelte";
@@ -89,10 +90,9 @@
     <p class="brand">FolioTracker</p>
     <PrimaryNav {view} {onnavigate} />
     <p class="tag">
-      Every holding through multiple investment lenses — Graham, Financial
-      Strength, valuations, thesis monitoring, an AI Portfolio Advisor, and a
-      composite Investment OS Score with portfolio health rollup. Gaps stay
-      honest.
+      Six decision questions per holding — frameworks, valuation, thesis change,
+      and an AI Portfolio Advisor — plus a composite Investment OS Score. Gaps
+      stay honest.
     </p>
   </header>
 
@@ -161,15 +161,21 @@
       </details>
     {/if}
 
+    <DecisionMap
+      selected={selectedRow}
+      portfolio={dashboard.portfolio}
+      {onnavigate}
+    />
+
     {#if dashboard.portfolio}
       <PortfolioHealth portfolio={dashboard.portfolio} />
     {/if}
 
-    <section class="block" aria-labelledby="score-table-heading">
-      <h2 id="score-table-heading">Framework scores</h2>
+    <section class="block" aria-labelledby="frameworks-heading">
+      <h2 id="frameworks-heading">How does each philosophy score this?</h2>
       <p class="hint">
-        Select a ticker to see its per-check scorecards. “—” means
-        insufficient data — never invented.
+        Investment Framework Engine — select a ticker for per-check scorecards.
+        “—” means insufficient data — never invented.
       </p>
       <FrameworkScoreTable
         tickers={dashboard.tickers}
@@ -177,6 +183,16 @@
         selected={selectedTicker}
         {onselect}
       />
+    </section>
+
+    <section class="block planned" aria-labelledby="fundamentals-heading">
+      <h2 id="fundamentals-heading">
+        Is the company becoming stronger or weaker?
+      </h2>
+      <p class="hint">
+        Fundamental Engine — planned. Merged fundamentals already feed other
+        engines; dedicated stronger/weaker metrics ship next.
+      </p>
     </section>
 
     {#if selectedRow}
@@ -202,10 +218,10 @@
 
       {#if selectedRow.margin_of_safety || selectedRow.valuation || selectedRow.assets}
         <section class="block" aria-labelledby="valuation-heading">
-          <h2 id="valuation-heading">Valuation</h2>
+          <h2 id="valuation-heading">Am I paying too much?</h2>
           <p class="hint">
-            Multiple simultaneous valuations and net-asset comparison. “—” means
-            insufficient data.
+            Valuation Engine — multiple simultaneous valuations and net-asset
+            comparison. “—” means insufficient data.
           </p>
           <div class="cards">
             {#if selectedRow.margin_of_safety}
@@ -259,25 +275,42 @@
             </div>
           {/if}
         </section>
+      {:else}
+        <section class="block muted-block" aria-labelledby="valuation-heading">
+          <h2 id="valuation-heading">Am I paying too much?</h2>
+          <p class="hint">
+            Valuation Engine — insufficient data for this ticker.
+          </p>
+        </section>
       {/if}
 
       {#if selectedRow.monitoring}
         <section class="block" aria-labelledby="monitoring-heading">
-          <h2 id="monitoring-heading">Thesis change</h2>
+          <h2 id="monitoring-heading">Has my thesis changed?</h2>
           <p class="hint">
-            Monitor thesis, not price. Verdicts are a closed set — never free
-            prose ratings.
+            Thesis Monitoring — monitor thesis, not price. Verdicts are a closed
+            set — never free prose ratings.
           </p>
           <ThesisTimeline monitoring={selectedRow.monitoring} />
+        </section>
+      {:else}
+        <section class="block muted-block" aria-labelledby="monitoring-heading">
+          <h2 id="monitoring-heading">Has my thesis changed?</h2>
+          <p class="hint">
+            Thesis Monitoring — no snapshot yet for this ticker.
+          </p>
         </section>
       {/if}
 
       {#if selectedRow.advisor}
         <section class="block" aria-labelledby="advisor-heading">
-          <h2 id="advisor-heading">AI Portfolio Advisor</h2>
+          <h2 id="advisor-heading">
+            Buy more, hold, trim, or research further?
+          </h2>
           <p class="hint">
-            The only surface with buy / hold / trim / research / wait phrasing —
-            always with reasoning, confidence, and provider label.
+            AI Portfolio Advisor — the only surface with buy / hold / trim /
+            research / wait phrasing — always with reasoning, confidence, and
+            provider label.
           </p>
           <div class="cards">
             <AdvisorInsightPanel insight={selectedRow.advisor} />
@@ -285,11 +318,32 @@
           </div>
         </section>
       {:else}
-        <section class="block" aria-labelledby="research-heading">
-          <h2 id="research-heading">AI Research</h2>
+        <section class="block" aria-labelledby="advisor-heading">
+          <h2 id="advisor-heading">
+            Buy more, hold, trim, or research further?
+          </h2>
+          <p class="hint">
+            AI Research questions for this ticker. Advisor conclusion appears
+            after Generate when available.
+          </p>
           <ResearchButton ticker={selectedRow.ticker} />
         </section>
       {/if}
+    {:else}
+      <section class="block muted-block" aria-labelledby="valuation-heading">
+        <h2 id="valuation-heading">Am I paying too much?</h2>
+        <p class="hint">Select a ticker above to see the valuation ladder.</p>
+      </section>
+      <section class="block muted-block" aria-labelledby="monitoring-heading">
+        <h2 id="monitoring-heading">Has my thesis changed?</h2>
+        <p class="hint">Select a ticker to see thesis-change verdicts.</p>
+      </section>
+      <section class="block muted-block" aria-labelledby="advisor-heading">
+        <h2 id="advisor-heading">
+          Buy more, hold, trim, or research further?
+        </h2>
+        <p class="hint">Select a ticker for the AI Portfolio Advisor.</p>
+      </section>
     {/if}
   {/if}
 
@@ -396,6 +450,14 @@
   }
   .block {
     margin-bottom: 1.75rem;
+  }
+  .block.planned h2,
+  .block.muted-block h2 {
+    color: var(--ink-soft);
+  }
+  .block.planned .hint,
+  .block.muted-block .hint {
+    font-style: italic;
   }
   .block h2 {
     margin: 0 0 0.4rem;
