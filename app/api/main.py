@@ -16,7 +16,12 @@ from app.schemas.brief import (
     DailyBrief,
 )
 from app.schemas.phase0 import Phase0Result
-from app.schemas.thesis import ThesisDashboard, ThesisGenerateRequest
+from app.schemas.thesis import (
+    ThesisDashboard,
+    ThesisExplainAnswer,
+    ThesisExplainRequest,
+    ThesisGenerateRequest,
+)
 from app.schemas.ticker import InvalidTickerError, normalize_ticker
 from app.schemas.portfolio import PortfolioRiskSnapshot
 from app.schemas.watchlist import (
@@ -43,6 +48,8 @@ from app.services.brief_service import (
 from app.services.phase0_pipeline import run_phase0_research
 from app.services.portfolio_risk_service import build_portfolio_risk
 from app.services.thesis_service import (
+    ThesisExplainError,
+    explain_thesis,
     generate_thesis_dashboard,
     get_latest_dashboard as get_latest_thesis_dashboard,
 )
@@ -145,6 +152,23 @@ def create_app(
         """Sync Generate framework score table (cache-first; wall budget)."""
         req = body or ThesisGenerateRequest()
         return thesis_fn(app_settings=s, force_refresh=req.force_refresh)
+
+    @app.post("/api/thesis/explain", response_model=ThesisExplainAnswer)
+    def post_thesis_explain(body: ThesisExplainRequest) -> ThesisExplainAnswer:
+        """AI Research button — uses THESIS_INSIGHT_MODE (llm fail-closed)."""
+        try:
+            ticker = normalize_ticker(body.ticker)
+        except InvalidTickerError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        try:
+            return explain_thesis(
+                ticker=ticker,
+                question_id=body.question_id,
+                question=body.question,
+                app_settings=s,
+            )
+        except ThesisExplainError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @app.put("/api/watchlist", response_model=WatchlistState)
     def put_watchlist(body: WatchlistPutRequest) -> WatchlistState:

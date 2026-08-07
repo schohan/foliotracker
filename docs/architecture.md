@@ -31,7 +31,7 @@ Portfolio Intelligence is six AI engines composing over the same evidence spine 
 | 3. Valuation Engine | Am I paying too much? | Valuation service (Graham / Buffett / Modern sets → six-value ladder) + net asset service | Thesis page | **Shipped (T2)** |
 | 4. Investment Framework Engine | How does each philosophy score this? | Framework engine service → `FrameworkScorecard` per philosophy | Thesis page | **Shipped (T1)** |
 | 5. Thesis Monitoring | Has my thesis changed? | Thesis snapshot ring store + quarterly diff → closed verdict set | Thesis page | **Shipped (T3)** |
-| 6. AI Portfolio Advisor | Buy more / hold / trim / research? | Advisor + explain service (`THESIS_INSIGHT_MODE`, fail-closed) | Thesis page | Planned (T4) |
+| 6. AI Portfolio Advisor | Buy more / hold / trim / research? | Advisor + explain service (`THESIS_INSIGHT_MODE`, fail-closed) | Thesis page | **Shipped (T4)** |
 
 Shared substrate for every engine: `source_registry` / `source_cache` / `cached_fetch`, `merge_fundamentals` + provenance, evidence builders + aggregator, deterministic scoring services, and the fail-closed insight-provider pattern (`brief_insight` → mirrored by `thesis` advisor). Detailed designs: shipped spine in the Phase 0–2C sections below; Engine 1 in [Daily Decision Brief](#engine-1--daily-decision-brief-shipped); Engines 2–6 in [Portfolio Intelligence — Thesis page](#portfolio-intelligence--thesis-page-engines-26-planned).
 
@@ -667,7 +667,7 @@ The adopted target (2026-08-05, superseding the earlier capability-oriented cath
             yahoo    google_news  sec_edgar   sec_xbrl  alpha_vantage
 ```
 
-LLM steps stay narrow and fail-closed: `thesis_agent` (cited research thesis), insight providers (`brief_insight`, planned thesis advisor/explain) — always provider-labeled, never arithmetic.
+LLM steps stay narrow and fail-closed: `thesis_agent` (cited research thesis), insight providers (`brief_insight`, `thesis_insight`, `thesis_advisor` / explain) — always provider-labeled, never arithmetic.
 
 **Deferred beyond the engine map** (recorded, not sequenced): future framework modules (Marks, Munger, Mauboussin, Fama-French, Behavioral, Macro Overlay — PRD §5.4.13), Brief dissemination adapters, social display-only ingest, memory layers beyond TTL files, full evidence graph edges, hosted multi-tenant deploy (Phase 3).
 
@@ -823,7 +823,9 @@ Docs locked 2026-08-05. Product frame: [PRD](PRD.md) §1 (six engines) and §5.4
 
 **T2 shipped (2026-08-07):** Valuation Engine + Net Asset Intelligence + Margin of Safety — `ValuationSet` / `ValuationLadder` / `MarginOfSafetyView` / `AssetBreakdown` on `ThesisTicker`; `thesis_valuations` + `thesis_net_assets` (locked specs below); UI `thesis/ValuationLadder`, `thesis/MarginOfSafety`, `thesis/AssetBreakdown` on ticker drill-down. Same Generate path (no new routes).
 
-**T3 shipped (2026-08-07):** Thesis Monitoring — per-ticker snapshot ring, locked quarterly verdict rules (`No change | Strengthened | Slightly weaker | Broken`), `thesis_monitor` + `thesis_insight` (`THESIS_INSIGHT_MODE` for change narrative, fail-closed), `ThesisMonitoring` on `ThesisTicker`, UI `thesis/ThesisTimeline`. T4+ (advisor, OS Score, `/api/thesis/explain`) remain planned.
+**T3 shipped (2026-08-07):** Thesis Monitoring — per-ticker snapshot ring, locked quarterly verdict rules (`No change | Strengthened | Slightly weaker | Broken`), `thesis_monitor` + `thesis_insight` (`THESIS_INSIGHT_MODE` for change narrative, fail-closed), `ThesisMonitoring` on `ThesisTicker`, UI `thesis/ThesisTimeline`.
+
+**T4 shipped (2026-08-07):** AI Portfolio Advisor + AI Research button — locked conclusion priority table, `AdvisorInsight` on `ThesisTicker`, `thesis_advisor` (`THESIS_INSIGHT_MODE`, fail-closed; directive phrasing allowed here only), `POST /api/thesis/explain`, UI `thesis/AdvisorInsight` + `thesis/ResearchButton`. T5 (OS Score + portfolio rollup) remains planned.
 
 **Engine → surface mapping:** Engine 1 (Market Intelligence) = the shipped Brief, **unchanged** — everything in the "Engine 1 — Daily Decision Brief" section above remains authoritative. Engines 2–6 (Fundamental, Valuation, Framework, Thesis Monitoring, Advisor) = the new Thesis page, built on the same evidence spine and the Brief architectural template (schemas → deterministic services → ring store → HTTP API → Svelte page).
 
@@ -854,18 +856,18 @@ Like Brief, Generate does **not** call `run_phase0_research`; it composes over c
 | `MarginOfSafetyView` | Intrinsic vs market price, MoS %, stars 1–5, rating | **T2** |
 | `AssetBreakdown` / `AssetLine` | Assets − liabilities → Adjusted Net Assets; vs market cap delta + verdict | **T2** |
 | `ThesisSnapshot` / `ThesisChange` / `ThesisMonitoring` | Point-in-time signals + quarterly diff → closed verdict set; timeline on ticker | **T3** |
-| `AdvisorInsight` | Reasoning lines + directive conclusion + confidence + provider label | Planned (T4) |
+| `AdvisorInsight` | Reasoning lines + directive conclusion + confidence + provider label | **T4** |
 | `InvestmentOSScore` | Deterministic composite from the locked weight table (PRD §5.4.11) | Planned (T5) |
-| `ThesisDashboard` | Framework + valuation + monitoring rows (T1–T3); portfolio rollup counts later (T5) | **T1–T3** |
+| `ThesisDashboard` | Framework + valuation + monitoring + advisor rows (T1–T4); portfolio rollup counts later (T5) | **T1–T4** |
 | Store | Dashboard ring + per-ticker snapshot rings in same JSON | **T1 + T3** |
-| API | `GET /api/thesis`, `POST /api/thesis/generate`; `POST /api/thesis/explain` planned T4 | **T1** (+ explain planned) |
-| UI | `ThesisPage` + `thesis/*` (framework + valuation + timeline; see [DESIGN.md](../DESIGN.md)) | **T1–T3** |
+| API | `GET /api/thesis`, `POST /api/thesis/generate`, `POST /api/thesis/explain` | **T1 + T4** |
+| UI | `ThesisPage` + `thesis/*` (framework + valuation + timeline + advisor; see [DESIGN.md](../DESIGN.md)) | **T1–T4** |
 
 ### Settings (mirror Brief conventions)
 
 | Env | Purpose |
 |-----|---------|
-| `THESIS_INSIGHT_MODE` | *(T3 change narrative)* `deterministic` (default) \| `canned` \| `llm`; llm fail-closed to deterministic. Advisor (T4) will reuse the same env |
+| `THESIS_INSIGHT_MODE` | Change narrative + advisor + research answers: `deterministic` (default) \| `canned` \| `llm`; llm fail-closed to deterministic |
 | `THESIS_STORE_PATH` / `THESIS_RING_SIZE` | Dashboard ring store (shipped T1; default `.cache/foliotracker/thesis.json`, ring 14) |
 | `THESIS_SNAPSHOT_RING_SIZE` | Per-ticker snapshot ring (shipped T3; default 8) |
 | `THESIS_QUARTER_DAYS` | Days before a new snapshot is appended (shipped T3; default 90); `force_refresh` always appends |
@@ -1011,6 +1013,37 @@ Evidence lines cite concrete deltas (e.g. `graham_score 72 → 40 (−32)`). Bas
 
 **Store:** same `THESIS_STORE_PATH` JSON gains `snapshots: { "TICKER": [ThesisSnapshot, ...] }` (newest first; ring `THESIS_SNAPSHOT_RING_SIZE`, default 8).
 
+### Advisor specs (LOCKED 2026-08-07 — T4)
+
+Directive conclusions are allowed **only** in `AdvisorInsight` (Engine 6). Closed conclusion set: `buy_more | hold | trim | research_further | wait`. Deterministic selection first; `THESIS_INSIGHT_MODE` may enrich reasoning (canned/llm) but llm fails closed to deterministic. Provider label always on the payload.
+
+**Inputs** (from the same Generate row — no live refetch):
+
+| Input | Source |
+|-------|--------|
+| Graham / FS scores | `FrameworkScorecard.score` |
+| MoS | `MarginOfSafetyView.margin_of_safety` |
+| Asset verdict | `AssetBreakdown.verdict` |
+| Thesis verdict | `ThesisMonitoring.current.verdict` |
+
+**Conclusion priority** (first match wins):
+
+| Conclusion | Rule |
+|------------|------|
+| **Research further** | Thesis verdict `broken` · OR fewer than 2 of {graham, fs, mos} known |
+| **Hold** / **Research further** | Verdict `slightly_weaker`: Hold if MoS ≥ 0; else Research further |
+| **Wait** | MoS &lt; 0 AND (FS ≥ 50 OR Graham ≥ 50) |
+| **Trim** | Asset verdict `possible_overvaluation` AND (Graham &lt; 40 OR FS &lt; 40) |
+| **Buy more** | MoS ≥ 30% AND mean of known framework scores ≥ 60 AND verdict in {none, no_change, strengthened} |
+| **Hold** | MoS ≥ 0 AND verdict in {none, no_change, strengthened} |
+| **Research further** | Else |
+
+**Confidence:** start 0.50; +0.10 per known among graham/fs/mos; +0.05 if asset verdict known; +0.05 if monitoring evidence is not baseline-only; clamp to [0.40, 0.95].
+
+**Reasoning lines:** deterministic MoS stance, FS quality, Graham score, optional asset line, thesis-verdict line (PRD §5.4.5 shape).
+
+**Research button** (`POST /api/thesis/explain`): canned question ids `framework_disagree` / `mos_change` / `most_bullish` (+ optional free-text `question`); answers from the latest dashboard row; same insight-mode fail-closed pattern. Looks up ticker in latest `ThesisDashboard` (404 if missing).
+
 ### Engineering invariants (restated for this track)
 
 - **Deterministic math first:** every framework formula, valuation, and the OS Score composite is a pure-Python service with unit tests **before** any agent consumes it. LLMs never perform score/valuation arithmetic.
@@ -1025,6 +1058,7 @@ Evidence lines cite concrete deltas (e.g. `graham_score 72 → 40 (−32)`). Bas
 
 | Date | Change |
 |------|--------|
+| 2026-08-07 | Thesis T4 shipped: advisor conclusion specs **locked**, `AdvisorInsight` on `ThesisTicker`, `thesis_advisor` + `POST /api/thesis/explain`, UI AdvisorInsight + ResearchButton; T5 remains planned |
 | 2026-08-07 | Thesis T3 shipped: monitoring verdict / quarter-gate specs **locked**, per-ticker snapshot ring, `thesis_monitor`/`thesis_insight`, `ThesisMonitoring` + `ThesisTimeline`; T4+ remain planned |
 | 2026-08-07 | Thesis T2 shipped: valuation / MoS / net-asset formula specs **locked**, `ValuationSet`/`MarginOfSafetyView`/`AssetBreakdown` on `ThesisTicker`, `thesis_valuations`/`thesis_net_assets`, UI ladder + MoS + asset breakdown |
 | 2026-08-07 | Thesis T1 shipped: Graham + Financial Strength formula specs **locked** (spec tables above), `thesis` schemas, deterministic framework engine, `thesis_service`/`thesis_store`, `GET/POST /api/thesis*`, `ThesisPage` + nav |

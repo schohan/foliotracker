@@ -1,5 +1,6 @@
 import type {
   AssetVerdict,
+  AdvisorConclusion,
   CheckStatus,
   FrameworkCheck,
   ThesisVerdict,
@@ -97,4 +98,23 @@ export function formatThesisVerdict(verdict: ThesisVerdict | null | undefined): 
   if (verdict === "slightly_weaker") return "Slightly weaker";
   if (verdict === "broken") return "Broken";
   return "—";
+}
+
+/** Advisor conclusion enum → PRD display label. */
+export function formatAdvisorConclusion(
+  conclusion: AdvisorConclusion | null | undefined,
+): string {
+  if (conclusion == null) return "—";
+  if (conclusion === "buy_more") return "Buy more";
+  if (conclusion === "hold") return "Hold";
+  if (conclusion === "trim") return "Trim";
+  if (conclusion === "research_further") return "Research further";
+  if (conclusion === "wait") return "Wait for better entry";
+  return "—";
+}
+
+/** Confidence 0–1 → "89%". */
+export function formatAdvisorConfidence(confidence: number | null | undefined): string {
+  if (confidence == null || Number.isNaN(confidence)) return "—";
+  return `${Math.round(confidence * 100)}%`;
 }

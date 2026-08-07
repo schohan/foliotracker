@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   checkStatusLabel,
+  formatAdvisorConclusion,
+  formatAdvisorConfidence,
   formatAssetVerdict,
   formatCheckResult,
   formatCheckValue,
@@ -12,7 +14,12 @@ import {
   formatThesisVerdict,
   formatValuationValue,
 } from "./thesisFormat";
-import type { FrameworkCheck, ThesisVerdict, ValuationMethod } from "./types";
+import type {
+  AdvisorConclusion,
+  FrameworkCheck,
+  ThesisVerdict,
+  ValuationMethod,
+} from "./types";
 
 function check(overrides: Partial<FrameworkCheck>): FrameworkCheck {
   return {
@@ -154,5 +161,28 @@ describe("formatThesisVerdict", () => {
       expect(formatThesisVerdict(v)).toBe(label);
     }
     expect(formatThesisVerdict(null)).toBe("—");
+  });
+});
+
+describe("formatAdvisorConclusion", () => {
+  it("maps closed directive set", () => {
+    const cases: [AdvisorConclusion, string][] = [
+      ["buy_more", "Buy more"],
+      ["hold", "Hold"],
+      ["trim", "Trim"],
+      ["research_further", "Research further"],
+      ["wait", "Wait for better entry"],
+    ];
+    for (const [v, label] of cases) {
+      expect(formatAdvisorConclusion(v)).toBe(label);
+    }
+    expect(formatAdvisorConclusion(null)).toBe("—");
+  });
+});
+
+describe("formatAdvisorConfidence", () => {
+  it("formats percent", () => {
+    expect(formatAdvisorConfidence(0.89)).toBe("89%");
+    expect(formatAdvisorConfidence(null)).toBe("—");
   });
 });

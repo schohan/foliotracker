@@ -6,6 +6,7 @@ import type {
   PortfolioRiskSnapshot,
   ResearchResponse,
   ThesisDashboard,
+  ThesisExplainAnswer,
   WatchlistBulkResponse,
   WatchlistIntakeResponse,
   WatchlistState,
@@ -118,6 +119,17 @@ export function generateThesis(force_refresh = false): Promise<ThesisDashboard> 
   return request("/api/thesis/generate", {
     method: "POST",
     body: JSON.stringify({ force_refresh }),
+  });
+}
+
+export function explainThesis(body: {
+  ticker: string;
+  question_id?: string;
+  question?: string;
+}): Promise<ThesisExplainAnswer> {
+  return request("/api/thesis/explain", {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }
 

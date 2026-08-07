@@ -263,6 +263,12 @@ export type ThesisVerdict =
   | "slightly_weaker"
   | "broken";
 export type ThesisInsightMode = "deterministic" | "canned" | "llm";
+export type AdvisorConclusion =
+  | "buy_more"
+  | "hold"
+  | "trim"
+  | "research_further"
+  | "wait";
 
 export interface FrameworkCheck {
   name: string;
@@ -347,6 +353,23 @@ export interface ThesisMonitoring {
   timeline: ThesisChange[];
 }
 
+export interface AdvisorInsight {
+  reasoning: string[];
+  conclusion: AdvisorConclusion;
+  conclusion_label: string;
+  confidence: number;
+  provider: string;
+}
+
+export interface ThesisExplainAnswer {
+  ticker: string;
+  question_id: string;
+  question: string;
+  answer: string;
+  evidence: string[];
+  provider: string;
+}
+
 export interface ThesisTicker {
   ticker: string;
   list_kind: ListKind;
@@ -357,6 +380,7 @@ export interface ThesisTicker {
   margin_of_safety: MarginOfSafetyView | null;
   assets: AssetBreakdown | null;
   monitoring: ThesisMonitoring | null;
+  advisor: AdvisorInsight | null;
   sources_used: string[];
   gaps: string[];
 }

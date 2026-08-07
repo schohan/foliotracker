@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). **Thesis T1 shipped** (2026-08-07). **Thesis T2 shipped** (2026-08-07). **Thesis T3 shipped** (2026-08-07). Next: Thesis T4 (AI Portfolio Advisor), orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). **Thesis T1 shipped** (2026-08-07). **Thesis T2 shipped** (2026-08-07). **Thesis T3 shipped** (2026-08-07). **Thesis T4 shipped** (2026-08-07). Next: Thesis T5 (Investment OS Score + portfolio rollup), orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
 
 **Portfolio Intelligence (2026-08-05):** Umbrella vision in [docs/PRD.md](docs/PRD.md) §1: six engines; shipped Brief = Engine 1 surface (**preserved unchanged**); new Thesis landing page hosts Engines 2–6. Directive guidance only from the AI Portfolio Advisor. Thesis slices T1–T5 + Brief E1 below.
 
@@ -13,16 +13,6 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
 
 ## Next milestones (queued)
-
-### Thesis T4 — AI Portfolio Advisor + AI Research button
-
-**What:** Advisor insight per holding: reasoning lines + directive conclusion (buy more / hold / trim / research further / wait) + confidence, per PRD §5.4.5 reference example. `POST /api/thesis/explain` research button with canned framework questions (PRD §5.4.10), patterned on `POST /api/brief/explain`. Provider label always visible; fail-closed.
-
-**Why:** Engine 6 — the only surface allowed directive phrasing (PRD principle 7).
-
-**Effort:** M  
-**Priority:** P2  
-**Depends on:** T1–T3 signals (frameworks, valuations, thesis verdicts)
 
 ### Thesis T5 — Investment OS Score + Portfolio dashboard
 
@@ -219,6 +209,16 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Risk v2 dogfood; product call on local store shape
 
 ## Completed
+
+### Thesis T4 — AI Portfolio Advisor + AI Research button (2026-08-07)
+
+- Advisor conclusion priority specs **locked** in architecture.md
+- Schemas: `AdvisorConclusion` / `AdvisorInsight` / `ThesisExplainRequest` / `ThesisExplainAnswer` on `ThesisTicker`
+- `thesis_advisor`: deterministic buy_more / hold / trim / research_further / wait + reasoning + confidence; `THESIS_INSIGHT_MODE` canned/llm fail-closed (directive allowed here only)
+- Research button: canned `framework_disagree` / `mos_change` / `most_bullish` (+ free-text)
+- Generate path attaches `advisor`; `POST /api/thesis/explain` from latest dashboard row
+- UI: `thesis/AdvisorInsight` + `thesis/ResearchButton` on ticker drill-down
+- Tests: advisor/explain/API/service + Vitest format helpers; Brief untouched
 
 ### Thesis T3 — Thesis Monitoring (2026-08-07)
 

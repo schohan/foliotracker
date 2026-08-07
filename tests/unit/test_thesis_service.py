@@ -162,6 +162,10 @@ def test_build_ticker_attaches_monitoring_and_baseline_snapshot(tmp_path: Path) 
     assert row.monitoring.current.verdict == ThesisVerdict.NO_CHANGE
     assert "baseline" in row.monitoring.current.evidence[0]
     assert row.monitoring.current.narrative
+    assert row.advisor is not None
+    assert row.advisor.conclusion_label
+    assert row.advisor.provider == "deterministic"
+    assert 0.0 <= row.advisor.confidence <= 1.0
     assert thesis_store.get_latest_snapshot("NVDA", app_settings=s) is not None
 
 

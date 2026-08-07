@@ -56,12 +56,12 @@ class Settings:
     brief_max_workers: int = 6
     # Insight provider: deterministic | canned | llm (llm fail-closed)
     brief_insight_mode: str = "deterministic"
-    # Thesis page (T1–T3)
+    # Thesis page (T1–T4)
     thesis_store_path: Path = Path(".cache/foliotracker/thesis.json")
     thesis_ring_size: int = 14
     thesis_generate_budget_seconds: int = 60
     thesis_max_workers: int = 6
-    # T3 monitoring — change narrative provider (advisor T4 reuses same env)
+    # Change narrative + advisor + research answers (llm fail-closed)
     thesis_insight_mode: str = "deterministic"
     thesis_snapshot_ring_size: int = 8
     thesis_quarter_days: int = 90

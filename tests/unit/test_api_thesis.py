@@ -10,9 +10,13 @@ from fastapi.testclient import TestClient
 from app.api.main import create_app
 from app.configs.settings import Settings
 from app.schemas.phase0 import Phase0Result, Phase0Status
-from app.schemas.thesis import ThesisDashboard
+from app.schemas.thesis import (
+    FrameworkId,
+    FrameworkScorecard,
+    ThesisDashboard,
+    ThesisTicker,
+)
 from app.services import thesis_store, watchlist_store as store
-
 
 def _settings(tmp_path: Path) -> Settings:
     return Settings(
@@ -84,3 +88,58 @@ def test_thesis_generate_accepts_empty_body(tmp_path: Path) -> None:
     r = client.post("/api/thesis/generate")
     assert r.status_code == 200
     assert calls["force_refresh"] is False
+
+
+def test_thesis_explain_requires_dashboard_row(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    store.put_membership(["NVDA"], [], s)
+
+    def fake_generate(*, app_settings=None, force_refresh=False) -> ThesisDashboard:
+        return ThesisDashboard(
+            generated_at=datetime(2026, 8, 7, tzinfo=timezone.utc),
+        )
+
+    client = _client(s, fake_generate)
+    r = client.post(
+        "/api/thesis/explain",
+        json={"ticker": "NVDA", "question_id": "most_bullish"},
+    )
+    assert r.status_code == 404
+
+    dash = ThesisDashboard(
+        generated_at=datetime(2026, 8, 7, tzinfo=timezone.utc),
+        universe_count=1,
+        tickers_considered=1,
+        tickers=[
+            ThesisTicker(
+                ticker="NVDA",
+                list_kind="held",
+                frameworks=[
+                    FrameworkScorecard(
+                        framework=FrameworkId.GRAHAM,
+                        label="Graham",
+                        score=80,
+                        coverage=80,
+                    ),
+                    FrameworkScorecard(
+                        framework=FrameworkId.FINANCIAL_STRENGTH,
+                        label="FS",
+                        score=60,
+                        coverage=80,
+                    ),
+                ],
+            )
+        ],
+    )
+    thesis_store.save_dashboard(dash, app_settings=s)
+
+    r = client.post(
+        "/api/thesis/explain",
+        json={"ticker": "NVDA", "question_id": "most_bullish"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ticker"] == "NVDA"
+    assert body["answer"]
+    assert body["provider"] in {"deterministic", "canned", "llm"}
+    assert body["question_id"] == "most_bullish"

@@ -5,9 +5,11 @@
   import DisclaimerBar from "./DisclaimerBar.svelte";
   import PrimaryNav from "./PrimaryNav.svelte";
   import AssetBreakdown from "./thesis/AssetBreakdown.svelte";
+  import AdvisorInsightPanel from "./thesis/AdvisorInsight.svelte";
   import FrameworkScorecard from "./thesis/FrameworkScorecard.svelte";
   import FrameworkScoreTable from "./thesis/FrameworkScoreTable.svelte";
   import MarginOfSafety from "./thesis/MarginOfSafety.svelte";
+  import ResearchButton from "./thesis/ResearchButton.svelte";
   import ThesisTimeline from "./thesis/ThesisTimeline.svelte";
   import ValuationLadder from "./thesis/ValuationLadder.svelte";
   import { formatValuationValue } from "../thesisFormat";
@@ -87,8 +89,8 @@
     <p class="tag">
       Every holding through multiple investment lenses — deterministic Graham
       Deep Value and Financial Strength scorecards, multi-method valuations,
-      net-asset intelligence, and quarterly thesis monitoring. Gaps stay honest.
-      Not advice.
+      net-asset intelligence, thesis monitoring, and an AI Portfolio Advisor
+      (directive guidance only there). Gaps stay honest.
     </p>
   </header>
 
@@ -258,6 +260,25 @@
             prose ratings.
           </p>
           <ThesisTimeline monitoring={selectedRow.monitoring} />
+        </section>
+      {/if}
+
+      {#if selectedRow.advisor}
+        <section class="block" aria-labelledby="advisor-heading">
+          <h2 id="advisor-heading">AI Portfolio Advisor</h2>
+          <p class="hint">
+            The only surface with buy / hold / trim / research / wait phrasing —
+            always with reasoning, confidence, and provider label.
+          </p>
+          <div class="cards">
+            <AdvisorInsightPanel insight={selectedRow.advisor} />
+            <ResearchButton ticker={selectedRow.ticker} />
+          </div>
+        </section>
+      {:else}
+        <section class="block" aria-labelledby="research-heading">
+          <h2 id="research-heading">AI Research</h2>
+          <ResearchButton ticker={selectedRow.ticker} />
         </section>
       {/if}
     {/if}

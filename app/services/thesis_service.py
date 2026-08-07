@@ -1,8 +1,9 @@
-"""Thesis page generator (T1–T3: frameworks + valuation + monitoring).
+"""Thesis page generator (T1–T4: frameworks + valuation + monitoring + advisor).
 
 Cache-first fan-out over Held ∪ Watched: merged fundamentals → framework
 scorecards + valuation + asset breakdown + thesis monitoring (quarterly
-verdicts). Does **not** call ``run_phase0_research``. Brief is untouched.
+verdicts) + AI Portfolio Advisor. Does **not** call ``run_phase0_research``.
+Brief is untouched.
 """
 
 from __future__ import annotations
@@ -19,11 +20,13 @@ from app.schemas.phase0 import PHASE0_DISCLAIMER
 from app.schemas.thesis import (
     FrameworkId,
     ThesisDashboard,
+    ThesisExplainAnswer,
     ThesisGenerationStatus,
     ThesisMonitoring,
     ThesisSnapshot,
     ThesisTicker,
 )
+from app.schemas.ticker import InvalidTickerError, normalize_ticker
 from app.schemas.watchlist import ListKind
 from app.services import thesis_store, watchlist_store as store
 from app.services.merge_fundamentals import ProviderSnapshot, merge_fundamentals
@@ -34,6 +37,7 @@ from app.services.source_registry import (
     SOURCE_SEC_XBRL,
     SOURCE_YAHOO,
 )
+from app.services.thesis_advisor import build_advisor, explain_for_row
 from app.services.thesis_frameworks import scorecards_for
 from app.services.thesis_insight import narrate_change
 from app.services.thesis_monitor import (
@@ -53,6 +57,10 @@ logger = logging.getLogger(__name__)
 EMPTY_UNIVERSE_MSG = "Add tickers on Watchlist to build the Thesis table."
 
 TickerWorkerFn = Callable[[str, ListKind], "ThesisTicker"]
+
+
+class ThesisExplainError(ValueError):
+    """Raised when explain cannot resolve a ticker row."""
 
 
 def _universe(held: list[str], watched: list[str]) -> list[tuple[str, ListKind]]:
@@ -136,7 +144,7 @@ def build_thesis_ticker(
     force_refresh: bool = False,
     now: datetime | None = None,
 ) -> ThesisTicker:
-    """One row: merged fundamentals → frameworks + valuation + monitoring."""
+    """One row: merged fundamentals → frameworks + valuation + monitoring + advisor."""
     clock = now or datetime.now(timezone.utc)
     if clock.tzinfo is None:
         clock = clock.replace(tzinfo=timezone.utc)
@@ -197,6 +205,14 @@ def build_thesis_ticker(
         current=change,
         timeline=timeline if timeline else [change],
     )
+    advisor = build_advisor(
+        ticker=ticker,
+        frameworks=frameworks,
+        mos_view=mos_view,
+        assets=assets,
+        monitoring=monitoring,
+        app_settings=app_settings,
+    )
 
     profile = merged.profile
     return ThesisTicker(
@@ -209,6 +225,7 @@ def build_thesis_ticker(
         margin_of_safety=mos_view,
         assets=assets,
         monitoring=monitoring,
+        advisor=advisor,
         sources_used=sources_used,
         gaps=gaps,
     )
@@ -326,3 +343,31 @@ def get_latest_dashboard(
     *, app_settings: Settings | None = None
 ) -> ThesisDashboard | None:
     return thesis_store.get_latest_dashboard(app_settings)
+
+
+def explain_thesis(
+    *,
+    ticker: str,
+    question_id: str = "",
+    question: str = "",
+    app_settings: Settings | None = None,
+) -> ThesisExplainAnswer:
+    """On-demand research-button answer from the latest dashboard row."""
+    s = app_settings if app_settings is not None else default_settings
+    try:
+        sym = normalize_ticker(ticker)
+    except InvalidTickerError as exc:
+        raise ThesisExplainError(str(exc)) from exc
+
+    dash = thesis_store.get_latest_dashboard(app_settings=s)
+    if dash is None:
+        raise ThesisExplainError("No thesis dashboard yet — Generate first.")
+    row = next((t for t in dash.tickers if t.ticker == sym), None)
+    if row is None:
+        raise ThesisExplainError(f"{sym} not in the latest thesis table.")
+    return explain_for_row(
+        row,
+        question_id=question_id,
+        question=question,
+        app_settings=s,
+    )

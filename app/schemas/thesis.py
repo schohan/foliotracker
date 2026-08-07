@@ -1,8 +1,8 @@
-"""Thesis page contracts — T1 frameworks + T2 valuation + T3 monitoring.
+"""Thesis page contracts — T1–T4: frameworks, valuation, monitoring, advisor.
 
 Formulas and thresholds are locked in architecture.md framework (T1),
-valuation/net-asset (T2), and thesis monitoring (T3) specs before any
-agent consumes these values (2B invariant).
+valuation/net-asset (T2), thesis monitoring (T3), and advisor (T4) specs
+before any agent consumes these values (2B invariant).
 """
 
 from __future__ import annotations
@@ -78,6 +78,35 @@ class ThesisInsightMode(str, Enum):
     DETERMINISTIC = "deterministic"
     CANNED = "canned"
     LLM = "llm"
+
+
+class AdvisorConclusion(str, Enum):
+    """Closed directive set — Advisor-only (Engine 6)."""
+
+    BUY_MORE = "buy_more"
+    HOLD = "hold"
+    TRIM = "trim"
+    RESEARCH_FURTHER = "research_further"
+    WAIT = "wait"
+
+
+ADVISOR_CONCLUSION_LABELS: dict[AdvisorConclusion, str] = {
+    AdvisorConclusion.BUY_MORE: "Buy more",
+    AdvisorConclusion.HOLD: "Hold",
+    AdvisorConclusion.TRIM: "Trim",
+    AdvisorConclusion.RESEARCH_FURTHER: "Research further",
+    AdvisorConclusion.WAIT: "Wait for better entry",
+}
+
+
+# Canned research-button question ids (PRD §5.4.10).
+RESEARCH_QUESTION_IDS: dict[str, str] = {
+    "framework_disagree": (
+        "Why does this stock score differently under Graham vs Financial Strength?"
+    ),
+    "mos_change": "Why did Margin of Safety move?",
+    "most_bullish": "Which framework is most bullish?",
+}
 
 
 class FrameworkCheck(BaseModel):
@@ -211,8 +240,29 @@ class ThesisMonitoring(BaseModel):
     timeline: list[ThesisChange] = Field(default_factory=list)
 
 
+class AdvisorInsight(BaseModel):
+    """Engine 6 — directive insight (only surface allowed buy/hold/trim/wait)."""
+
+    reasoning: list[str] = Field(default_factory=list)
+    conclusion: AdvisorConclusion
+    conclusion_label: str = ""
+    confidence: float = Field(ge=0, le=1)
+    provider: str = ThesisInsightMode.DETERMINISTIC.value
+
+
+class ThesisExplainAnswer(BaseModel):
+    """Structured answer for POST /api/thesis/explain (research button)."""
+
+    ticker: str
+    question_id: str = ""
+    question: str
+    answer: str
+    evidence: list[str] = Field(default_factory=list)
+    provider: str = ThesisInsightMode.DETERMINISTIC.value
+
+
 class ThesisTicker(BaseModel):
-    """One row of the per-stock framework + valuation + monitoring table."""
+    """One row of the per-stock framework + valuation + monitoring + advisor."""
 
     ticker: str
     list_kind: Literal["held", "watched"]
@@ -223,13 +273,14 @@ class ThesisTicker(BaseModel):
     margin_of_safety: MarginOfSafetyView | None = None
     assets: AssetBreakdown | None = None
     monitoring: ThesisMonitoring | None = None
+    advisor: AdvisorInsight | None = None
     # Sources that contributed to the merged snapshot (honest provenance).
     sources_used: list[str] = Field(default_factory=list)
     gaps: list[str] = Field(default_factory=list)
 
 
 class ThesisDashboard(BaseModel):
-    """Thesis landing page payload (framework + valuation + monitoring)."""
+    """Thesis landing page payload (framework + valuation + monitoring + advisor)."""
 
     generated_at: datetime
     generation_status: ThesisGenerationStatus = ThesisGenerationStatus.COMPLETE
@@ -248,3 +299,11 @@ class ThesisGenerateRequest(BaseModel):
     """POST /api/thesis/generate body."""
 
     force_refresh: bool = False
+
+
+class ThesisExplainRequest(BaseModel):
+    """POST /api/thesis/explain — one-click framework research questions."""
+
+    ticker: str
+    question_id: str = ""
+    question: str = ""
