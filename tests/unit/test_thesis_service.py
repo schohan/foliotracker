@@ -166,7 +166,29 @@ def test_build_ticker_attaches_monitoring_and_baseline_snapshot(tmp_path: Path) 
     assert row.advisor.conclusion_label
     assert row.advisor.provider == "deterministic"
     assert 0.0 <= row.advisor.confidence <= 1.0
+    assert row.os_score is not None
+    assert row.os_score.coverage >= 0
+    assert len(row.os_score.dimensions) == 8
     assert thesis_store.get_latest_snapshot("NVDA", app_settings=s) is not None
+
+
+def test_generate_attaches_portfolio_rollup(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    store.put_membership(["NVDA"], [], s)
+
+    def worker(ticker: str, kind: ListKind) -> ThesisTicker:
+        with patch(
+            "app.services.thesis_service._merged_fundamentals",
+            return_value=(_rich_metrics(), ["yahoo"], []),
+        ):
+            return build_thesis_ticker(
+                ticker, kind, app_settings=s, force_refresh=False, now=NOW
+            )
+
+    dash = generate_thesis_dashboard(app_settings=s, worker_fn=worker, now=NOW)
+    assert dash.portfolio is not None
+    assert dash.portfolio.tickers_scored >= 1
+    assert dash.tickers[0].os_score is not None
 
 
 def test_force_refresh_appends_even_within_quarter(tmp_path: Path) -> None:

@@ -1,8 +1,8 @@
-"""Thesis page generator (T1–T4: frameworks + valuation + monitoring + advisor).
+"""Thesis page generator (T1–T5: frameworks → advisor → OS Score + rollup).
 
 Cache-first fan-out over Held ∪ Watched: merged fundamentals → framework
-scorecards + valuation + asset breakdown + thesis monitoring (quarterly
-verdicts) + AI Portfolio Advisor. Does **not** call ``run_phase0_research``.
+scorecards + valuation + asset breakdown + thesis monitoring + AI Portfolio
+Advisor + Investment OS Score. Does **not** call ``run_phase0_research``.
 Brief is untouched.
 """
 
@@ -47,6 +47,7 @@ from app.services.thesis_monitor import (
     synthesize_original_thesis,
 )
 from app.services.thesis_net_assets import asset_breakdown_for
+from app.services.thesis_os_score import build_portfolio_rollup, compute_os_score
 from app.services.thesis_valuations import margin_of_safety_for, valuation_set_for
 from app.tools.filings.sec_xbrl import fetch_sec_xbrl_fundamentals
 from app.tools.finance.alpha_vantage import fetch_alpha_vantage_fundamentals
@@ -144,7 +145,7 @@ def build_thesis_ticker(
     force_refresh: bool = False,
     now: datetime | None = None,
 ) -> ThesisTicker:
-    """One row: merged fundamentals → frameworks + valuation + monitoring + advisor."""
+    """One row: fundamentals → frameworks + valuation + monitoring + advisor + OS."""
     clock = now or datetime.now(timezone.utc)
     if clock.tzinfo is None:
         clock = clock.replace(tzinfo=timezone.utc)
@@ -213,6 +214,12 @@ def build_thesis_ticker(
         monitoring=monitoring,
         app_settings=app_settings,
     )
+    os_score = compute_os_score(
+        frameworks=frameworks,
+        mos_view=mos_view,
+        valuation=valuation,
+        monitoring=monitoring,
+    )
 
     profile = merged.profile
     return ThesisTicker(
@@ -226,6 +233,7 @@ def build_thesis_ticker(
         assets=assets,
         monitoring=monitoring,
         advisor=advisor,
+        os_score=os_score,
         sources_used=sources_used,
         gaps=gaps,
     )
@@ -310,6 +318,7 @@ def generate_thesis_dashboard(
         gaps.extend(row.gaps)
 
     rows.sort(key=lambda r: (r.list_kind != "held", r.ticker))
+    portfolio = build_portfolio_rollup(rows)
 
     status = (
         ThesisGenerationStatus.PARTIAL
@@ -324,6 +333,7 @@ def generate_thesis_dashboard(
         tickers_considered=considered,
         tickers=rows,
         frameworks=list(FrameworkId),
+        portfolio=portfolio,
         gaps=gaps,
         empty_message=None,
         disclaimer=PHASE0_DISCLAIMER,

@@ -269,6 +269,15 @@ export type AdvisorConclusion =
   | "trim"
   | "research_further"
   | "wait";
+export type OSDimensionId =
+  | "business_quality"
+  | "financial_strength"
+  | "valuation"
+  | "balance_sheet"
+  | "earnings_quality"
+  | "capital_allocation"
+  | "framework_consensus"
+  | "thesis_stability";
 
 export interface FrameworkCheck {
   name: string;
@@ -370,6 +379,34 @@ export interface ThesisExplainAnswer {
   provider: string;
 }
 
+export interface OSDimension {
+  id: OSDimensionId;
+  label: string;
+  weight: number;
+  points: number | null;
+  detail: string;
+}
+
+export interface InvestmentOSScore {
+  score: number | null;
+  rating: string;
+  coverage: number;
+  dimensions: OSDimension[];
+}
+
+export interface PortfolioHealthRollup {
+  health_score: number | null;
+  health_rating: string;
+  tickers_scored: number;
+  strong_balance_sheets: number;
+  weak_balance_sheets: number;
+  potential_value_traps: number;
+  significantly_undervalued: number;
+  overvalued: number;
+  high_conviction: number;
+  thesis_broken: number;
+}
+
 export interface ThesisTicker {
   ticker: string;
   list_kind: ListKind;
@@ -381,6 +418,7 @@ export interface ThesisTicker {
   assets: AssetBreakdown | null;
   monitoring: ThesisMonitoring | null;
   advisor: AdvisorInsight | null;
+  os_score: InvestmentOSScore | null;
   sources_used: string[];
   gaps: string[];
 }
@@ -392,6 +430,7 @@ export interface ThesisDashboard {
   tickers_considered: number;
   tickers: ThesisTicker[];
   frameworks: FrameworkId[];
+  portfolio: PortfolioHealthRollup | null;
   gaps: string[];
   empty_message: string | null;
   disclaimer: string;

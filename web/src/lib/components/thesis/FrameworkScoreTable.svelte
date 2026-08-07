@@ -30,6 +30,7 @@
       {#each frameworks as fw (fw)}
         <th scope="col" class="score-col">{labels[fw]}</th>
       {/each}
+      <th scope="col" class="score-col">OS Score</th>
     </tr>
   </thead>
   <tbody>
@@ -51,6 +52,12 @@
             {formatFrameworkScore(score)}
           </td>
         {/each}
+        <td
+          class="score-col score"
+          class:na={row.os_score?.score == null}
+        >
+          {formatFrameworkScore(row.os_score?.score ?? null)}
+        </td>
       </tr>
     {/each}
   </tbody>

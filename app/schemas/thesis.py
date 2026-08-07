@@ -1,8 +1,9 @@
-"""Thesis page contracts — T1–T4: frameworks, valuation, monitoring, advisor.
+"""Thesis page contracts — T1–T5: frameworks, valuation, monitoring, advisor, OS Score.
 
 Formulas and thresholds are locked in architecture.md framework (T1),
-valuation/net-asset (T2), thesis monitoring (T3), and advisor (T4) specs
-before any agent consumes these values (2B invariant).
+valuation/net-asset (T2), thesis monitoring (T3), advisor (T4), and
+Investment OS Score / portfolio rollup (T5) specs before any agent
+consumes these values (2B invariant).
 """
 
 from __future__ import annotations
@@ -261,8 +262,79 @@ class ThesisExplainAnswer(BaseModel):
     provider: str = ThesisInsightMode.DETERMINISTIC.value
 
 
+class OSDimensionId(str, Enum):
+    """Investment OS Score dimension ids (PRD §5.4.11)."""
+
+    BUSINESS_QUALITY = "business_quality"
+    FINANCIAL_STRENGTH = "financial_strength"
+    VALUATION = "valuation"
+    BALANCE_SHEET = "balance_sheet"
+    EARNINGS_QUALITY = "earnings_quality"
+    CAPITAL_ALLOCATION = "capital_allocation"
+    FRAMEWORK_CONSENSUS = "framework_consensus"
+    THESIS_STABILITY = "thesis_stability"
+
+
+OS_DIMENSION_LABELS: dict[OSDimensionId, str] = {
+    OSDimensionId.BUSINESS_QUALITY: "Business Quality",
+    OSDimensionId.FINANCIAL_STRENGTH: "Financial Strength",
+    OSDimensionId.VALUATION: "Valuation",
+    OSDimensionId.BALANCE_SHEET: "Balance Sheet",
+    OSDimensionId.EARNINGS_QUALITY: "Earnings Quality",
+    OSDimensionId.CAPITAL_ALLOCATION: "Capital Allocation",
+    OSDimensionId.FRAMEWORK_CONSENSUS: "Framework Consensus",
+    OSDimensionId.THESIS_STABILITY: "Thesis Stability",
+}
+
+# Locked weights (PRD §5.4.11) — sum 100.
+OS_DIMENSION_WEIGHTS: dict[OSDimensionId, int] = {
+    OSDimensionId.BUSINESS_QUALITY: 20,
+    OSDimensionId.FINANCIAL_STRENGTH: 15,
+    OSDimensionId.VALUATION: 20,
+    OSDimensionId.BALANCE_SHEET: 15,
+    OSDimensionId.EARNINGS_QUALITY: 10,
+    OSDimensionId.CAPITAL_ALLOCATION: 10,
+    OSDimensionId.FRAMEWORK_CONSENSUS: 5,
+    OSDimensionId.THESIS_STABILITY: 5,
+}
+
+
+class OSDimension(BaseModel):
+    """One Investment OS Score dimension (0–100 points or null)."""
+
+    id: OSDimensionId
+    label: str
+    weight: int = Field(ge=0, le=100)
+    points: float | None = Field(default=None, ge=0, le=100)
+    detail: str = ""
+
+
+class InvestmentOSScore(BaseModel):
+    """Deterministic composite score (PRD §5.4.11)."""
+
+    score: float | None = Field(default=None, ge=0, le=100)
+    rating: str = ""
+    coverage: int = Field(default=0, ge=0, le=100)
+    dimensions: list[OSDimension] = Field(default_factory=list)
+
+
+class PortfolioHealthRollup(BaseModel):
+    """Portfolio dashboard counts (PRD §5.4.8)."""
+
+    health_score: float | None = Field(default=None, ge=0, le=100)
+    health_rating: str = ""
+    tickers_scored: int = 0
+    strong_balance_sheets: int = 0
+    weak_balance_sheets: int = 0
+    potential_value_traps: int = 0
+    significantly_undervalued: int = 0
+    overvalued: int = 0
+    high_conviction: int = 0
+    thesis_broken: int = 0
+
+
 class ThesisTicker(BaseModel):
-    """One row of the per-stock framework + valuation + monitoring + advisor."""
+    """One row: frameworks + valuation + monitoring + advisor + OS Score."""
 
     ticker: str
     list_kind: Literal["held", "watched"]
@@ -274,13 +346,14 @@ class ThesisTicker(BaseModel):
     assets: AssetBreakdown | None = None
     monitoring: ThesisMonitoring | None = None
     advisor: AdvisorInsight | None = None
+    os_score: InvestmentOSScore | None = None
     # Sources that contributed to the merged snapshot (honest provenance).
     sources_used: list[str] = Field(default_factory=list)
     gaps: list[str] = Field(default_factory=list)
 
 
 class ThesisDashboard(BaseModel):
-    """Thesis landing page payload (framework + valuation + monitoring + advisor)."""
+    """Thesis landing page payload (T1–T5)."""
 
     generated_at: datetime
     generation_status: ThesisGenerationStatus = ThesisGenerationStatus.COMPLETE
@@ -290,6 +363,7 @@ class ThesisDashboard(BaseModel):
     frameworks: list[FrameworkId] = Field(
         default_factory=lambda: list(FrameworkId)
     )
+    portfolio: PortfolioHealthRollup | None = None
     gaps: list[str] = Field(default_factory=list)
     empty_message: str | None = None
     disclaimer: str = PHASE0_DISCLAIMER

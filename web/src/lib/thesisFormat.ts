@@ -118,3 +118,9 @@ export function formatAdvisorConfidence(confidence: number | null | undefined): 
   if (confidence == null || Number.isNaN(confidence)) return "—";
   return `${Math.round(confidence * 100)}%`;
 }
+
+/** OS / portfolio health rating string → passthrough or "—". */
+export function formatOsRating(rating: string | null | undefined): string {
+  if (rating == null || rating.trim() === "") return "—";
+  return rating;
+}

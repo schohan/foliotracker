@@ -825,7 +825,9 @@ Docs locked 2026-08-05. Product frame: [PRD](PRD.md) §1 (six engines) and §5.4
 
 **T3 shipped (2026-08-07):** Thesis Monitoring — per-ticker snapshot ring, locked quarterly verdict rules (`No change | Strengthened | Slightly weaker | Broken`), `thesis_monitor` + `thesis_insight` (`THESIS_INSIGHT_MODE` for change narrative, fail-closed), `ThesisMonitoring` on `ThesisTicker`, UI `thesis/ThesisTimeline`.
 
-**T4 shipped (2026-08-07):** AI Portfolio Advisor + AI Research button — locked conclusion priority table, `AdvisorInsight` on `ThesisTicker`, `thesis_advisor` (`THESIS_INSIGHT_MODE`, fail-closed; directive phrasing allowed here only), `POST /api/thesis/explain`, UI `thesis/AdvisorInsight` + `thesis/ResearchButton`. T5 (OS Score + portfolio rollup) remains planned.
+**T4 shipped (2026-08-07):** AI Portfolio Advisor + AI Research button — locked conclusion priority table, `AdvisorInsight` on `ThesisTicker`, `thesis_advisor` (`THESIS_INSIGHT_MODE`, fail-closed; directive phrasing allowed here only), `POST /api/thesis/explain`, UI `thesis/AdvisorInsight` + `thesis/ResearchButton`.
+
+**T5 shipped (2026-08-07):** Investment OS Score + Portfolio Health rollup — locked dimension weight/formula table, `InvestmentOSScore` on `ThesisTicker`, `PortfolioHealthRollup` on `ThesisDashboard`, `thesis_os_score`, UI `thesis/PortfolioHealth` + `thesis/OSScorecard` + OS column on score table. Thesis T1–T5 complete; Brief E1 remains planned.
 
 **Engine → surface mapping:** Engine 1 (Market Intelligence) = the shipped Brief, **unchanged** — everything in the "Engine 1 — Daily Decision Brief" section above remains authoritative. Engines 2–6 (Fundamental, Valuation, Framework, Thesis Monitoring, Advisor) = the new Thesis page, built on the same evidence spine and the Brief architectural template (schemas → deterministic services → ring store → HTTP API → Svelte page).
 
@@ -857,11 +859,12 @@ Like Brief, Generate does **not** call `run_phase0_research`; it composes over c
 | `AssetBreakdown` / `AssetLine` | Assets − liabilities → Adjusted Net Assets; vs market cap delta + verdict | **T2** |
 | `ThesisSnapshot` / `ThesisChange` / `ThesisMonitoring` | Point-in-time signals + quarterly diff → closed verdict set; timeline on ticker | **T3** |
 | `AdvisorInsight` | Reasoning lines + directive conclusion + confidence + provider label | **T4** |
-| `InvestmentOSScore` | Deterministic composite from the locked weight table (PRD §5.4.11) | Planned (T5) |
-| `ThesisDashboard` | Framework + valuation + monitoring + advisor rows (T1–T4); portfolio rollup counts later (T5) | **T1–T4** |
+| `InvestmentOSScore` | Deterministic composite from the locked weight table (PRD §5.4.11) | **T5** |
+| `PortfolioHealthRollup` | Portfolio health score + PRD §5.4.8 counts | **T5** |
+| `ThesisDashboard` | Framework + valuation + monitoring + advisor + OS + portfolio rollup (T1–T5) | **T1–T5** |
 | Store | Dashboard ring + per-ticker snapshot rings in same JSON | **T1 + T3** |
 | API | `GET /api/thesis`, `POST /api/thesis/generate`, `POST /api/thesis/explain` | **T1 + T4** |
-| UI | `ThesisPage` + `thesis/*` (framework + valuation + timeline + advisor; see [DESIGN.md](../DESIGN.md)) | **T1–T4** |
+| UI | `ThesisPage` + `thesis/*` (see [DESIGN.md](../DESIGN.md)) | **T1–T5** |
 
 ### Settings (mirror Brief conventions)
 
@@ -1044,6 +1047,38 @@ Directive conclusions are allowed **only** in `AdvisorInsight` (Engine 6). Close
 
 **Research button** (`POST /api/thesis/explain`): canned question ids `framework_disagree` / `mos_change` / `most_bullish` (+ optional free-text `question`); answers from the latest dashboard row; same insight-mode fail-closed pattern. Looks up ticker in latest `ThesisDashboard` (404 if missing).
 
+### Investment OS Score specs (LOCKED 2026-08-07 — T5)
+
+Deterministic composite (PRD §5.4.11). Same coverage rule as frameworks: weighted mean of non-null dimension points with weights renormalized; score `null` when non-null weight coverage &lt; 50. LLMs never compute this score.
+
+| Dimension | Weight | Source / formula | Missing → null |
+|-----------|--------|------------------|----------------|
+| Business Quality | 20 | Mean of FS check points: Profitability + Return on equity | both unknown |
+| Financial Strength | 15 | FS framework score | fs score null |
+| Valuation | 20 | MoS → `clamp(mos / 0.50, 0, 1) × 100` (same ceiling as Graham MoS check) | mos null |
+| Balance Sheet | 15 | Mean of FS Liquidity + Leverage + Net cash position points | all three unknown |
+| Earnings Quality | 10 | Mean of Graham Earnings Stability + FS Operating cash flow points | both unknown |
+| Capital Allocation | 10 | Buffett `fcf_yield`: `clamp(yield / 0.08, 0, 1) × 100`; else FS Free cash flow check points | both unavailable |
+| Framework Consensus | 5 | Both Graham + FS scores known: `100 − min(100, \|g−fs\| × 2)` | either missing |
+| Thesis Stability | 5 | strengthened=100 · no_change=75 · slightly_weaker=35 · broken=0 | no monitoring verdict |
+
+**Rating bands** (OS score and portfolio health): Excellent ≥ 85 · Good ≥ 70 · Fair ≥ 50 · Weak ≥ 30 · Poor &lt; 30.
+
+**Portfolio health rollup** (PRD §5.4.8) over all Thesis tickers (Held ∪ Watched):
+
+| Field | Rule |
+|-------|------|
+| `health_score` | Mean of non-null OS scores (`null` if none scored) |
+| Strong Balance Sheets | Balance Sheet dim ≥ 70 **or** FS score ≥ 70 |
+| Weak Balance Sheets | Balance Sheet dim &lt; 40 **or** FS score &lt; 40 |
+| Potential Value Traps | MoS &lt; 0 **and** FS score ≥ 60 |
+| Significantly Undervalued | MoS ≥ 30% **or** asset verdict `possible_undervaluation` |
+| Overvalued | MoS &lt; 0 **or** asset verdict `possible_overvaluation` |
+| High Conviction | OS score ≥ 75 |
+| Thesis Broken | monitoring verdict `broken` |
+
+Buckets are independent (a ticker may count in more than one).
+
 ### Engineering invariants (restated for this track)
 
 - **Deterministic math first:** every framework formula, valuation, and the OS Score composite is a pure-Python service with unit tests **before** any agent consumes it. LLMs never perform score/valuation arithmetic.
@@ -1058,6 +1093,7 @@ Directive conclusions are allowed **only** in `AdvisorInsight` (Engine 6). Close
 
 | Date | Change |
 |------|--------|
+| 2026-08-07 | Thesis T5 shipped: OS Score dimension specs **locked**, `InvestmentOSScore` + `PortfolioHealthRollup`, `thesis_os_score`, PortfolioHealth + OSScorecard UI; Thesis T1–T5 complete |
 | 2026-08-07 | Thesis T4 shipped: advisor conclusion specs **locked**, `AdvisorInsight` on `ThesisTicker`, `thesis_advisor` + `POST /api/thesis/explain`, UI AdvisorInsight + ResearchButton; T5 remains planned |
 | 2026-08-07 | Thesis T3 shipped: monitoring verdict / quarter-gate specs **locked**, per-ticker snapshot ring, `thesis_monitor`/`thesis_insight`, `ThesisMonitoring` + `ThesisTimeline`; T4+ remain planned |
 | 2026-08-07 | Thesis T2 shipped: valuation / MoS / net-asset formula specs **locked**, `ValuationSet`/`MarginOfSafetyView`/`AssetBreakdown` on `ThesisTicker`, `thesis_valuations`/`thesis_net_assets`, UI ladder + MoS + asset breakdown |

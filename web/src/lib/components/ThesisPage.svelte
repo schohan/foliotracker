@@ -9,6 +9,8 @@
   import FrameworkScorecard from "./thesis/FrameworkScorecard.svelte";
   import FrameworkScoreTable from "./thesis/FrameworkScoreTable.svelte";
   import MarginOfSafety from "./thesis/MarginOfSafety.svelte";
+  import OSScorecard from "./thesis/OSScorecard.svelte";
+  import PortfolioHealth from "./thesis/PortfolioHealth.svelte";
   import ResearchButton from "./thesis/ResearchButton.svelte";
   import ThesisTimeline from "./thesis/ThesisTimeline.svelte";
   import ValuationLadder from "./thesis/ValuationLadder.svelte";
@@ -87,10 +89,10 @@
     <p class="brand">FolioTracker</p>
     <PrimaryNav {view} {onnavigate} />
     <p class="tag">
-      Every holding through multiple investment lenses — deterministic Graham
-      Deep Value and Financial Strength scorecards, multi-method valuations,
-      net-asset intelligence, thesis monitoring, and an AI Portfolio Advisor
-      (directive guidance only there). Gaps stay honest.
+      Every holding through multiple investment lenses — Graham, Financial
+      Strength, valuations, thesis monitoring, an AI Portfolio Advisor, and a
+      composite Investment OS Score with portfolio health rollup. Gaps stay
+      honest.
     </p>
   </header>
 
@@ -159,6 +161,10 @@
       </details>
     {/if}
 
+    {#if dashboard.portfolio}
+      <PortfolioHealth portfolio={dashboard.portfolio} />
+    {/if}
+
     <section class="block" aria-labelledby="score-table-heading">
       <h2 id="score-table-heading">Framework scores</h2>
       <p class="hint">
@@ -188,6 +194,9 @@
           {#each selectedRow.frameworks as card (card.framework)}
             <FrameworkScorecard scorecard={card} />
           {/each}
+          {#if selectedRow.os_score}
+            <OSScorecard score={selectedRow.os_score} />
+          {/if}
         </div>
       </section>
 

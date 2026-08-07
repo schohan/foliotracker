@@ -1,6 +1,6 @@
 # TODOS
 
-Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). **Thesis T1 shipped** (2026-08-07). **Thesis T2 shipped** (2026-08-07). **Thesis T3 shipped** (2026-08-07). **Thesis T4 shipped** (2026-08-07). Next: Thesis T5 (Investment OS Score + portfolio rollup), orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
+Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (2026-07-25). Phase 1–2B shipped. Phase 2C complete. Watchlist dashboard v1 **shipped**. Watchlist design polish **shipped** (2026-07-28). Portfolio Risk v1 (Held concentration) **shipped** (2026-07-30). Correlation slice (Risk v2) **shipped** (2026-07-31). **Daily Decision Brief Slice 1 shipped** (2026-08-03). **Brief triage dashboard (Impact Score, High/Medium/Quiet, filters, history, drawer, heat map, insight modes) shipped** (2026-08-04). **Flexible ticker intake shipped** (2026-08-03). **Watchlist bulk ops shipped** (2026-08-03). **Portfolio Intelligence vision adopted — docs locked** (2026-08-05). **Thesis T1–T5 shipped** (2026-08-07). Next: Brief E1 (morning counts), orthogonal collections (1A), Brief dogfood with `BRIEF_INSIGHT_MODE=llm` in staging, Phase 3 evidence deepen, or Phase0 server single-flight if cost bites — see [docs/architecture.md](docs/architecture.md).
 
 **Portfolio Intelligence (2026-08-05):** Umbrella vision in [docs/PRD.md](docs/PRD.md) §1: six engines; shipped Brief = Engine 1 surface (**preserved unchanged**); new Thesis landing page hosts Engines 2–6. Directive guidance only from the AI Portfolio Advisor. Thesis slices T1–T5 + Brief E1 below.
 
@@ -13,14 +13,6 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Phase 2C lock (2026-07-25):** Provider port + per-source cache; Yahoo enrich day-1; SEC XBRL; Alpha Vantage fill-gaps. No Kafka.
 
 ## Next milestones (queued)
-
-### Thesis T5 — Investment OS Score + Portfolio dashboard
-
-**What:** Deterministic composite from the locked weight table (PRD §5.4.11: Business Quality 20 / Financial Strength 15 / Valuation 20 / Balance Sheet 15 / Earnings Quality 10 / Capital Allocation 10 / Framework Consensus 5 / Thesis Stability 5). Portfolio health rollup counts (PRD §5.4.8) on the Thesis page.
-
-**Effort:** M  
-**Priority:** P3  
-**Depends on:** T1–T3 (consensus + stability inputs)
 
 ### Brief E1 — event enrichment + morning counts (additive)
 
@@ -209,6 +201,16 @@ Deferred work from CEO plan review (2026-07-21) and eng/office-hours design (202
 **Depends on:** Risk v2 dogfood; product call on local store shape
 
 ## Completed
+
+### Thesis T5 — Investment OS Score + Portfolio dashboard (2026-08-07)
+
+- OS Score dimension weight/formula specs **locked** in architecture.md
+- Schemas: `OSDimension` / `InvestmentOSScore` / `PortfolioHealthRollup` on ticker + dashboard
+- `thesis_os_score`: 8-dimension weighted composite (coverage &lt; 50 → null) + portfolio health counts
+- Generate path attaches `os_score` per row and `portfolio` rollup
+- UI: `PortfolioHealth` strip, OS column on score table, `OSScorecard` on drill-down
+- Tests: os_score/service units + Vitest format; Brief untouched
+- Thesis T1–T5 complete
 
 ### Thesis T4 — AI Portfolio Advisor + AI Research button (2026-08-07)
 

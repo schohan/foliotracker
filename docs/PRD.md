@@ -83,7 +83,7 @@ Today the product ships locally via `adk web` / `adk run app`. The user asks to 
 
 **What exists now (Phase 0–2C):** single-ticker research from enriched Yahoo Finance fundamentals (profile, returns, BS/CF, trailing/forward P/E), Google News RSS headlines, SEC EDGAR filing metadata + XBRL companyfacts, and optional Alpha Vantage OVERVIEW fill-gaps for forward/market fields when keyed. Evidence aggregator surfaces `evidence.conflicts`; `scorecard` + `fundamentals` on `Phase0Result`. Dual cache: whole-result TTL plus per-source TTL/quota. Yahoo failure softens to `partial` when merged fundamentals pass the min field checklist.
 
-**What comes next:** Thesis T5 (Investment OS Score + portfolio rollup); Brief dogfood Assignment (≤30m); then Phase 3 evidence deepen or Brief Slice 1b/2. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
+**What comes next:** Brief E1 (morning counts); Brief dogfood Assignment (≤30m); then Phase 3 evidence deepen or Brief Slice 1b/2. See [Roadmap](#10-roadmap) and [TODOS.md](../TODOS.md).
 
 How the system is built lives in [architecture.md](architecture.md). What is implemented vs stub lives in [implementation-status.md](implementation-status.md). Deferred work lives in [TODOS.md](../TODOS.md).
 
@@ -225,7 +225,8 @@ Replaces the current embedded thesis surface (Watchlist one-liner + detail-panel
 | Thesis monitoring | Quarterly thesis-change verdicts per holding | T3 | **Shipped** |
 | AI Portfolio Advisor | Directive insight (buy more / hold / trim / research) with reasoning + confidence | T4 | **Shipped** |
 | AI Research button | One-click framework questions per stock | T4 | **Shipped** |
-| Investment OS Score | Proprietary composite blending multiple disciplines | T5 | Planned |
+| Investment OS Score | Proprietary composite blending multiple disciplines | T5 | **Shipped** |
+| Portfolio dashboard rollup | Portfolio Health score + count strip | T5 | **Shipped** |
 | Portfolio dashboard | Portfolio health rollup counts | T5 | Planned |
 
 The examples below are **normative acceptance references**: when a slice ships, its UI and contracts must be able to reproduce these shapes.
@@ -525,13 +526,13 @@ Follows the Brief architectural template: Pydantic schemas → deterministic ser
 
 | Feature | Role | Slice | Status |
 |---------|------|-------|--------|
-| `app/schemas/thesis.py` contracts | `FrameworkScorecard`, `FrameworkCheck`, `ValuationSet`, `AssetBreakdown`, `MarginOfSafetyView`, `ThesisSnapshot`, `ThesisChange`, `ThesisMonitoring`, `AdvisorInsight`, `ThesisDashboard` (T1–T4); `InvestmentOSScore` (T5) | T1–T5 | **T1–T4 shipped**; T5 planned |
+| `app/schemas/thesis.py` contracts | Full Thesis contracts through `InvestmentOSScore` / `PortfolioHealthRollup` / `ThesisDashboard` (T1–T5) | T1–T5 | **T1–T5 shipped** |
 | Framework engine service | Deterministic per-framework scoring from merged fundamentals (Yahoo + SEC XBRL); Graham + Financial Strength first; remaining frameworks phased | T1+ | **Shipped (T1)** |
 | Valuation service | NCAV / net-net / intrinsic / liquidation / adjusted book; owner earnings / FCF yield; DCF / reverse DCF / EV multiples / PEG / historical bands | T2 | **Shipped** (honest nulls for ROIC, bands, sector, Replacement) |
 | Net asset service | Asset breakdown → Adjusted Net Assets vs market cap | T2 | **Shipped** |
 | Thesis snapshot store | Per-ticker ring store (like `brief_store`); quarterly diff → change verdict | T3 | **Shipped** |
 | Advisor + explain service | Directive advisor + `POST /api/thesis/explain`; reuses `THESIS_INSIGHT_MODE` | T4 | **Shipped** |
-| Investment OS Score service | Deterministic composite from locked weight table | T5 | Planned |
+| Investment OS Score service | Deterministic composite from locked weight table + portfolio rollup | T5 | **Shipped** |
 | Thesis HTTP API + page | `GET /api/thesis`, `POST /api/thesis/generate`, `POST /api/thesis/explain`; `ThesisPage` + `thesis/*` components; `PrimaryNav` adds Thesis | T1+ | Planned |
 | Brief E1 enrichment | **Additive optional** `BriefBullet` fields (impact, confidence, affected_frameworks, thesis_impact) + morning count strip; backwards-compatible; after T3 | E1 | Planned |
 
@@ -682,7 +683,7 @@ Shipped Brief milestones above stay queued unchanged; Thesis slices are independ
 | **T2** | Valuation Engine + Net Asset Intelligence + Margin of Safety visualization | L | **Done** (2026-08-07) |
 | **T3** | Thesis Monitoring (snapshot store + quarterly change verdicts) | M | **Done** (2026-08-07) |
 | **T4** | AI Portfolio Advisor + AI Research button | M | **Shipped** |
-| **T5** | Investment OS Score + Portfolio dashboard rollup | M | Queued |
+| **T5** | Investment OS Score + Portfolio dashboard rollup | M | **Shipped** |
 | **E1** | Brief event enrichment + morning count strip (additive; after T3) | S–M | Queued |
 | Later | Remaining frameworks (Lynch, Greenblatt, Quality, GARP, Dividend, Momentum); then future modules (Marks, Munger, Mauboussin, Fama-French, Behavioral Finance, Macro Overlay) | L | Phase-next |
 

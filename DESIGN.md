@@ -77,8 +77,8 @@ Reuse before inventing:
 | `brief/HeatMap` | Compact Held/Watched impact grid |
 | `brief/TimelineRail` | Brief history browse (ring-14) |
 | `brief/StockDrawer` | Side panel for ticker events + insight + research |
-| `ThesisPage` | Portfolio Intelligence landing page (T1–T4 shipped) — frameworks + valuation + timeline + advisor |
-| `thesis/FrameworkScoreTable` | Per-stock scores across investment philosophies (T1 shipped: Graham + Financial Strength) |
+| `ThesisPage` | Portfolio Intelligence landing page (T1–T5 shipped) — frameworks + valuation + timeline + advisor + OS Score + portfolio health |
+| `thesis/FrameworkScoreTable` | Per-stock scores across investment philosophies + OS Score column |
 | `thesis/FrameworkScorecard` | Single-framework drill-down: named checks, PASS/value/rating (T1 shipped) |
 | `thesis/ValuationLadder` | Six-value ladder: market / intrinsic / liquidation / replacement / enterprise / expected fair (T2 shipped) |
 | `thesis/MarginOfSafety` | Intrinsic vs price, % + star rating (T2 shipped) |
@@ -86,6 +86,8 @@ Reuse before inventing:
 | `thesis/ThesisTimeline` | Quarterly thesis-change verdicts with evidence (T3 shipped) |
 | `thesis/AdvisorInsight` | Advisor reasoning + directive conclusion + confidence + provider label (T4 shipped) |
 | `thesis/ResearchButton` | One-click framework questions per stock (T4 shipped) |
+| `thesis/OSScorecard` | Investment OS Score dimensions + composite (T5 shipped) |
+| `thesis/PortfolioHealth` | Portfolio health score + rollup counts (T5 shipped) |
 | `AddTickerForm` | Primary add action |
 | `TickerRow` | Glanceable summary row |
 | `ScoreStrip` | G / V / R glance (Brief metrics strip may reuse Growth/Value/Risk only) |

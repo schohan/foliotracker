@@ -11,6 +11,7 @@ import {
   formatFrameworkScore,
   formatMoney,
   formatMosStars,
+  formatOsRating,
   formatThesisVerdict,
   formatValuationValue,
 } from "./thesisFormat";
@@ -184,5 +185,13 @@ describe("formatAdvisorConfidence", () => {
   it("formats percent", () => {
     expect(formatAdvisorConfidence(0.89)).toBe("89%");
     expect(formatAdvisorConfidence(null)).toBe("—");
+  });
+});
+
+describe("formatOsRating", () => {
+  it("passthrough or dash", () => {
+    expect(formatOsRating("Excellent")).toBe("Excellent");
+    expect(formatOsRating("")).toBe("—");
+    expect(formatOsRating(null)).toBe("—");
   });
 });
