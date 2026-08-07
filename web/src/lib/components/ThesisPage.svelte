@@ -1,21 +1,15 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { fetchThesis, generateThesis } from "../api";
+  import type { DecisionMapTarget } from "../decisionMap";
+  import { rowFocusId } from "../focusHelpers";
   import type { AppView, ThesisDashboard } from "../types";
   import DisclaimerBar from "./DisclaimerBar.svelte";
   import PrimaryNav from "./PrimaryNav.svelte";
-  import AssetBreakdown from "./thesis/AssetBreakdown.svelte";
-  import AdvisorInsightPanel from "./thesis/AdvisorInsight.svelte";
   import DecisionMap from "./thesis/DecisionMap.svelte";
-  import FrameworkScorecard from "./thesis/FrameworkScorecard.svelte";
   import FrameworkScoreTable from "./thesis/FrameworkScoreTable.svelte";
-  import MarginOfSafety from "./thesis/MarginOfSafety.svelte";
-  import OSScorecard from "./thesis/OSScorecard.svelte";
   import PortfolioHealth from "./thesis/PortfolioHealth.svelte";
-  import ResearchButton from "./thesis/ResearchButton.svelte";
-  import ThesisTimeline from "./thesis/ThesisTimeline.svelte";
-  import ValuationLadder from "./thesis/ValuationLadder.svelte";
-  import { formatValuationValue } from "../thesisFormat";
+  import ThesisDrawer from "./thesis/ThesisDrawer.svelte";
 
   interface Props {
     view: AppView;
@@ -29,12 +23,24 @@
   let loading = $state(true);
   let generating = $state(false);
   let selectedTicker = $state<string | null>(null);
+  let drawerFocus = $state<DecisionMapTarget | null>(null);
 
   const emptyUniverse = $derived(
     dashboard != null && dashboard.universe_count === 0,
   );
   const selectedRow = $derived(
     dashboard?.tickers.find((t) => t.ticker === selectedTicker) ?? null,
+  );
+  const thinCount = $derived(
+    dashboard?.tickers.filter((t) => {
+      const scored = t.frameworks.some((f) => f.score != null);
+      const rich =
+        t.valuation != null ||
+        t.margin_of_safety != null ||
+        t.advisor != null ||
+        t.monitoring != null;
+      return !scored && !rich;
+    }).length ?? 0,
   );
 
   async function load() {
@@ -60,6 +66,7 @@
         !dashboard.tickers.some((t) => t.ticker === selectedTicker)
       ) {
         selectedTicker = null;
+        drawerFocus = null;
       }
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
@@ -69,7 +76,50 @@
   }
 
   function onselect(ticker: string) {
-    selectedTicker = selectedTicker === ticker ? null : ticker;
+    if (selectedTicker === ticker) {
+      selectedTicker = null;
+      drawerFocus = null;
+      return;
+    }
+    selectedTicker = ticker;
+    drawerFocus = "frameworks";
+  }
+
+  function oncloseDrawer() {
+    const prev = selectedTicker;
+    selectedTicker = null;
+    drawerFocus = null;
+    if (prev) {
+      void tick().then(() => {
+        document.getElementById(rowFocusId(prev))?.focus();
+      });
+    }
+  }
+
+  function onsection(target: Exclude<DecisionMapTarget, "brief">) {
+    if (target === "fundamentals") {
+      document
+        .getElementById("fundamentals-heading")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (target === "frameworks") {
+      if (selectedTicker == null) {
+        document
+          .getElementById("frameworks-heading")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      drawerFocus = "frameworks";
+      return;
+    }
+    if (selectedTicker == null) {
+      document
+        .getElementById("frameworks-heading")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    drawerFocus = target;
   }
 
   onMount(() => {
@@ -85,14 +135,13 @@
   }
 </script>
 
-<main class="page">
+<main class="page" class:drawer-open={selectedRow != null}>
   <header class="hero">
     <p class="brand">FolioTracker</p>
     <PrimaryNav {view} {onnavigate} />
     <p class="tag">
-      Six decision questions per holding — frameworks, valuation, thesis change,
-      and an AI Portfolio Advisor — plus a composite Investment OS Score. Gaps
-      stay honest.
+      Score every holding across philosophies — then open one ticker for
+      valuation, thesis change, and advisor guidance.
     </p>
   </header>
 
@@ -138,7 +187,7 @@
     {#if !loading}
       <p class="empty">
         No thesis table yet. Generate to score Held and Watched names against
-        the Graham Deep Value and Financial Strength frameworks.
+        Graham Deep Value and Financial Strength.
       </p>
     {/if}
   {:else if emptyUniverse}
@@ -150,14 +199,34 @@
       Go to Watchlist
     </button>
   {:else}
-    {#if dashboard.gaps.length > 0}
-      <details class="gaps-box">
-        <summary>{dashboard.gaps.length} data gaps</summary>
-        <ul class="gaps">
-          {#each dashboard.gaps as gap (gap)}
-            <li>{gap}</li>
-          {/each}
-        </ul>
+    {#if dashboard.gaps.length > 0 || thinCount > 0}
+      <details class="gaps-box" open={thinCount > 0 && thinCount === dashboard.tickers.length}>
+        <summary>
+          {#if thinCount > 0}
+            {thinCount} ticker{thinCount === 1 ? "" : "s"} with thin data
+            {#if dashboard.gaps.length > 0}
+              · {dashboard.gaps.length} source gap{dashboard.gaps.length === 1
+                ? ""
+                : "s"}
+            {/if}
+          {:else}
+            {dashboard.gaps.length} data gap{dashboard.gaps.length === 1
+              ? ""
+              : "s"}
+          {/if}
+        </summary>
+        <p class="gaps-lead">
+          Thin rows stay clickable. Open them to see honest blanks — never
+          invented scores. Rate limits on Yahoo / SEC / Alpha Vantage often
+          leave only partial fundamentals until the next Generate.
+        </p>
+        {#if dashboard.gaps.length > 0}
+          <ul class="gaps">
+            {#each dashboard.gaps as gap (gap)}
+              <li>{gap}</li>
+            {/each}
+          </ul>
+        {/if}
       </details>
     {/if}
 
@@ -165,6 +234,7 @@
       selected={selectedRow}
       portfolio={dashboard.portfolio}
       {onnavigate}
+      {onsection}
     />
 
     {#if dashboard.portfolio}
@@ -172,11 +242,13 @@
     {/if}
 
     <section class="block" aria-labelledby="frameworks-heading">
-      <h2 id="frameworks-heading">How does each philosophy score this?</h2>
-      <p class="hint">
-        Investment Framework Engine — select a ticker for per-check scorecards.
-        “—” means insufficient data — never invented.
-      </p>
+      <div class="block-head">
+        <h2 id="frameworks-heading">How does each philosophy score this?</h2>
+        <p class="hint">
+          Investment Framework Engine — click a row for the full scorecard.
+          “—” means insufficient data.
+        </p>
+      </div>
       <FrameworkScoreTable
         tickers={dashboard.tickers}
         frameworks={dashboard.frameworks}
@@ -194,161 +266,18 @@
         engines; dedicated stronger/weaker metrics ship next.
       </p>
     </section>
-
-    {#if selectedRow}
-      <section class="block" aria-labelledby="scorecards-heading">
-        <h2 id="scorecards-heading">
-          {selectedRow.ticker}
-          {#if selectedRow.name}
-            <span class="company">— {selectedRow.name}</span>
-          {/if}
-        </h2>
-        {#if selectedRow.sources_used.length > 0}
-          <p class="hint">Sources: {selectedRow.sources_used.join(", ")}</p>
-        {/if}
-        <div class="cards">
-          {#each selectedRow.frameworks as card (card.framework)}
-            <FrameworkScorecard scorecard={card} />
-          {/each}
-          {#if selectedRow.os_score}
-            <OSScorecard score={selectedRow.os_score} />
-          {/if}
-        </div>
-      </section>
-
-      {#if selectedRow.margin_of_safety || selectedRow.valuation || selectedRow.assets}
-        <section class="block" aria-labelledby="valuation-heading">
-          <h2 id="valuation-heading">Am I paying too much?</h2>
-          <p class="hint">
-            Valuation Engine — multiple simultaneous valuations and net-asset
-            comparison. “—” means insufficient data.
-          </p>
-          <div class="cards">
-            {#if selectedRow.margin_of_safety}
-              <MarginOfSafety view={selectedRow.margin_of_safety} />
-            {/if}
-            {#if selectedRow.valuation}
-              <ValuationLadder ladder={selectedRow.valuation.ladder} />
-            {/if}
-            {#if selectedRow.assets}
-              <AssetBreakdown breakdown={selectedRow.assets} />
-            {/if}
-          </div>
-
-          {#if selectedRow.valuation}
-            <div class="method-schools">
-              {#each [
-                { key: "graham", label: "Graham", methods: selectedRow.valuation.graham },
-                { key: "buffett", label: "Buffett", methods: selectedRow.valuation.buffett },
-                { key: "modern", label: "Modern", methods: selectedRow.valuation.modern },
-              ] as school (school.key)}
-                <article class="method-panel" aria-label={`${school.label} valuations`}>
-                  <h3>{school.label}</h3>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th scope="col">Method</th>
-                        <th scope="col">Value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {#each school.methods as method (method.id)}
-                        <tr>
-                          <td>
-                            <span class="check-name">{method.label}</span>
-                            {#if method.detail}
-                              <span class="detail">{method.detail}</span>
-                            {/if}
-                          </td>
-                          <td
-                            class="result"
-                            class:na={method.value == null}
-                          >
-                            {formatValuationValue(method)}
-                          </td>
-                        </tr>
-                      {/each}
-                    </tbody>
-                  </table>
-                </article>
-              {/each}
-            </div>
-          {/if}
-        </section>
-      {:else}
-        <section class="block muted-block" aria-labelledby="valuation-heading">
-          <h2 id="valuation-heading">Am I paying too much?</h2>
-          <p class="hint">
-            Valuation Engine — insufficient data for this ticker.
-          </p>
-        </section>
-      {/if}
-
-      {#if selectedRow.monitoring}
-        <section class="block" aria-labelledby="monitoring-heading">
-          <h2 id="monitoring-heading">Has my thesis changed?</h2>
-          <p class="hint">
-            Thesis Monitoring — monitor thesis, not price. Verdicts are a closed
-            set — never free prose ratings.
-          </p>
-          <ThesisTimeline monitoring={selectedRow.monitoring} />
-        </section>
-      {:else}
-        <section class="block muted-block" aria-labelledby="monitoring-heading">
-          <h2 id="monitoring-heading">Has my thesis changed?</h2>
-          <p class="hint">
-            Thesis Monitoring — no snapshot yet for this ticker.
-          </p>
-        </section>
-      {/if}
-
-      {#if selectedRow.advisor}
-        <section class="block" aria-labelledby="advisor-heading">
-          <h2 id="advisor-heading">
-            Buy more, hold, trim, or research further?
-          </h2>
-          <p class="hint">
-            AI Portfolio Advisor — the only surface with buy / hold / trim /
-            research / wait phrasing — always with reasoning, confidence, and
-            provider label.
-          </p>
-          <div class="cards">
-            <AdvisorInsightPanel insight={selectedRow.advisor} />
-            <ResearchButton ticker={selectedRow.ticker} />
-          </div>
-        </section>
-      {:else}
-        <section class="block" aria-labelledby="advisor-heading">
-          <h2 id="advisor-heading">
-            Buy more, hold, trim, or research further?
-          </h2>
-          <p class="hint">
-            AI Research questions for this ticker. Advisor conclusion appears
-            after Generate when available.
-          </p>
-          <ResearchButton ticker={selectedRow.ticker} />
-        </section>
-      {/if}
-    {:else}
-      <section class="block muted-block" aria-labelledby="valuation-heading">
-        <h2 id="valuation-heading">Am I paying too much?</h2>
-        <p class="hint">Select a ticker above to see the valuation ladder.</p>
-      </section>
-      <section class="block muted-block" aria-labelledby="monitoring-heading">
-        <h2 id="monitoring-heading">Has my thesis changed?</h2>
-        <p class="hint">Select a ticker to see thesis-change verdicts.</p>
-      </section>
-      <section class="block muted-block" aria-labelledby="advisor-heading">
-        <h2 id="advisor-heading">
-          Buy more, hold, trim, or research further?
-        </h2>
-        <p class="hint">Select a ticker for the AI Portfolio Advisor.</p>
-      </section>
-    {/if}
   {/if}
 
   <DisclaimerBar text={dashboard?.disclaimer ?? defaultDisclaimer} />
 </main>
+
+{#if selectedRow}
+  <ThesisDrawer
+    row={selectedRow}
+    focusSection={drawerFocus}
+    onclose={oncloseDrawer}
+  />
+{/if}
 
 <style>
   .page {
@@ -358,9 +287,18 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    transition: padding-right 0.2s ease;
+  }
+  .page.drawer-open {
+    padding-right: min(33rem, 42vw);
+  }
+  @media (max-width: 960px) {
+    .page.drawer-open {
+      padding-right: 1.25rem;
+    }
   }
   .hero {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.35rem;
   }
   .brand {
     margin: 0;
@@ -373,7 +311,7 @@
   }
   .tag {
     margin: 0.65rem 0 0;
-    max-width: 38rem;
+    max-width: 36rem;
     color: var(--ink-soft);
     font-size: 1.05rem;
     line-height: 1.4;
@@ -396,6 +334,10 @@
   }
   .generate:disabled {
     opacity: 0.6;
+  }
+  .generate:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
   .meta {
     margin: 0;
@@ -436,103 +378,52 @@
     margin: 0 0 1.25rem;
     color: var(--partial);
     font-size: 0.9rem;
+    border: 1px solid rgba(184, 134, 11, 0.35);
+    border-radius: 2px;
+    padding: 0 0.75rem;
+    background: rgba(184, 134, 11, 0.06);
   }
   .gaps-box summary {
     cursor: pointer;
     min-height: 44px;
     display: flex;
     align-items: center;
+    font-weight: 550;
+    color: var(--ink);
+  }
+  .gaps-lead {
+    margin: 0 0 0.5rem;
+    color: var(--ink-soft);
+    line-height: 1.45;
   }
   .gaps {
-    margin: 0.25rem 0 0;
+    margin: 0 0 0.75rem;
     padding-left: 1.1rem;
     line-height: 1.45;
+    color: var(--ink-soft);
   }
   .block {
     margin-bottom: 1.75rem;
   }
-  .block.planned h2,
-  .block.muted-block h2 {
+  .block-head {
+    margin-bottom: 0.35rem;
+  }
+  .block.planned h2 {
     color: var(--ink-soft);
   }
-  .block.planned .hint,
-  .block.muted-block .hint {
+  .block.planned .hint {
     font-style: italic;
   }
   .block h2 {
-    margin: 0 0 0.4rem;
+    margin: 0 0 0.35rem;
     font-family: var(--font-display);
     font-size: 1.35rem;
     font-weight: 600;
-  }
-  .company {
-    color: var(--ink-soft);
-    font-weight: 400;
-    font-size: 1.05rem;
   }
   .hint {
     margin: 0 0 0.75rem;
     color: var(--ink-soft);
     font-size: 0.9rem;
-  }
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-    gap: 1rem;
-  }
-  .method-schools {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-  }
-  .method-panel {
-    border: 1px solid var(--line);
-    border-radius: 3px;
-    padding: 1rem 1.1rem;
-  }
-  .method-panel h3 {
-    margin: 0 0 0.55rem;
-    font-family: var(--font-display);
-    font-size: 1.05rem;
-    font-weight: 600;
-  }
-  .method-panel table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-  }
-  .method-panel th,
-  .method-panel td {
-    text-align: left;
-    padding: 0.4rem 0.25rem;
-    border-bottom: 1px solid var(--line);
-    vertical-align: top;
-  }
-  .method-panel th {
-    color: var(--ink-soft);
-    font-weight: 500;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .check-name {
-    display: block;
-    font-weight: 500;
-  }
-  .detail {
-    display: block;
-    color: var(--ink-soft);
-    font-size: 0.8rem;
-    margin-top: 0.15rem;
-  }
-  .result {
-    white-space: nowrap;
-    font-weight: 600;
-  }
-  .result.na {
-    color: var(--ink-soft);
-    font-weight: 400;
   }
   .banner {
     display: flex;

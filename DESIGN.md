@@ -80,7 +80,8 @@ Reuse before inventing:
 | `brief/StockDrawer` | Side panel for ticker events + insight + research |
 | `ThesisPage` | Portfolio Intelligence landing page (T1–T5) — Decision Map + question-headed sections for Engines 2–6 + OS Score + portfolio health |
 | `thesis/DecisionMap` | Six PRD decision questions → one-line answers + jump links (Brief / section anchors); Engine 2 stays Planned |
-| `thesis/FrameworkScoreTable` | Per-stock scores across investment philosophies + OS Score column |
+| `thesis/ThesisDrawer` | Side panel for ticker drill-down (frameworks, valuation, monitoring, advisor) — Brief StockDrawer pattern |
+| `thesis/FrameworkScoreTable` | Per-stock scores across investment philosophies + OS Score column + data coverage badge |
 | `thesis/FrameworkScorecard` | Single-framework drill-down: named checks, PASS/value/rating (T1 shipped) |
 | `thesis/ValuationLadder` | Six-value ladder: market / intrinsic / liquidation / replacement / enterprise / expected fair (T2 shipped) |
 | `thesis/MarginOfSafety` | Intrinsic vs price, % + star rating (T2 shipped) |

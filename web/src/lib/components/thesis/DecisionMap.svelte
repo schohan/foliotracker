@@ -1,7 +1,6 @@
 <script lang="ts">
   import {
     buildDecisionMapRows,
-    decisionSectionId,
     type DecisionMapTarget,
   } from "../../decisionMap";
   import type { AppView, PortfolioHealthRollup, ThesisTicker } from "../../types";
@@ -10,9 +9,11 @@
     selected: ThesisTicker | null;
     portfolio: PortfolioHealthRollup | null;
     onnavigate: (view: AppView) => void;
+    /** Jump to a thesis section (table or drawer). Brief still uses onnavigate. */
+    onsection?: (target: Exclude<DecisionMapTarget, "brief">) => void;
   }
 
-  let { selected, portfolio, onnavigate }: Props = $props();
+  let { selected, portfolio, onnavigate, onsection }: Props = $props();
 
   const rows = $derived(buildDecisionMapRows(selected, portfolio));
 
@@ -21,9 +22,11 @@
       onnavigate("brief");
       return;
     }
-    const id = decisionSectionId(target);
-    if (id == null) return;
-    const el = document.getElementById(id);
+    if (onsection) {
+      onsection(target);
+      return;
+    }
+    const el = document.getElementById(`${target}-heading`);
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 </script>
@@ -32,7 +35,12 @@
   <header>
     <h2 id="decision-map-heading">Decision Map</h2>
     <p class="meta">
-      Six engines as decision questions. Answers update when you select a ticker.
+      {#if selected}
+        Answers for <strong>{selected.ticker}</strong>. Jump to a question to
+        open detail.
+      {:else}
+        Portfolio rollup until you select a ticker in the table below.
+      {/if}
     </p>
   </header>
 
@@ -66,17 +74,17 @@
 
 <style>
   .map {
-    margin: 0 0 1.5rem;
-    padding-bottom: 1.25rem;
+    margin: 0 0 1.35rem;
+    padding-bottom: 1.15rem;
     border-bottom: 1px solid var(--line);
   }
   header {
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.65rem;
   }
   h2 {
     margin: 0;
     font-family: var(--font-display);
-    font-size: 1.35rem;
+    font-size: 1.25rem;
     font-weight: 600;
   }
   .meta {
@@ -84,17 +92,24 @@
     color: var(--ink-soft);
     font-size: 0.85rem;
   }
+  .meta strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
   .rows {
     margin: 0;
   }
   .row {
     display: grid;
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-    gap: 0.75rem 1rem;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 0.65rem 1rem;
     align-items: baseline;
-    padding: 0.4rem 0;
+    padding: 0.45rem 0;
     border-bottom: 1px solid var(--line);
     font-size: 0.9rem;
+  }
+  .row:last-child {
+    border-bottom: none;
   }
   dt {
     margin: 0;
@@ -110,13 +125,14 @@
     appearance: none;
     background: none;
     border: none;
-    padding: 0;
+    padding: 0.15rem 0;
     margin: 0;
     font: inherit;
     color: inherit;
     cursor: pointer;
     text-align: inherit;
     max-width: 100%;
+    min-height: 44px;
   }
   .jump {
     color: var(--ink-soft);
@@ -124,19 +140,21 @@
     text-align: left;
   }
   .jump:hover,
-  .jump:focus-visible {
+  .jump:focus-visible,
+  .answer:hover,
+  .answer:focus-visible {
     color: var(--accent);
     outline: none;
+  }
+  .jump:focus-visible,
+  .answer:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .answer {
     font-family: var(--font-display);
     font-weight: 600;
     color: var(--ink);
-  }
-  .answer:hover,
-  .answer:focus-visible {
-    color: var(--accent);
-    outline: none;
   }
   .answer.planned,
   .answer.soft {
@@ -149,10 +167,14 @@
   @media (max-width: 640px) {
     .row {
       grid-template-columns: 1fr;
-      gap: 0.15rem;
+      gap: 0.1rem;
     }
     dd {
       text-align: left;
+    }
+    .jump,
+    .answer {
+      min-height: 36px;
     }
   }
 </style>

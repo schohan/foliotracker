@@ -3,10 +3,66 @@ import type {
   AdvisorConclusion,
   CheckStatus,
   FrameworkCheck,
+  ThesisTicker,
   ThesisVerdict,
   ValuationMethod,
   ValuationUnit,
 } from "./types";
+
+/** Honest coverage label for a thesis row (rate limits / thin fundamentals). */
+export type ThesisCoverageKind = "ok" | "partial" | "thin";
+
+export interface ThesisCoverage {
+  kind: ThesisCoverageKind;
+  /** Short table badge: ok / partial / thin. */
+  label: string;
+  /** Drawer / meta explanation — never invents values. */
+  detail: string;
+}
+
+/**
+ * Classify how much of a ticker's thesis engines have real data.
+ * Thin rows (rate-limited / empty sources) stay selectable — UI must explain gaps.
+ */
+export function thesisRowCoverage(row: ThesisTicker): ThesisCoverage {
+  const scored = row.frameworks.filter((f) => f.score != null).length;
+  const totalFw = row.frameworks.length;
+  const hasValuation =
+    row.valuation != null ||
+    row.margin_of_safety != null ||
+    row.assets != null;
+  const hasMonitoring = row.monitoring != null;
+  const hasAdvisor = row.advisor != null;
+  const sources = row.sources_used;
+  const gapCount = row.gaps.length;
+  const sourceLine =
+    sources.length > 0 ? sources.join(", ") : "no fundamentals sources";
+
+  if (scored === 0 && !hasValuation && !hasMonitoring && !hasAdvisor) {
+    return {
+      kind: "thin",
+      label: "thin",
+      detail:
+        gapCount > 0
+          ? `Limited data (${sourceLine}). ${gapCount} source gap${gapCount === 1 ? "" : "s"} — scores stay blank rather than invented.`
+          : `Limited data (${sourceLine}). Not enough fields to score frameworks or valuation.`,
+    };
+  }
+
+  if (scored < totalFw || gapCount > 0 || !hasValuation) {
+    return {
+      kind: "partial",
+      label: "partial",
+      detail: `Partial coverage · ${sourceLine}${gapCount > 0 ? ` · ${gapCount} gap${gapCount === 1 ? "" : "s"}` : ""}`,
+    };
+  }
+
+  return {
+    kind: "ok",
+    label: "ok",
+    detail: `Sources: ${sourceLine}`,
+  };
+}
 
 /** Framework score 0–100 → "91" | "—" (null = insufficient data). */
 export function formatFrameworkScore(score: number | null): string {

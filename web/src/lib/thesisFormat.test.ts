@@ -14,10 +14,12 @@ import {
   formatOsRating,
   formatThesisVerdict,
   formatValuationValue,
+  thesisRowCoverage,
 } from "./thesisFormat";
 import type {
   AdvisorConclusion,
   FrameworkCheck,
+  ThesisTicker,
   ThesisVerdict,
   ValuationMethod,
 } from "./types";
@@ -193,5 +195,114 @@ describe("formatOsRating", () => {
     expect(formatOsRating("Excellent")).toBe("Excellent");
     expect(formatOsRating("")).toBe("—");
     expect(formatOsRating(null)).toBe("—");
+  });
+});
+
+describe("thesisRowCoverage", () => {
+  function row(overrides: Partial<ThesisTicker> = {}): ThesisTicker {
+    return {
+      ticker: "LITE",
+      list_kind: "held",
+      name: "Lumentum",
+      sector: "Technology",
+      frameworks: [
+        {
+          framework: "graham",
+          label: "Graham Deep Value",
+          score: null,
+          checks: [],
+          coverage: 0.2,
+        },
+        {
+          framework: "financial_strength",
+          label: "Financial Strength",
+          score: null,
+          checks: [],
+          coverage: 0.1,
+        },
+      ],
+      valuation: null,
+      margin_of_safety: null,
+      assets: null,
+      monitoring: null,
+      advisor: null,
+      os_score: null,
+      sources_used: [],
+      gaps: ["LITE: yahoo unavailable (RateLimitError)"],
+      ...overrides,
+    };
+  }
+
+  it("marks rate-limited empty rows as thin", () => {
+    const c = thesisRowCoverage(row());
+    expect(c.kind).toBe("thin");
+    expect(c.label).toBe("thin");
+    expect(c.detail).toMatch(/gap/i);
+  });
+
+  it("marks scored rows with gaps as partial", () => {
+    const c = thesisRowCoverage(
+      row({
+        frameworks: [
+          {
+            framework: "graham",
+            label: "Graham Deep Value",
+            score: 70,
+            checks: [],
+            coverage: 0.8,
+          },
+          {
+            framework: "financial_strength",
+            label: "Financial Strength",
+            score: null,
+            checks: [],
+            coverage: 0.2,
+          },
+        ],
+        sources_used: ["yahoo"],
+        gaps: ["LITE: sec_xbrl unavailable"],
+      }),
+    );
+    expect(c.kind).toBe("partial");
+  });
+
+  it("marks full coverage as ok", () => {
+    const c = thesisRowCoverage(
+      row({
+        frameworks: [
+          {
+            framework: "graham",
+            label: "Graham Deep Value",
+            score: 70,
+            checks: [],
+            coverage: 0.9,
+          },
+          {
+            framework: "financial_strength",
+            label: "Financial Strength",
+            score: 80,
+            checks: [],
+            coverage: 0.9,
+          },
+        ],
+        valuation: {
+          graham: [],
+          buffett: [],
+          modern: [],
+          ladder: {
+            market: 1,
+            intrinsic: 1,
+            liquidation: null,
+            replacement: null,
+            enterprise: null,
+            expected_fair: 1,
+          },
+        },
+        sources_used: ["yahoo", "sec_xbrl"],
+        gaps: [],
+      }),
+    );
+    expect(c.kind).toBe("ok");
+    expect(c.detail).toContain("yahoo");
   });
 });
