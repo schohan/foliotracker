@@ -1,6 +1,8 @@
 <script lang="ts">
   import { formatFrameworkScore } from "../../thesisFormat";
+  import { DRAWER_HELP, helpForOsDimension } from "../../thesisHelp";
   import type { InvestmentOSScore } from "../../types";
+  import HelpTip from "./HelpTip.svelte";
 
   interface Props {
     score: InvestmentOSScore;
@@ -11,7 +13,10 @@
 
 <article class="panel" aria-label="Investment OS Score">
   <header>
-    <h3>Investment OS Score</h3>
+    <h3>
+      Investment OS Score
+      <HelpTip entry={DRAWER_HELP.os_score} />
+    </h3>
     <div class="headline">
       <span class="score" class:na={score.score == null}>
         {formatFrameworkScore(score.score)}
@@ -35,7 +40,10 @@
       {#each score.dimensions as dim (dim.id)}
         <tr>
           <td>
-            <span class="name">{dim.label}</span>
+            <span class="name">
+              {dim.label}
+              <HelpTip entry={helpForOsDimension(dim.id)} />
+            </span>
             {#if dim.detail}
               <span class="detail">{dim.detail}</span>
             {/if}
@@ -64,6 +72,9 @@
     font-family: var(--font-display);
     font-size: 1.1rem;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
   }
   .headline {
     display: flex;
@@ -109,7 +120,10 @@
     letter-spacing: 0.04em;
   }
   .name {
-    display: block;
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.1rem;
     font-weight: 500;
   }
   .detail {

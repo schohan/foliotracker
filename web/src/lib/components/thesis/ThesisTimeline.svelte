@@ -1,6 +1,8 @@
 <script lang="ts">
   import { formatThesisVerdict } from "../../thesisFormat";
+  import { DRAWER_HELP } from "../../thesisHelp";
   import type { ThesisMonitoring } from "../../types";
+  import HelpTip from "./HelpTip.svelte";
 
   interface Props {
     monitoring: ThesisMonitoring;
@@ -16,7 +18,10 @@
 
 <article class="panel" aria-label="Thesis timeline">
   <header>
-    <h3>Thesis monitoring</h3>
+    <h3>
+      Thesis monitoring
+      <HelpTip entry={DRAWER_HELP.monitoring_section} />
+    </h3>
   </header>
 
   <section class="original" aria-labelledby="original-heading">
@@ -31,6 +36,7 @@
         class="verdict verdict-{monitoring.current.verdict}"
       >
         {formatThesisVerdict(monitoring.current.verdict)}
+        <HelpTip entry={DRAWER_HELP.thesis_verdict} />
       </p>
       {#if monitoring.current.narrative}
         <p class="narrative">{monitoring.current.narrative}</p>
@@ -83,6 +89,9 @@
     font-family: var(--font-display);
     font-size: 1.1rem;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
   }
   h4 {
     margin: 0 0 0.4rem;
@@ -107,6 +116,9 @@
     font-family: var(--font-display);
     font-size: 1.25rem;
     font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
   }
   .verdict-no_change {
     color: var(--ink-soft);

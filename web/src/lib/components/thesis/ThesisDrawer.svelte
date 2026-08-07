@@ -3,10 +3,12 @@
   import type { DecisionMapTarget } from "../../decisionMap";
   import { shouldCloseOnEscape } from "../../focusHelpers";
   import { formatValuationValue, thesisRowCoverage } from "../../thesisFormat";
+  import { DRAWER_HELP, helpForMethod } from "../../thesisHelp";
   import type { ThesisTicker } from "../../types";
   import AdvisorInsightPanel from "./AdvisorInsight.svelte";
   import AssetBreakdown from "./AssetBreakdown.svelte";
   import FrameworkScorecard from "./FrameworkScorecard.svelte";
+  import HelpTip from "./HelpTip.svelte";
   import MarginOfSafety from "./MarginOfSafety.svelte";
   import OSScorecard from "./OSScorecard.svelte";
   import ResearchButton from "./ResearchButton.svelte";
@@ -76,6 +78,7 @@
       <p class="coverage coverage-{coverage.kind}" aria-live="polite">
         <span class="badge">{coverage.label}</span>
         {coverage.detail}
+        <HelpTip entry={DRAWER_HELP.coverage_badge} />
       </p>
     </div>
     <button
@@ -97,7 +100,10 @@
   {/if}
 
   <section aria-labelledby="thesis-drawer-frameworks-heading">
-    <h3 id="thesis-drawer-frameworks-heading">How does each philosophy score this?</h3>
+    <h3 id="thesis-drawer-frameworks-heading">
+      How does each philosophy score this?
+      <HelpTip entry={DRAWER_HELP.frameworks_section} />
+    </h3>
     {#if row.frameworks.length === 0}
       <p class="gap">No framework scorecards for this ticker.</p>
     {:else}
@@ -113,7 +119,10 @@
   </section>
 
   <section aria-labelledby="thesis-drawer-valuation-heading">
-    <h3 id="thesis-drawer-valuation-heading">Am I paying too much?</h3>
+    <h3 id="thesis-drawer-valuation-heading">
+      Am I paying too much?
+      <HelpTip entry={DRAWER_HELP.valuation_section} />
+    </h3>
     {#if row.margin_of_safety || row.valuation || row.assets}
       <div class="stack">
         {#if row.margin_of_safety}
@@ -147,7 +156,10 @@
                   {#each school.methods as method (method.id)}
                     <tr>
                       <td>
-                        <span class="check-name">{method.label}</span>
+                        <span class="check-name">
+                          {method.label}
+                          <HelpTip entry={helpForMethod(method.id, method.label)} />
+                        </span>
                         {#if method.detail}
                           <span class="detail">{method.detail}</span>
                         {/if}
@@ -171,7 +183,10 @@
   </section>
 
   <section aria-labelledby="thesis-drawer-monitoring-heading">
-    <h3 id="thesis-drawer-monitoring-heading">Has my thesis changed?</h3>
+    <h3 id="thesis-drawer-monitoring-heading">
+      Has my thesis changed?
+      <HelpTip entry={DRAWER_HELP.monitoring_section} />
+    </h3>
     {#if row.monitoring}
       <ThesisTimeline monitoring={row.monitoring} />
     {:else}
@@ -183,7 +198,10 @@
   </section>
 
   <section aria-labelledby="thesis-drawer-advisor-heading">
-    <h3 id="thesis-drawer-advisor-heading">Buy more, hold, trim, or research further?</h3>
+    <h3 id="thesis-drawer-advisor-heading">
+      Buy more, hold, trim, or research further?
+      <HelpTip entry={DRAWER_HELP.advisor_section} />
+    </h3>
     <div class="stack">
       {#if row.advisor}
         <AdvisorInsightPanel insight={row.advisor} />
@@ -298,6 +316,10 @@
     font-size: 1.05rem;
     font-weight: 600;
     line-height: 1.3;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.15rem;
   }
   .stack {
     display: grid;

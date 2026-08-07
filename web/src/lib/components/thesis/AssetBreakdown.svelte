@@ -4,7 +4,9 @@
     formatDifferencePct,
     formatMoney,
   } from "../../thesisFormat";
+  import { DRAWER_HELP } from "../../thesisHelp";
   import type { AssetBreakdown } from "../../types";
+  import HelpTip from "./HelpTip.svelte";
 
   interface Props {
     breakdown: AssetBreakdown;
@@ -15,7 +17,10 @@
 
 <article class="panel" aria-label="Asset breakdown">
   <header>
-    <h3>Net Asset Intelligence</h3>
+    <h3>
+      Net Asset Intelligence
+      <HelpTip entry={DRAWER_HELP.net_assets} />
+    </h3>
     {#if breakdown.verdict}
       <p class="verdict">{formatAssetVerdict(breakdown.verdict)}</p>
     {/if}
@@ -57,19 +62,28 @@
 
   <dl class="summary">
     <div>
-      <dt>Market Cap</dt>
+      <dt>
+        Market Cap
+        <HelpTip entry={DRAWER_HELP.market_price} />
+      </dt>
       <dd class:na={breakdown.market_cap == null}>
         {formatMoney(breakdown.market_cap)}
       </dd>
     </div>
     <div>
-      <dt>Adjusted Net Assets</dt>
+      <dt>
+        Adjusted Net Assets
+        <HelpTip entry={DRAWER_HELP.adjusted_net_assets} />
+      </dt>
       <dd class:na={breakdown.adjusted_net_assets == null}>
         {formatMoney(breakdown.adjusted_net_assets)}
       </dd>
     </div>
     <div>
-      <dt>Difference</dt>
+      <dt>
+        Difference
+        <HelpTip entry={DRAWER_HELP.asset_difference} />
+      </dt>
       <dd class:na={breakdown.difference_pct == null}>
         {formatDifferencePct(breakdown.difference_pct)}
       </dd>
@@ -100,6 +114,9 @@
     font-family: var(--font-display);
     font-size: 1.1rem;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
   }
   .verdict {
     margin: 0;
@@ -154,6 +171,9 @@
   dt {
     color: var(--ink-soft);
     font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1rem;
   }
   dd {
     margin: 0;

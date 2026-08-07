@@ -1,6 +1,8 @@
 <script lang="ts">
   import { formatCheckResult, formatFrameworkScore } from "../../thesisFormat";
+  import { DRAWER_HELP, helpForCheck } from "../../thesisHelp";
   import type { FrameworkScorecard } from "../../types";
+  import HelpTip from "./HelpTip.svelte";
 
   interface Props {
     scorecard: FrameworkScorecard;
@@ -11,7 +13,10 @@
 
 <article class="card" aria-label={`${scorecard.label} scorecard`}>
   <header>
-    <h3>{scorecard.label}</h3>
+    <h3>
+      {scorecard.label}
+      <HelpTip entry={DRAWER_HELP.framework_score} />
+    </h3>
     <p class="headline-score" class:na={scorecard.score == null}>
       {formatFrameworkScore(scorecard.score)}
     </p>
@@ -28,7 +33,10 @@
       {#each scorecard.checks as check (check.name)}
         <tr>
           <td>
-            <span class="check-name">{check.name}</span>
+            <span class="check-name">
+              {check.name}
+              <HelpTip entry={helpForCheck(check.name)} />
+            </span>
             {#if check.detail}
               <span class="detail">{check.detail}</span>
             {/if}
@@ -67,6 +75,9 @@
     font-family: var(--font-display);
     font-size: 1.1rem;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
   }
   .headline-score {
     margin: 0;
@@ -99,7 +110,10 @@
     letter-spacing: 0.04em;
   }
   .check-name {
-    display: block;
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.1rem;
     font-weight: 500;
   }
   .detail {

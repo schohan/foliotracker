@@ -1,6 +1,8 @@
 <script lang="ts">
   import { formatMoney } from "../../thesisFormat";
+  import { DRAWER_HELP, helpForLadderRung } from "../../thesisHelp";
   import type { ValuationLadder } from "../../types";
+  import HelpTip from "./HelpTip.svelte";
 
   interface Props {
     ladder: ValuationLadder;
@@ -20,7 +22,10 @@
 
 <article class="panel" aria-label="Valuation ladder">
   <header>
-    <h3>Valuation ladder</h3>
+    <h3>
+      Valuation ladder
+      <HelpTip entry={DRAWER_HELP.valuation_ladder} />
+    </h3>
   </header>
   <table>
     <thead>
@@ -32,7 +37,12 @@
     <tbody>
       {#each rungs as rung (rung.key)}
         <tr>
-          <td>{rung.label}</td>
+          <td>
+            <span class="rung">
+              {rung.label}
+              <HelpTip entry={helpForLadderRung(rung.key)} />
+            </span>
+          </td>
           <td class="value" class:na={ladder[rung.key] == null}>
             {formatMoney(ladder[rung.key])}
           </td>
@@ -60,6 +70,9 @@
     font-family: var(--font-display);
     font-size: 1.1rem;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
   }
   table {
     width: 100%;
@@ -78,6 +91,12 @@
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+  }
+  .rung {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.1rem;
   }
   .value {
     font-weight: 600;

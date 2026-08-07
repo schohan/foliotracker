@@ -1,6 +1,8 @@
 <script lang="ts">
   import { formatMoney, formatMosStars } from "../../thesisFormat";
+  import { DRAWER_HELP } from "../../thesisHelp";
   import type { MarginOfSafetyView } from "../../types";
+  import HelpTip from "./HelpTip.svelte";
 
   interface Props {
     view: MarginOfSafetyView;
@@ -11,7 +13,10 @@
 
 <article class="panel" aria-label="Margin of Safety">
   <header>
-    <h3>Margin of Safety</h3>
+    <h3>
+      Margin of Safety
+      <HelpTip entry={DRAWER_HELP.margin_of_safety} />
+    </h3>
     {#if view.rating}
       <p class="rating">{view.rating}</p>
     {/if}
@@ -19,17 +24,26 @@
 
   <dl class="rows">
     <div>
-      <dt>Intrinsic Value</dt>
+      <dt>
+        Intrinsic Value
+        <HelpTip entry={DRAWER_HELP.intrinsic_value} />
+      </dt>
       <dd class:na={view.intrinsic_value == null}>
         {formatMoney(view.intrinsic_value)}
       </dd>
     </div>
     <div>
-      <dt>Market Price</dt>
+      <dt>
+        Market Price
+        <HelpTip entry={DRAWER_HELP.market_price} />
+      </dt>
       <dd class:na={view.market_price == null}>{formatMoney(view.market_price)}</dd>
     </div>
     <div>
-      <dt>Margin of Safety</dt>
+      <dt>
+        Margin of Safety
+        <HelpTip entry={DRAWER_HELP.margin_of_safety} />
+      </dt>
       <dd class:na={view.margin_of_safety == null}>
         {#if view.margin_of_safety == null}
           —
@@ -39,7 +53,10 @@
       </dd>
     </div>
     <div>
-      <dt>Stars</dt>
+      <dt>
+        Stars
+        <HelpTip entry={DRAWER_HELP.mos_stars} />
+      </dt>
       <dd class="stars" class:na={view.stars == null} aria-label={view.stars != null ? `${view.stars} of 5 stars` : "unavailable"}>
         {formatMosStars(view.stars)}
       </dd>
@@ -70,6 +87,9 @@
     font-family: var(--font-display);
     font-size: 1.1rem;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
   }
   .rating {
     margin: 0;
@@ -92,6 +112,9 @@
   dt {
     color: var(--ink-soft);
     font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1rem;
   }
   dd {
     margin: 0;

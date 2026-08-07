@@ -1,6 +1,8 @@
 <script lang="ts">
   import { formatAdvisorConclusion, formatAdvisorConfidence } from "../../thesisFormat";
+  import { DRAWER_HELP } from "../../thesisHelp";
   import type { AdvisorInsight } from "../../types";
+  import HelpTip from "./HelpTip.svelte";
 
   interface Props {
     insight: AdvisorInsight;
@@ -11,7 +13,10 @@
 
 <article class="panel advisor" aria-label="AI Portfolio Advisor">
   <header>
-    <h3>Today's Insight</h3>
+    <h3>
+      Today's Insight
+      <HelpTip entry={DRAWER_HELP.advisor_section} />
+    </h3>
     <p class="provider">Provider: {insight.provider}</p>
   </header>
 
@@ -23,6 +28,7 @@
 
   <p class="conclusion conclusion-{insight.conclusion}">
     {insight.conclusion_label || formatAdvisorConclusion(insight.conclusion)}
+    <HelpTip entry={DRAWER_HELP.advisor_conclusion} />
   </p>
   <p class="confidence">
     Confidence: {formatAdvisorConfidence(insight.confidence)}
@@ -55,6 +61,9 @@
     font-family: var(--font-display);
     font-size: 1.1rem;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
   }
   .provider {
     margin: 0;
@@ -71,6 +80,9 @@
     font-family: var(--font-display);
     font-size: 1.35rem;
     font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
   }
   .conclusion-buy_more {
     color: var(--ok);

@@ -3,6 +3,11 @@
   import { fetchThesis, generateThesis } from "../api";
   import type { DecisionMapTarget } from "../decisionMap";
   import { rowFocusId } from "../focusHelpers";
+  import {
+    healthBucketMeta,
+    tickersForHealthBucket,
+    type PortfolioHealthBucket,
+  } from "../portfolioHealth";
   import type { AppView, ThesisDashboard } from "../types";
   import DisclaimerBar from "./DisclaimerBar.svelte";
   import PrimaryNav from "./PrimaryNav.svelte";
@@ -24,6 +29,7 @@
   let generating = $state(false);
   let selectedTicker = $state<string | null>(null);
   let drawerFocus = $state<DecisionMapTarget | null>(null);
+  let healthBucket = $state<PortfolioHealthBucket | null>(null);
 
   const emptyUniverse = $derived(
     dashboard != null && dashboard.universe_count === 0,
@@ -41,6 +47,16 @@
         t.monitoring != null;
       return !scored && !rich;
     }).length ?? 0,
+  );
+  const healthFilterTickers = $derived(
+    healthBucket != null && dashboard != null
+      ? tickersForHealthBucket(dashboard.tickers, healthBucket).map(
+          (t) => t.ticker,
+        )
+      : null,
+  );
+  const healthFilterLabel = $derived(
+    healthBucket != null ? healthBucketMeta(healthBucket).label : null,
   );
 
   async function load() {
@@ -68,6 +84,7 @@
         selectedTicker = null;
         drawerFocus = null;
       }
+      healthBucket = null;
     } catch (e) {
       loadError = e instanceof Error ? e.message : String(e);
     } finally {
@@ -83,6 +100,16 @@
     }
     selectedTicker = ticker;
     drawerFocus = "frameworks";
+  }
+
+  function onopenFromHealth(ticker: string) {
+    selectedTicker = ticker;
+    drawerFocus = "frameworks";
+    void tick().then(() => {
+      document
+        .getElementById("frameworks-heading")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   function oncloseDrawer() {
@@ -238,7 +265,13 @@
     />
 
     {#if dashboard.portfolio}
-      <PortfolioHealth portfolio={dashboard.portfolio} />
+      <PortfolioHealth
+        portfolio={dashboard.portfolio}
+        tickers={dashboard.tickers}
+        activeBucket={healthBucket}
+        onbucket={(b) => (healthBucket = b)}
+        onopenticker={onopenFromHealth}
+      />
     {/if}
 
     <section class="block" aria-labelledby="frameworks-heading">
@@ -246,14 +279,17 @@
         <h2 id="frameworks-heading">How does each philosophy score this?</h2>
         <p class="hint">
           Investment Framework Engine — click a row for the full scorecard.
-          “—” means insufficient data.
+          Sort columns; “—” means insufficient data.
         </p>
       </div>
       <FrameworkScoreTable
         tickers={dashboard.tickers}
         frameworks={dashboard.frameworks}
         selected={selectedTicker}
+        filterTickers={healthFilterTickers}
+        filterLabel={healthFilterLabel}
         {onselect}
+        onclearfilter={() => (healthBucket = null)}
       />
     </section>
 
