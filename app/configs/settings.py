@@ -41,6 +41,9 @@ class Settings:
     alpha_vantage_source_ttl_seconds: int = 86400
     alpha_vantage_rate_limit_calls: int = 25
     alpha_vantage_rate_limit_window_seconds: int = 86400
+    # Min seconds between live AV calls. Default = window/calls so bulk
+    # refresh cannot burn the daily quota in one burst.
+    alpha_vantage_min_interval_seconds: float | None = None
     alpha_vantage_timeout_seconds: int = 20
     # Watchlist dashboard (local JSON)
     watchlist_path: Path = Path(".cache/foliotracker/watchlist.json")
@@ -131,6 +134,11 @@ class Settings:
             ),
             alpha_vantage_rate_limit_window_seconds=int(
                 os.getenv("ALPHA_VANTAGE_RATE_LIMIT_WINDOW_SECONDS", "86400")
+            ),
+            alpha_vantage_min_interval_seconds=(
+                float(os.environ["ALPHA_VANTAGE_MIN_INTERVAL_SECONDS"])
+                if os.getenv("ALPHA_VANTAGE_MIN_INTERVAL_SECONDS") not in (None, "")
+                else None
             ),
             alpha_vantage_timeout_seconds=int(
                 os.getenv("ALPHA_VANTAGE_TIMEOUT_SECONDS", "20")

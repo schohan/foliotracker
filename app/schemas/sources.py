@@ -19,6 +19,14 @@ class DataSourceConfig(BaseModel):
         description="Max live fetches per window; 0 = unlimited",
     )
     rate_limit_window_seconds: int = Field(ge=1, default=3600)
+    rate_limit_min_interval_seconds: float = Field(
+        ge=0,
+        default=0,
+        description=(
+            "Minimum seconds between live fetches for this source; "
+            "0 = allow bursts within the call count budget"
+        ),
+    )
     timeout_seconds: int = Field(ge=1, default=15)
     enabled: bool = True
 

@@ -16,6 +16,22 @@ class UnknownSourceError(KeyError):
     """source_id is not in the registry."""
 
 
+def alpha_vantage_min_interval_seconds(app_settings: Settings) -> float:
+    """Seconds between live Alpha Vantage calls.
+
+    Explicit ``ALPHA_VANTAGE_MIN_INTERVAL_SECONDS`` wins; otherwise pace the
+    configured daily budget evenly (window / calls) so bulk refresh cannot
+    burn the quota in one burst.
+    """
+    if app_settings.alpha_vantage_min_interval_seconds is not None:
+        return max(0.0, float(app_settings.alpha_vantage_min_interval_seconds))
+    calls = app_settings.alpha_vantage_rate_limit_calls
+    if calls <= 0:
+        return 0.0
+    window = app_settings.alpha_vantage_rate_limit_window_seconds
+    return float(window) / float(calls)
+
+
 def build_registry(app_settings: Settings | None = None) -> dict[str, DataSourceConfig]:
     """Build the live source registry from settings."""
     s = app_settings if app_settings is not None else default_settings
@@ -62,6 +78,7 @@ def build_registry(app_settings: Settings | None = None) -> dict[str, DataSource
             ttl_seconds=s.alpha_vantage_source_ttl_seconds,
             rate_limit_calls=s.alpha_vantage_rate_limit_calls,
             rate_limit_window_seconds=s.alpha_vantage_rate_limit_window_seconds,
+            rate_limit_min_interval_seconds=alpha_vantage_min_interval_seconds(s),
             timeout_seconds=s.alpha_vantage_timeout_seconds,
             # Optional commercial fill-gap — off without API key.
             enabled=bool(s.alpha_vantage_api_key),

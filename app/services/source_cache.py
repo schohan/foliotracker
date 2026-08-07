@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,10 @@ from app.schemas.sources import DataSourceConfig, SourceCacheEnvelope
 logger = logging.getLogger(__name__)
 
 _rate_lock = threading.Lock()
+
+# When a live fetch is only blocked by min-interval and the remaining wait is
+# at most this many seconds, sleep then acquire (bulk refresh pacing).
+_MIN_INTERVAL_WAIT_CAP_SECONDS = 60.0
 
 
 def _source_dir(source_id: str, cache_root: Path) -> Path:
@@ -149,6 +154,39 @@ def source_cache_store(
         )
 
 
+def _prune_timestamps(timestamps: list[float], now_ts: float, window: int) -> list[float]:
+    cutoff = now_ts - window
+    return [t for t in timestamps if t >= cutoff]
+
+
+def _budget_block_reason(
+    cfg: DataSourceConfig,
+    timestamps: list[float],
+    now_ts: float,
+) -> str | None:
+    """Return why a live fetch is blocked, or None if allowed."""
+    if cfg.rate_limit_calls > 0 and len(timestamps) >= cfg.rate_limit_calls:
+        return "count"
+    min_interval = float(cfg.rate_limit_min_interval_seconds or 0)
+    if min_interval > 0 and timestamps:
+        elapsed = now_ts - timestamps[-1]
+        if elapsed < min_interval:
+            return "min_interval"
+    return None
+
+
+def _seconds_until_min_interval(
+    cfg: DataSourceConfig,
+    timestamps: list[float],
+    now_ts: float,
+) -> float:
+    min_interval = float(cfg.rate_limit_min_interval_seconds or 0)
+    if min_interval <= 0 or not timestamps:
+        return 0.0
+    remaining = min_interval - (now_ts - timestamps[-1])
+    return max(0.0, remaining)
+
+
 def rate_budget_available(
     cfg: DataSourceConfig,
     *,
@@ -156,20 +194,18 @@ def rate_budget_available(
     app_settings: Settings | None = None,
 ) -> bool:
     """True if a live fetch is allowed under the soft local budget."""
-    if cfg.rate_limit_calls <= 0:
+    if cfg.rate_limit_calls <= 0 and float(cfg.rate_limit_min_interval_seconds or 0) <= 0:
         return True
 
     s = app_settings if app_settings is not None else default_settings
     root = Path(cache_root) if cache_root is not None else s.source_cache_dir
     path = _rate_path(cfg.source_id, root)
-    now = _now()
+    now_ts = _now().timestamp()
     window = cfg.rate_limit_window_seconds
 
     with _rate_lock:
-        timestamps = _read_timestamps(path)
-        cutoff = now.timestamp() - window
-        timestamps = [t for t in timestamps if t >= cutoff]
-        return len(timestamps) < cfg.rate_limit_calls
+        timestamps = _prune_timestamps(_read_timestamps(path), now_ts, window)
+        return _budget_block_reason(cfg, timestamps, now_ts) is None
 
 
 def rate_budget_consume(
@@ -179,32 +215,86 @@ def rate_budget_consume(
     app_settings: Settings | None = None,
 ) -> None:
     """Record one live fetch against the soft local budget."""
-    if cfg.rate_limit_calls <= 0:
+    if cfg.rate_limit_calls <= 0 and float(cfg.rate_limit_min_interval_seconds or 0) <= 0:
         return
 
     s = app_settings if app_settings is not None else default_settings
     root = Path(cache_root) if cache_root is not None else s.source_cache_dir
     path = _rate_path(cfg.source_id, root)
-    now = _now()
+    now_ts = _now().timestamp()
     window = cfg.rate_limit_window_seconds
 
     with _rate_lock:
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            timestamps = _read_timestamps(path)
-            cutoff = now.timestamp() - window
-            timestamps = [t for t in timestamps if t >= cutoff]
-            timestamps.append(now.timestamp())
-            path.write_text(
-                json.dumps({"calls": timestamps}, indent=2),
-                encoding="utf-8",
-            )
-        except OSError as exc:
-            logger.warning(
-                "rate_budget_consume_failed source=%s err=%s",
-                cfg.source_id,
-                exc,
-            )
+        _write_consume(path, cfg.source_id, now_ts, window)
+
+
+def rate_budget_try_acquire(
+    cfg: DataSourceConfig,
+    *,
+    cache_root: Path | None = None,
+    app_settings: Settings | None = None,
+    allow_wait: bool = True,
+) -> bool:
+    """Atomically reserve one live-fetch slot (count + min-interval).
+
+    When blocked only by min-interval and the remaining wait is ≤ 60s,
+    optionally sleep then retry so bulk refresh paces short gaps without
+    racing parallel workers. Longer gaps (e.g. AV daily pacing) return
+    False immediately so callers can serve stale cache.
+    """
+    if cfg.rate_limit_calls <= 0 and float(cfg.rate_limit_min_interval_seconds or 0) <= 0:
+        return True
+
+    s = app_settings if app_settings is not None else default_settings
+    root = Path(cache_root) if cache_root is not None else s.source_cache_dir
+    path = _rate_path(cfg.source_id, root)
+    window = cfg.rate_limit_window_seconds
+
+    while True:
+        sleep_for = 0.0
+        with _rate_lock:
+            now_ts = _now().timestamp()
+            timestamps = _prune_timestamps(_read_timestamps(path), now_ts, window)
+            reason = _budget_block_reason(cfg, timestamps, now_ts)
+            if reason is None:
+                _write_consume(path, cfg.source_id, now_ts, window)
+                return True
+            if reason == "count":
+                return False
+            # min_interval
+            remaining = _seconds_until_min_interval(cfg, timestamps, now_ts)
+            if (
+                allow_wait
+                and remaining > 0
+                and remaining <= _MIN_INTERVAL_WAIT_CAP_SECONDS
+            ):
+                sleep_for = remaining
+            else:
+                return False
+        # Sleep outside the lock so other sources can proceed.
+        logger.info(
+            "rate_budget_wait source=%s wait_s=%.2f",
+            cfg.source_id,
+            sleep_for,
+        )
+        time.sleep(sleep_for)
+
+
+def _write_consume(path: Path, source_id: str, now_ts: float, window: int) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        timestamps = _prune_timestamps(_read_timestamps(path), now_ts, window)
+        timestamps.append(now_ts)
+        path.write_text(
+            json.dumps({"calls": timestamps}, indent=2),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        logger.warning(
+            "rate_budget_consume_failed source=%s err=%s",
+            source_id,
+            exc,
+        )
 
 
 def _read_timestamps(path: Path) -> list[float]:

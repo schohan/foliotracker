@@ -65,9 +65,13 @@ def refresh_batch(
     app_settings: Settings | None = None,
     research_fn: ResearchFn | None = None,
     skip_cache: bool = False,
-    max_workers: int = 2,
+    max_workers: int = 1,
 ) -> BatchRefreshResponse:
-    """Refresh up to ``max_tickers`` membership symbols (limited concurrency)."""
+    """Refresh up to ``max_tickers`` membership symbols.
+
+    Defaults to sequential workers so per-source min-interval pacing
+    (e.g. Alpha Vantage window/calls) is respected during bulk refresh.
+    """
     s = app_settings if app_settings is not None else default_settings
     membership = store.get_membership(s)
     all_members = list(membership.held) + list(membership.watched)

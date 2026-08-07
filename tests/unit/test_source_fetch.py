@@ -124,3 +124,70 @@ def test_cached_fetch_rate_limited_no_stale_raises(tmp_path: Path) -> None:
             FinancialMetrics,
             app_settings=s,
         )
+
+
+def test_cached_fetch_min_interval_uses_stale(tmp_path: Path) -> None:
+    """Bulk-style back-to-back fetches must honor min-interval (serve stale)."""
+    from app.services.source_registry import SOURCE_ALPHA_VANTAGE
+
+    s = _settings(
+        tmp_path,
+        alpha_vantage_api_key="demo-key",
+        alpha_vantage_rate_limit_calls=25,
+        alpha_vantage_rate_limit_window_seconds=86400,
+        alpha_vantage_min_interval_seconds=3600,
+        alpha_vantage_source_ttl_seconds=1,
+    )
+    source_cache_store(
+        SOURCE_ALPHA_VANTAGE,
+        "CRDO",
+        FinancialMetrics(ticker="CRDO", forward_pe=20.0).model_dump(mode="json"),
+        app_settings=s,
+    )
+    # Expire CRDO cache so the next fetch would be live without rate limits.
+    import json
+    from datetime import datetime, timedelta, timezone
+
+    path = tmp_path / "alpha_vantage" / "CRDO.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["fetched_at"] = (
+        datetime.now(timezone.utc) - timedelta(hours=2)
+    ).isoformat()
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    calls = {"n": 0}
+
+    def fetch() -> FinancialMetrics:
+        calls["n"] += 1
+        return FinancialMetrics(ticker="CRDO", forward_pe=99.0)
+
+    first = cached_fetch(
+        SOURCE_ALPHA_VANTAGE,
+        "CRDO",
+        fetch,
+        FinancialMetrics,
+        app_settings=s,
+    )
+    assert first.meta.cache_hit is False
+    assert calls["n"] == 1
+
+    # Force another miss: expire again after store from first fetch.
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["fetched_at"] = (
+        datetime.now(timezone.utc) - timedelta(hours=2)
+    ).isoformat()
+    # Keep stale payload at original value for assertion clarity.
+    data["payload"]["forward_pe"] = 20.0
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    second = cached_fetch(
+        SOURCE_ALPHA_VANTAGE,
+        "CRDO",
+        fetch,
+        FinancialMetrics,
+        app_settings=s,
+    )
+    assert second.meta.rate_limited is True
+    assert second.meta.stale is True
+    assert second.data.forward_pe == 20.0
+    assert calls["n"] == 1

@@ -12,6 +12,7 @@ from app.schemas.sources import DataSourceConfig
 from app.services.source_cache import (
     rate_budget_available,
     rate_budget_consume,
+    rate_budget_try_acquire,
     source_cache_lookup,
     source_cache_store,
 )
@@ -133,3 +134,46 @@ def test_rate_budget_unlimited(tmp_path: Path) -> None:
     for _ in range(5):
         assert rate_budget_available(cfg, app_settings=s) is True
         rate_budget_consume(cfg, app_settings=s)
+
+
+def test_rate_budget_min_interval_blocks_burst(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    cfg = DataSourceConfig(
+        source_id="alpha_vantage",
+        confidence=0.85,
+        ttl_seconds=86400,
+        rate_limit_calls=25,
+        rate_limit_window_seconds=86400,
+        rate_limit_min_interval_seconds=3600,
+    )
+    assert rate_budget_try_acquire(cfg, app_settings=s, allow_wait=False) is True
+    # Immediate second acquire must fail (gap not elapsed; wait disabled).
+    assert rate_budget_try_acquire(cfg, app_settings=s, allow_wait=False) is False
+    assert rate_budget_available(cfg, app_settings=s) is False
+
+
+def test_rate_budget_try_acquire_waits_short_gap(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    cfg = DataSourceConfig(
+        source_id="yahoo",
+        confidence=0.95,
+        ttl_seconds=3600,
+        rate_limit_calls=100,
+        rate_limit_window_seconds=3600,
+        rate_limit_min_interval_seconds=0.05,
+    )
+    assert rate_budget_try_acquire(cfg, app_settings=s) is True
+    assert rate_budget_try_acquire(cfg, app_settings=s, allow_wait=True) is True
+
+
+def test_rate_budget_try_acquire_atomic_under_count_limit(tmp_path: Path) -> None:
+    s = _settings(tmp_path)
+    cfg = DataSourceConfig(
+        source_id="yahoo",
+        confidence=0.95,
+        ttl_seconds=3600,
+        rate_limit_calls=1,
+        rate_limit_window_seconds=3600,
+    )
+    assert rate_budget_try_acquire(cfg, app_settings=s) is True
+    assert rate_budget_try_acquire(cfg, app_settings=s) is False

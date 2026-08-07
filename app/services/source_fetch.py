@@ -11,8 +11,7 @@ from pydantic import BaseModel
 from app.configs.settings import Settings, settings as default_settings
 from app.schemas.sources import SourceFetchMeta, SourceFetchResult
 from app.services.source_cache import (
-    rate_budget_available,
-    rate_budget_consume,
+    rate_budget_try_acquire,
     source_cache_lookup,
     source_cache_store,
 )
@@ -75,7 +74,9 @@ def cached_fetch(
                 meta=SourceFetchMeta(source_id=source_id, cache_hit=True),
             )
 
-    if not rate_budget_available(cfg, cache_root=root, app_settings=s):
+    # Atomic acquire: call-count budget + configured min-interval (prevents
+    # bulk/parallel refresh from bursting scarce sources like Alpha Vantage).
+    if not rate_budget_try_acquire(cfg, cache_root=root, app_settings=s):
         stale = source_cache_lookup(
             source_id,
             ticker,
@@ -104,7 +105,6 @@ def cached_fetch(
             f"source {source_id} rate budget exhausted for {ticker.upper()}"
         )
 
-    rate_budget_consume(cfg, cache_root=root, app_settings=s)
     data = fetch_fn()
     source_cache_store(
         source_id,

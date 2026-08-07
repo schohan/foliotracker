@@ -57,6 +57,29 @@ def test_alpha_vantage_enabled_when_api_key_set() -> None:
     assert reg[SOURCE_ALPHA_VANTAGE].enabled is True
 
 
+def test_alpha_vantage_min_interval_defaults_to_window_over_calls() -> None:
+    reg = build_registry(
+        _settings(
+            alpha_vantage_api_key="demo-key",
+            alpha_vantage_rate_limit_calls=25,
+            alpha_vantage_rate_limit_window_seconds=86400,
+        )
+    )
+    assert reg[SOURCE_ALPHA_VANTAGE].rate_limit_min_interval_seconds == 86400 / 25
+
+
+def test_alpha_vantage_min_interval_env_override() -> None:
+    reg = build_registry(
+        _settings(
+            alpha_vantage_api_key="demo-key",
+            alpha_vantage_min_interval_seconds=12.0,
+            alpha_vantage_rate_limit_calls=25,
+            alpha_vantage_rate_limit_window_seconds=86400,
+        )
+    )
+    assert reg[SOURCE_ALPHA_VANTAGE].rate_limit_min_interval_seconds == 12.0
+
+
 def test_get_source_and_list() -> None:
     s = _settings()
     assert get_source(SOURCE_YAHOO, s).source_id == SOURCE_YAHOO
